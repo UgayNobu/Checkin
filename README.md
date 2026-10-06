@@ -13,7 +13,7 @@ staff each get a dashboard suited to their role.
 | Member | Role |
 |---|---|
 | Dechen Wangmo | Team Lead |
-| Ugyen Norbu | Git flow / repo owner |
+| Ugyen Norbu | Member |
 | Damchey Lhendup | Member |
 | Sanskar Gurung | Member |
 | Sanjuck Subba | Member |
