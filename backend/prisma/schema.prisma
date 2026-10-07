@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model attendance {
+  attendance_id  String         @id @default(dbgenerated("gen_id('A'::text, 'seq_attendance'::text)")) @db.VarChar(10)
+  student_id     String         @db.VarChar(10)
+  session_id     String         @db.VarChar(10)
+  timestamp      DateTime?      @db.Timestamptz(6)
+  status         String         @default("Absent") @db.VarChar(20)
+  class_sessions class_sessions @relation(fields: [session_id], references: [session_id], map: "fk_attendance_session")
+  users          users          @relation(fields: [student_id], references: [user_id], map: "fk_attendance_student")
+
+  @@unique([student_id, session_id], map: "uq_attendance_student_session")
+  @@index([session_id], map: "idx_attendance_session")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model attendance_codes {
+  session_id       String         @db.VarChar(10)
+  code             String         @db.VarChar(10)
+  expiry_timestamp DateTime       @db.Timestamptz(6)
+  geofence_radius  Float
+  latitude         Float
+  longitude        Float
+  class_sessions   class_sessions @relation(fields: [session_id], references: [session_id], onDelete: Cascade, map: "fk_codes_session")
+
+  @@id([session_id, code])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_logs {
+  log_id    String   @id @default(dbgenerated("gen_id('L'::text, 'seq_audit'::text)")) @db.VarChar(10)
+  admin_id  String   @db.VarChar(10)
+  action    String   @db.VarChar(50)
+  details   String?  @db.VarChar(255)
+  timestamp DateTime @default(now()) @db.Timestamptz(6)
+  users     users    @relation(fields: [admin_id], references: [user_id], map: "fk_audit_admin")
+
+  @@index([admin_id], map: "idx_audit_admin")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model class_sessions {
+  session_id       String             @id @default(dbgenerated("gen_id('S'::text, 'seq_sessions'::text)")) @db.VarChar(10)
+  section_id       String             @db.VarChar(10)
+  date             DateTime           @db.Date
+  start_time       DateTime           @db.Time(6)
+  duration         Int
+  attendance       attendance[]
+  attendance_codes attendance_codes[]
+  sections         sections           @relation(fields: [section_id], references: [section_id], map: "fk_sessions_section")
+
+  @@index([date], map: "idx_sessions_date")
+  @@index([section_id], map: "idx_sessions_section")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model credit_records {
+  credit_id                              String    @id @default(dbgenerated("gen_id('C'::text, 'seq_credit'::text)")) @db.VarChar(10)
+  student_id                             String    @db.VarChar(10)
+  points                                 Int
+  reason                                 String?   @db.VarChar(255)
+  awarded_by                             String?   @db.VarChar(10)
+  date                                   DateTime? @db.Date
+  users_credit_records_awarded_byTousers users?    @relation("credit_records_awarded_byTousers", fields: [awarded_by], references: [user_id], map: "fk_credit_awarded_by")
+  users_credit_records_student_idTousers users     @relation("credit_records_student_idTousers", fields: [student_id], references: [user_id], map: "fk_credit_student")
+
+  @@index([student_id], map: "idx_credit_student")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model enrollments {
+  student_id    String    @db.VarChar(10)
+  module_id     String    @db.VarChar(10)
+  academic_year String    @db.VarChar(9)
+  enrolled_date DateTime? @db.Date
+  modules       modules   @relation(fields: [module_id], references: [module_id], onDelete: Cascade, map: "fk_enroll_module")
+  users         users     @relation(fields: [student_id], references: [user_id], onDelete: Cascade, map: "fk_enroll_student")
+
+  @@id([student_id, module_id, academic_year])
+  @@index([module_id], map: "idx_enrollments_module")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model modules {
+  module_id       String            @id @default(dbgenerated("gen_id('M'::text, 'seq_modules'::text)")) @db.VarChar(10)
+  module_code     String            @unique(map: "uq_modules_code") @db.VarChar(15)
+  module_name     String            @db.VarChar(100)
+  program_id      String            @db.VarChar(10)
+  enrollments     enrollments[]
+  programs        programs          @relation(fields: [program_id], references: [program_id], map: "fk_modules_program")
+  relief_requests relief_requests[]
+  sections        sections[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notifications {
+  notification_id String   @id @default(dbgenerated("gen_id('N'::text, 'seq_notif'::text)")) @db.VarChar(10)
+  user_id         String   @db.VarChar(10)
+  message         String   @db.VarChar(255)
+  category        String   @db.VarChar(20)
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  users           users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade, map: "fk_notif_user")
+
+  @@index([user_id, is_read], map: "idx_notif_user_unread")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model programs {
+  program_id   String    @id @default(dbgenerated("gen_id('P'::text, 'seq_programs'::text)")) @db.VarChar(10)
+  program_name String    @db.VarChar(100)
+  modules      modules[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model relief_requests {
+  request_id                               String   @id @default(dbgenerated("gen_id('R'::text, 'seq_relief'::text)")) @db.VarChar(10)
+  student_id                               String   @db.VarChar(10)
+  module_id                                String   @db.VarChar(10)
+  date                                     DateTime @db.Date
+  reason                                   String?  @db.VarChar(255)
+  document_url                             String?  @db.VarChar(255)
+  status                                   String   @default("Pending") @db.VarChar(10)
+  reviewed_by                              String?  @db.VarChar(10)
+  modules                                  modules  @relation(fields: [module_id], references: [module_id], map: "fk_relief_module")
+  users_relief_requests_reviewed_byTousers users?   @relation("relief_requests_reviewed_byTousers", fields: [reviewed_by], references: [user_id], map: "fk_relief_reviewer")
+  users_relief_requests_student_idTousers  users    @relation("relief_requests_student_idTousers", fields: [student_id], references: [user_id], map: "fk_relief_student")
+
+  @@index([module_id, date], map: "idx_relief_module_date")
+  @@index([student_id], map: "idx_relief_student")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sections {
+  section_id     String           @id @default(dbgenerated("gen_id('SEC'::text, 'seq_sections'::text)")) @db.VarChar(10)
+  module_id      String           @db.VarChar(10)
+  tutor_id       String           @db.VarChar(10)
+  room           String?          @db.VarChar(30)
+  schedule       String?          @db.VarChar(60)
+  class_sessions class_sessions[]
+  modules        modules          @relation(fields: [module_id], references: [module_id], map: "fk_sections_module")
+  users          users            @relation(fields: [tutor_id], references: [user_id], map: "fk_sections_tutor")
+
+  @@index([module_id], map: "idx_sections_module")
+  @@index([tutor_id], map: "idx_sections_tutor")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  user_id                                            String            @id @default(dbgenerated("gen_id('U'::text, 'seq_users'::text)")) @db.VarChar(10)
+  name                                               String            @db.VarChar(100)
+  email                                              String            @unique(map: "uq_users_email") @db.VarChar(100)
+  password_hash                                      String            @db.VarChar(255)
+  role                                               String            @db.VarChar(10)
+  status                                             String            @default("active") @db.VarChar(10)
+  attendance                                         attendance[]
+  audit_logs                                         audit_logs[]
+  credit_records_credit_records_awarded_byTousers    credit_records[]  @relation("credit_records_awarded_byTousers")
+  credit_records_credit_records_student_idTousers    credit_records[]  @relation("credit_records_student_idTousers")
+  enrollments                                        enrollments[]
+  notifications                                      notifications[]
+  relief_requests_relief_requests_reviewed_byTousers relief_requests[] @relation("relief_requests_reviewed_byTousers")
+  relief_requests_relief_requests_student_idTousers  relief_requests[] @relation("relief_requests_student_idTousers")
+  sections                                           sections[]
+
+  @@index([status], map: "idx_users_status")
+}
