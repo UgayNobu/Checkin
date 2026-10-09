@@ -11,8 +11,8 @@ async function main() {
   }
 
   const hash = await bcrypt.hash(password, 10);
-  const result = await prisma.users.updateMany({
-    data: { password_hash: hash },
+  const result = await prisma.user.updateMany({
+    data: { passwordHash: hash },
   });
 
   console.log('Updated ' + result.count + ' users');

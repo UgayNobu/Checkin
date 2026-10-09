@@ -143,3 +143,7 @@ vite.config.ts.timestamp-*
 .vite/
 
 .DS_Store
+
+# user-uploaded evidence files
+backend/uploads/*
+!backend/uploads/.gitkeep

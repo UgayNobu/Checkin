@@ -1,0 +1,75 @@
+/* ===== Page wrapper (no outer line) ===== */
+.dash{border:0;outline:0;box-shadow:none}
+
+/* ===== Low attendance alert ===== */
+.alert{
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:12px 14px;
+  margin-bottom:18px;
+  background:#fff;
+  color:var(--orange);
+  font-size:13px;
+}
+
+/* ===== Course cards ===== */
+.courses{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 22px}
+.course{
+  width:230px;
+  display:flex;flex-direction:column;gap:4px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+}
+.course:hover{border-color:var(--blue)}
+.course small{font-size:11px}
+.course a{margin-top:10px;color:var(--blue);font-size:12px;cursor:pointer}
+
+/* ===== Attendance by Module chart (scale 0 - 100%) ===== */
+.chartbox{
+  padding:20px;
+  border:1px solid var(--ink);
+  border-radius:14px;
+  background:#fff;
+}
+.chart{display:flex;height:200px;margin-top:14px}
+.axis{
+  width:34px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  margin:-6px 0;
+  padding-right:8px;
+  font-size:10px;text-align:right;
+}
+.plot{
+  flex:1;
+  display:flex;align-items:flex-end;justify-content:space-around;
+  border-bottom:1px solid #000;
+  background:repeating-linear-gradient(to bottom,#000 0 1px,transparent 1px 40px);
+}
+.col{display:flex;flex-direction:column;align-items:center;position:relative}
+.col small{position:absolute;top:100%;margin-top:14px;font-size:11px;white-space:nowrap}
+.bar{
+  width:22px;
+  background:var(--blue);
+  border-radius:3px 3px 0 0;
+  font-size:10px;text-align:center;
+}
+
+/* ===== One module view ===== */
+.back{margin-bottom:10px;background:none;border:0;font-size:12px;cursor:pointer}
+.mod{margin-bottom:34px}
+.mhead{display:flex;justify-content:space-between}
+.mhead h3{margin:0}
+.total{color:#2cf08f;font-size:22px;font-weight:600}
+.kind{color:#2a56c6}
+.tbl{
+  margin-top:6px;
+  border:1px solid var(--ink);
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+}
+.badge{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;text-transform:capitalize}
+.badge.present{background:#eaf0ff;color:#2f4ee0}
+.badge.absent{background:#fdecec;color:var(--red)}

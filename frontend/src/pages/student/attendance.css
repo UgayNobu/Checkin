@@ -1,0 +1,10 @@
+.record{background:#f2f2f2;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 4px 8px #0002;display:flex;flex-direction:column;gap:4px;margin-bottom:28px}
+.record small{color:var(--muted);font-size:11px}.entry{display:flex;gap:14px;margin-top:10px}.entry input{background:#fff}
+.entry button{background:#fff;border:0;border-radius:8px;padding:0 28px;font-weight:600;cursor:pointer;box-shadow:0 1px 3px #0003}.msg{color:#3bb54a;font-weight:600;font-size:13px;margin:8px 0 0}
+.calbox{border:1px solid var(--ink);border-radius:16px;padding:18px;background:#fff}.calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.nav{background:var(--blue);color:#fff;border:0;border-radius:6px;width:30px;height:26px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center}.grid b{font-size:11px}
+.day{height:70px;border:1px solid var(--line);border-radius:8px;display:grid;place-items:center;font-weight:600;font-size:13px}
+.day.present{color:var(--green)}.day.absent{color:var(--red)}.day.flagged{color:var(--orange)}
+.legend{display:flex;gap:16px;font-size:10px;margin-top:14px}.legend i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px}
+.g{background:var(--green)}.r{background:var(--red)}
