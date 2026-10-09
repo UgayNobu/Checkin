@@ -28,6 +28,9 @@ model User {
   programme     String?
   year          Int?
   isActive      Boolean            @default(true) @map("is_active")
+  status        String             @default("active") @db.VarChar(10)
+  avatarUrl     String?            @map("avatar_url") @db.VarChar(255)
+  updatedAt     DateTime           @default(now()) @updatedAt @map("updated_at")
   prefs         Json               @default("{}") @map("notification_prefs")
   createdAt     DateTime           @default(now()) @map("created_at")
   sections      Section[]
@@ -79,6 +82,7 @@ model ClassSession {
   startTime   DateTime         @map("start_time") @db.Time(6)
   duration    Int
   sessionType String?          @map("session_type")
+  status      String           @default("scheduled") @db.VarChar(20)
   section     Section          @relation(fields: [sectionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   codes       AttendanceCode[]
   attendance  Attendance[]
@@ -105,6 +109,11 @@ model Attendance {
   sessionId String       @map("session_id")
   timestamp DateTime?    @default(now())
   status    String       @default("Absent")
+  submittedLat   Float?  @map("submitted_lat")
+  submittedLng   Float?  @map("submitted_lng")
+  accuracy       Float?
+  distanceMeters Float?  @map("distance_meters")
+  flagReason     String? @map("flag_reason") @db.VarChar(100)
   student   User         @relation(fields: [studentId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   session   ClassSession @relation(fields: [sessionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
@@ -133,6 +142,8 @@ model EvidenceDocument {
   status      String   @default("Pending")
   reviewedBy  String?  @map("reviewed_by")
   leaveType   String?  @map("leave_type")
+  originalFilename String?   @map("original_filename") @db.VarChar(255)
+  reviewedAt       DateTime? @map("reviewed_at")
   createdAt   DateTime @default(now()) @map("created_at")
   student     User     @relation("EvidenceStudent", fields: [studentId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   module      Module   @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Restrict)
