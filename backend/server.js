@@ -1,9 +1,12 @@
 require('dotenv').config();
 const express = require('express'), bcrypt = require('bcryptjs'), jwt = require('jsonwebtoken'), cors = require('cors'), multer = require('multer'), path = require('path');
 const { PrismaClient } = require('@prisma/client');
+const helmet = require('helmet'), { rateLimit } = require('express-rate-limit'), PDFDocument = require('pdfkit');
 const prisma = new PrismaClient(), app = express();
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }), rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false }));
 app.use(cors(), express.json()); app.use('/uploads', express.static('uploads'));
 const upload = multer({ storage: multer.diskStorage({ destination: 'uploads/', filename: (q, f, cb) => cb(null, Date.now() + path.extname(f.originalname)) }), limits: { fileSize: 10 * 1024 * 1024 } });
+const REQUIRED_PCT = +process.env.REQUIRED_ATTENDANCE_PERCENT || 90, ACCURACY_MAX = +process.env.ACCURACY_FLAG_METRES || 50;
 const RADIUS = +process.env.GEOFENCE_METRES || 10, OK = ['Present', 'Late'];
  
 // ---------- helpers ----------
@@ -17,7 +20,7 @@ const apiStatus = (x) => (OK.includes(x) ? 'present' : ['Flagged', 'Pending revi
 const haversine = (a, b, c, d) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(h)); };
 const at = (x) => new Date(x.date.toISOString().slice(0, 10) + 'T' + x.startTime.toISOString().slice(11, 19) + 'Z'); // date + start_time as one instant
 const userOut = (u) => ({ _id: u.id, userId: u.id, name: u.name, email: u.email, phone: u.phone, department: u.department, designation: u.designation, programme: u.programme,
-  role: roleOut(u.role), active: u.isActive, createdAt: u.createdAt, prefs: { low: true, relief: true, reminders: false, email: true, sms: false, push: true, ...(u.prefs || {}) } });
+  role: roleOut(u.role), active: u.isActive, createdAt: u.createdAt, avatarUrl: u.avatarUrl || null, prefs: { low: true, relief: true, reminders: false, email: true, sms: false, push: true, ...(u.prefs || {}) } });
 const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const audit = (adminId, action, details) => prisma.auditLog.create({ data: { adminId, action, details } }).catch(() => {});
 const notify = (userId, message, category) => prisma.notification.create({ data: { userId, message, category } }).catch(() => {});
@@ -99,16 +102,24 @@ app.post('/api/modules/enrol', auth('student'), wrap(async (q, s) => {
   await prisma.enrollment.create({ data: { studentId: q.user.id, moduleId: m.id } }); s.json({ message: `Joined ${m.name}` });
 }));
 app.post('/api/attendance/checkin', auth('student'), wrap(async (q, s) => {
-  const { code, lat, lng } = q.body;
+  const { code, lat, lng, accuracy, permissionDenied } = q.body;
   const c = await prisma.attendanceCode.findFirst({ where: { code: String(code || '').toUpperCase(), expiryTimestamp: { gt: new Date() } }, include: { session: { include: { section: { include: { module: true } } } } } });
   if (!c) throw Error('Code is invalid or has expired');
+  if (c.session.status === 'ended') throw Error('This session has ended');
   const sec = c.session.section, m = sec.module, id = q.user.id;
   if (!(await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId: id, moduleId: m.id } } }))) throw Error('You are not enrolled in this module');
   if (await prisma.attendance.findUnique({ where: { studentId_sessionId: { studentId: id, sessionId: c.sessionId } } })) throw Error('Already checked in');
-  const distance = haversine(lat, lng, c.latitude, c.longitude), ok = distance <= c.geofenceRadius;
-  await prisma.attendance.create({ data: { studentId: id, sessionId: c.sessionId, status: ok ? 'Present' : 'Flagged' } });
-  if (!ok) { const u = await prisma.user.findUnique({ where: { id } }); await notify(sec.tutorId, `${u.name} checked in ${Math.round(distance)} m from the classroom (${m.code}). Please verify.`, 'Attendance'); }
-  s.json({ status: ok ? 'present' : 'flagged', message: ok ? `Present in ${m.name}` : 'Checked in, but you seem to be outside the classroom. Your tutor will review it.' });
+  let flagReason = null, distance = null;
+  if (permissionDenied || lat == null || lng == null || lat === '' || lng === '') flagReason = 'permission_denied';
+  else { distance = Math.round(haversine(+lat, +lng, c.latitude, c.longitude) * 10) / 10;
+    if (distance > c.geofenceRadius) flagReason = 'outside_radius'; else if (accuracy != null && +accuracy > ACCURACY_MAX) flagReason = 'low_accuracy'; }
+  const ok = !flagReason;
+  await prisma.attendance.create({ data: { studentId: id, sessionId: c.sessionId, status: ok ? 'Present' : 'Flagged', flagReason, distanceMeters: distance,
+    submittedLat: distance == null ? null : +lat, submittedLng: distance == null ? null : +lng, accuracy: accuracy == null || accuracy === '' ? null : +accuracy } });
+  if (!ok) { const u = await prisma.user.findUnique({ where: { id } });
+    const why = flagReason === 'outside_radius' ? `${Math.round(distance)} m from the classroom` : flagReason === 'low_accuracy' ? `with weak GPS accuracy (${Math.round(accuracy)} m)` : 'without sharing location';
+    await notify(sec.tutorId, `${u.name} checked in ${why} (${m.code}). Please verify.`, 'Attendance'); }
+  s.json({ status: ok ? 'present' : 'flagged', flagReason, distance, message: ok ? `Present in ${m.name}` : 'Checked in, but your location could not be confirmed. Your tutor will review it.' });
 }));
 app.get('/api/attendance/me', auth('student'), wrap(async (q, s) => {
   const en = await prisma.enrollment.findMany({ where: { studentId: q.user.id }, select: { moduleId: true } });
@@ -116,7 +127,7 @@ app.get('/api/attendance/me', auth('student'), wrap(async (q, s) => {
 }));
 app.post('/api/evidence', auth('student'), upload.single('file'), wrap(async (q, s) => {
   const { type, date, reason, module } = q.body; if (!module) throw Error('Please choose a module'); if (!date) throw Error('Please choose the date you missed');
-  const r = await prisma.evidenceDocument.create({ data: { studentId: q.user.id, moduleId: module, date: new Date(date), reason, leaveType: type === 'official' ? 'Official' : 'Medical', documentUrl: q.file ? '/uploads/' + q.file.filename : null } });
+  const r = await prisma.evidenceDocument.create({ data: { studentId: q.user.id, moduleId: module, date: new Date(date), reason, leaveType: type === 'official' ? 'Official' : 'Medical', documentUrl: q.file ? '/uploads/' + q.file.filename : null, originalFilename: q.file ? q.file.originalname : null } });
   s.json({ _id: r.id });
 }));
 app.get('/api/evidence/mine', auth('student'), wrap(async (q, s) => {
@@ -149,7 +160,7 @@ app.post('/api/sessions', auth('teacher'), wrap(async (q, s) => {
   const { module, room, type, hours, lat, lng, minutes = 10 } = q.body, sec = await mine(module, q.user.id); if (!sec) throw Error('This is not your module');
   if (room && room !== sec.room) await prisma.section.update({ where: { id: sec.id }, data: { room } });
   const now = new Date(), code = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const se = await prisma.classSession.create({ data: { sectionId: sec.id, date: now, startTime: now, duration: Math.round((+hours || 1) * 60), sessionType: type,
+  const se = await prisma.classSession.create({ data: { sectionId: sec.id, date: now, startTime: now, duration: Math.round((+hours || 1) * 60), sessionType: type, status: 'ongoing',
     codes: { create: { code, expiryTimestamp: new Date(Date.now() + minutes * 60000), geofenceRadius: RADIUS, latitude: +lat, longitude: +lng } } } });
   s.json({ _id: se.id, code });
 }));
@@ -192,7 +203,7 @@ app.get('/api/evidence', auth('teacher', 'admin', 'management'), wrap(async (q, 
 }));
 app.patch('/api/evidence/:id', auth('teacher', 'admin', 'management'), wrap(async (q, s) => {
   if (!['approved', 'rejected'].includes(q.body.status)) throw Error('Invalid status');
-  const r = await prisma.evidenceDocument.update({ where: { id: q.params.id }, data: { status: cap(q.body.status), reviewedBy: q.user.id } });
+  const r = await prisma.evidenceDocument.update({ where: { id: q.params.id }, data: { status: cap(q.body.status), reviewedBy: q.user.id, reviewedAt: new Date() } });
   if (q.body.status === 'approved')
     for (const se of await prisma.classSession.findMany({ where: { date: r.date, section: { moduleId: r.moduleId } } }))
       await prisma.attendance.upsert({ where: { studentId_sessionId: { studentId: r.studentId, sessionId: se.id } }, update: { status: 'Present' }, create: { studentId: r.studentId, sessionId: se.id, status: 'Present' } });
@@ -216,7 +227,7 @@ app.get('/api/admin/users', auth('admin'), wrap(async (q, s) => {
   s.json(await Promise.all(u.map(async (x) => ({ ...userOut(x), ...(role === 'student' && { pct: await overall(x.id) }) }))));
 }));
 app.patch('/api/admin/users/:id', auth('admin'), wrap(async (q, s) => {
-  const data = {}; if (q.body.active !== undefined) data.isActive = q.body.active; if (q.body.name) data.name = q.body.name;
+  const data = {}; if (q.body.active !== undefined) { data.isActive = q.body.active; data.status = q.body.active ? 'active' : 'inactive'; } if (q.body.name) data.name = q.body.name;
   const u = await prisma.user.update({ where: { id: q.params.id }, data }); await audit(q.user.id, q.body.active === undefined ? 'Edited user' : q.body.active ? 'Activated user' : 'Deactivated user', u.id); s.json(userOut(u));
 }));
 app.get('/api/admin/modules', auth('admin'), wrap(async (q, s) => {
@@ -294,5 +305,189 @@ app.get('/api/management/history', mg, wrap(async (q, s) => {
 }));
 app.get('/api/management/calendar', mg, wrap(async (q, s) => s.json(await monthDays(q.query.student, [q.query.module], q.query.month))));
  
+// =====================================================================
+// ---------- Additions from the backend design doc (plain JS) ----------
+// Features that neither this server nor the original database had.
+// Nothing above was removed; a few handlers above were extended to
+// store extra data (check-in GPS details, session status, file name,
+// review time, tutor approval status).
+// =====================================================================
+const AT_RISK_PCT = +process.env.AT_RISK_ATTENDANCE_PERCENT || 80;
+const REALERT_DAYS = +process.env.LOW_ATTENDANCE_REALERT_DAYS || 7;
+const csvCell = (v) => { const x = v == null ? '' : String(v); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+const sendCsv = (s, name, header, rows) => {
+  s.set('Content-Type', 'text/csv; charset=utf-8'); s.set('Content-Disposition', `attachment; filename="${name}"`);
+  s.send([header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n'));
+};
+
+app.get('/health', (q, s) => s.json({ status: 'ok', service: 'checkin-backend', time: new Date().toISOString() }));
+
+// ---------- Sessions: list, end, live roster, review flagged check-ins ----------
+const ownedSession = async (id, tutorId) => {
+  const se = await prisma.classSession.findUnique({ where: { id }, include: { section: { include: { module: true } }, codes: true } });
+  if (!se || se.section.tutorId !== tutorId) throw Error('Session not found');
+  return se;
+};
+app.get('/api/sessions/mine', auth('teacher'), wrap(async (q, s) => {
+  const l = await prisma.classSession.findMany({ where: { section: { tutorId: q.user.id } }, include: { section: { include: { module: true } }, _count: { select: { attendance: true } } },
+    orderBy: [{ date: 'desc' }, { startTime: 'desc' }], take: Math.min(+q.query.limit || 50, 200) });
+  s.json(l.map((x) => ({ _id: x.id, module: { id: x.section.moduleId, code: x.section.module.code, name: x.section.module.name }, section: x.section.name, room: x.section.room,
+    date: at(x), hours: x.duration / 60, type: x.sessionType, status: x.status, checkIns: x._count.attendance })));
+}));
+app.post('/api/sessions/:id/end', auth('teacher'), wrap(async (q, s) => {
+  const se = await ownedSession(q.params.id, q.user.id), now = new Date();
+  await prisma.$transaction([
+    prisma.classSession.update({ where: { id: se.id }, data: { status: 'ended' } }),
+    prisma.attendanceCode.updateMany({ where: { sessionId: se.id, expiryTimestamp: { gt: now } }, data: { expiryTimestamp: now } }),
+  ]);
+  s.json({ _id: se.id, status: 'ended' });
+}));
+app.get('/api/sessions/:id/roster', auth('teacher'), wrap(async (q, s) => {
+  const se = await ownedSession(q.params.id, q.user.id), c = se.codes[0];
+  const en = await prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } });
+  const att = await prisma.attendance.findMany({ where: { sessionId: se.id } });
+  const rows = en.map(({ student: u }) => { const a = att.find((t) => t.studentId === u.id);
+    return { attendanceId: a ? a.id : null, userId: u.id, name: u.name, status: a ? apiStatus(a.status) : 'absent', time: a ? a.timestamp : null,
+      flagReason: a ? a.flagReason : null, distance: a ? a.distanceMeters : null, accuracy: a ? a.accuracy : null }; });
+  const n = (st) => rows.filter((r) => r.status === st).length;
+  s.json({ session: { _id: se.id, module: { code: se.section.module.code, name: se.section.module.name }, date: at(se), type: se.sessionType, status: se.status,
+    code: c ? c.code : null, expiresAt: c ? c.expiryTimestamp : null }, counts: { enrolled: rows.length, present: n('present'), flagged: n('flagged'), absent: n('absent') }, rows });
+}));
+const decideFlag = (accept) => wrap(async (q, s) => {
+  const se = await ownedSession(q.params.id, q.user.id), a = await prisma.attendance.findUnique({ where: { id: q.params.attendanceId } });
+  if (!a || a.sessionId !== se.id) throw Error('Check-in not found');
+  if (apiStatus(a.status) !== 'flagged') throw Error('This check-in is not flagged');
+  const note = String((q.body && q.body.note) || '').trim(), flagReason = note ? `${a.flagReason || 'reviewed'} - ${note}`.slice(0, 100) : a.flagReason;
+  await prisma.attendance.update({ where: { id: a.id }, data: { status: accept ? 'Present' : 'Absent', flagReason } });
+  await notify(a.studentId, `Your flagged check-in for ${se.section.module.code} was ${accept ? 'accepted' : 'marked absent'} by your tutor.`, 'Attendance');
+  s.json({ attendanceId: a.id, status: accept ? 'present' : 'absent' });
+});
+app.post('/api/sessions/:id/flagged/:attendanceId/accept', auth('teacher'), decideFlag(true));
+app.post('/api/sessions/:id/flagged/:attendanceId/reject', auth('teacher'), decideFlag(false));
+
+// ---------- Evidence: view one request ----------
+app.get('/api/evidence/:id', auth('student', 'teacher', 'admin', 'management'), wrap(async (q, s) => {
+  const r = await prisma.evidenceDocument.findUnique({ where: { id: q.params.id }, include: { student: true, reviewer: true, module: { include: { sections: true } } } });
+  if (!r) throw Error('Request not found');
+  if ((q.user.role === 'student' && r.studentId !== q.user.id) || (q.user.role === 'teacher' && !r.module.sections.some((x) => x.tutorId === q.user.id)))
+    return s.status(403).json({ error: 'Not allowed for your role' });
+  s.json({ _id: r.id, type: (r.leaveType || '').toLowerCase(), date: r.date, reason: r.reason, fileUrl: r.documentUrl, fileName: r.originalFilename, status: r.status.toLowerCase(),
+    createdAt: r.createdAt, reviewedAt: r.reviewedAt, reviewer: r.reviewer ? { userId: r.reviewer.id, name: r.reviewer.name } : null,
+    student: { userId: r.student.id, name: r.student.name }, module: { name: r.module.name, code: r.module.code } });
+}));
+
+// ---------- Teacher: export attendance records (CSV / PDF) ----------
+const recordRows = async (moduleId) => {
+  const ses = await sessionsOf(moduleId), en = await prisma.enrollment.findMany({ where: { moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } });
+  const att = await prisma.attendance.findMany({ where: { sessionId: { in: ses.map((x) => x.id) }, status: { in: OK } } }), ids = (t) => ses.filter((x) => x.sessionType === t).map((x) => x.id);
+  const p = (list, sid) => list.length ? Math.round(att.filter((a) => a.studentId === sid && list.includes(a.sessionId)).length / list.length * 100) : null;
+  return { sessions: ses.length, rows: en.map(({ student: u }) => ({ userId: u.id, name: u.name, theory: p(ids('theory'), u.id), practical: p(ids('practical'), u.id), total: p(ses.map((x) => x.id), u.id) })) };
+};
+const exportModule = async (q) => {
+  if (!(await mine(q.params.moduleId, q.user.id))) throw Error('This is not your module');
+  const m = await prisma.module.findUnique({ where: { id: q.params.moduleId } });
+  return { m, ...(await recordRows(m.id)) };
+};
+const riskLabel = (t) => (t == null ? 'No sessions' : t < AT_RISK_PCT ? 'At risk' : 'OK');
+app.get('/api/teacher/records-export/:moduleId/csv', auth('teacher'), wrap(async (q, s) => {
+  const { m, rows } = await exportModule(q);
+  sendCsv(s, `${m.code}-attendance.csv`, ['Student ID', 'Name', 'Theory %', 'Practical %', 'Overall %', 'Status'],
+    rows.map((r) => [r.userId, r.name, r.theory, r.practical, r.total, riskLabel(r.total)]));
+}));
+app.get('/api/teacher/records-export/:moduleId/pdf', auth('teacher'), wrap(async (q, s) => {
+  const { m, rows, sessions } = await exportModule(q), doc = new PDFDocument({ size: 'A4', margin: 40 });
+  s.set('Content-Type', 'application/pdf'); s.set('Content-Disposition', `attachment; filename="${m.code}-attendance.pdf"`); doc.pipe(s);
+  doc.fontSize(16).text('CheckIn - Attendance Report').fontSize(10).fillColor('#555')
+    .text(`College of Science and Technology - ${m.code} ${m.name}`).text(`${sessions} sessions - at risk below ${AT_RISK_PCT}% - generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`).moveDown();
+  const cols = [['Student ID', 40], ['Name', 120], ['Theory %', 300], ['Practical %', 360], ['Overall %', 430], ['Status', 490]];
+  const line = (vals, bold) => { if (doc.y > 780) doc.addPage(); const y = doc.y; doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor('#000');
+    cols.forEach(([, x], i) => doc.text(vals[i] == null ? '-' : String(vals[i]), x, y, { width: i === 1 ? 175 : 60, lineBreak: false })); doc.moveDown(0.6); };
+  line(cols.map((c) => c[0]), true);
+  rows.forEach((r) => line([r.userId, r.name, r.theory, r.practical, r.total, riskLabel(r.total)]));
+  doc.end();
+}));
+
+// ---------- Admin: tutor approvals ----------
+app.get('/api/admin/tutors/pending', auth('admin', 'management'), wrap(async (q, s) =>
+  s.json((await prisma.user.findMany({ where: { role: 'tutor', isActive: false, status: 'active' }, orderBy: { createdAt: 'asc' } })).map(userOut))));
+app.post('/api/admin/tutors/:id/approve', auth('admin'), wrap(async (q, s) => {
+  const u = await prisma.user.findFirst({ where: { id: q.params.id, role: 'tutor' } }); if (!u) throw Error('Tutor request not found');
+  if (u.isActive) throw Error('This tutor is already active');
+  await prisma.user.update({ where: { id: u.id }, data: { isActive: true, status: 'active' } });
+  await notify(u.id, 'Your tutor account has been approved. You can now sign in.', 'System');
+  await audit(q.user.id, 'Tutor Approved', `${u.name} (${u.id})`); s.json({ userId: u.id, status: 'active' });
+}));
+app.post('/api/admin/tutors/:id/reject', auth('admin'), wrap(async (q, s) => {
+  const u = await prisma.user.findFirst({ where: { id: q.params.id, role: 'tutor' } }); if (!u) throw Error('Tutor request not found');
+  if (u.isActive || u.status !== 'active') throw Error('Only pending tutor requests can be rejected');
+  await prisma.user.update({ where: { id: u.id }, data: { status: 'inactive' } });
+  await audit(q.user.id, 'Tutor Rejected', `${u.name} (${u.id})`); s.json({ userId: u.id, status: 'inactive' });
+}));
+
+// ---------- Admin: audit log viewer ----------
+app.get('/api/admin/audit-logs', auth('admin', 'management'), wrap(async (q, s) => {
+  const { action, from, to, q: text } = q.query, where = { ...(action && { action }) };
+  if (from || to) where.timestamp = { ...(from && { gte: new Date(from) }), ...(to && { lt: new Date(new Date(to).getTime() + 864e5) }) };
+  if (text) where.OR = [{ details: { contains: text, mode: 'insensitive' } }, { admin: { name: { contains: text, mode: 'insensitive' } } }];
+  const l = await prisma.auditLog.findMany({ where, include: { admin: true }, orderBy: { timestamp: 'desc' }, take: Math.min(+q.query.limit || 100, 500) });
+  s.json(l.map((x) => ({ _id: x.id, action: x.action, details: x.details, time: x.timestamp, admin: { userId: x.admin.id, name: x.admin.name } })));
+}));
+app.get('/api/admin/audit-actions', auth('admin', 'management'), wrap(async (q, s) =>
+  s.json((await prisma.auditLog.findMany({ distinct: ['action'], select: { action: true }, orderBy: { action: 'asc' } })).map((x) => x.action))));
+
+// ---------- Admin: at-risk students + CSV ----------
+const atRisk = async (below, department) => {
+  const en = await prisma.enrollment.findMany({ where: { student: { role: 'student', ...(department && { department }) } }, include: { student: true, module: true } }), cache = {}, out = [];
+  for (const e of en) {
+    const ses = cache[e.moduleId] || (cache[e.moduleId] = await sessionsOf(e.moduleId)); if (!ses.length) continue;
+    const p = Math.round((await attended(e.studentId, ses.map((x) => x.id))).length / ses.length * 1000) / 10;
+    if (p < below) out.push({ userId: e.student.id, name: e.student.name, department: e.student.department, module: { id: e.moduleId, code: e.module.code, name: e.module.name }, pct: p, sessions: ses.length });
+  }
+  return out.sort((a, b) => a.pct - b.pct);
+};
+app.get('/api/admin/reports/at-risk', auth('admin', 'management'), wrap(async (q, s) => {
+  const below = +q.query.below || AT_RISK_PCT; s.json({ threshold: below, rows: await atRisk(below, q.query.department) });
+}));
+app.get('/api/admin/reports/at-risk/export.csv', auth('admin', 'management'), wrap(async (q, s) => {
+  const rows = await atRisk(+q.query.below || AT_RISK_PCT, q.query.department);
+  sendCsv(s, 'at-risk-students.csv', ['Student ID', 'Name', 'Department', 'Module code', 'Module', 'Attendance %', 'Sessions'],
+    rows.map((r) => [r.userId, r.name, r.department, r.module.code, r.module.name, r.pct, r.sessions]));
+}));
+
+// ---------- Admin: programme report CSV ----------
+app.get('/api/admin/programmes/:name/export.csv', auth('admin', 'management'), wrap(async (q, s) => {
+  const studs = await prisma.user.findMany({ where: { role: 'student', department: q.params.name }, orderBy: { id: 'asc' } }), rows = [];
+  for (const u of studs) { const p = await overall(u.id); rows.push([u.id, u.name, u.programme, p, p < AT_RISK_PCT ? 'At risk' : 'OK']); }
+  sendCsv(s, `${q.params.name.replace(/[^\w.-]+/g, '_')}-report.csv`, ['Student ID', 'Name', 'Programme', 'Overall %', 'Status'], rows);
+}));
+
+// ---------- Admin: low-attendance alert job ----------
+app.post('/api/admin/jobs/low-attendance', auth('admin'), wrap(async (q, s) => {
+  const cutoff = new Date(Date.now() - REALERT_DAYS * 864e5), res = { scanned: 0, alerts: 0, skipped: 0 }, cache = {};
+  const en = await prisma.enrollment.findMany({ where: { student: { role: 'student', isActive: true } }, include: { module: true } });
+  for (const e of en) {
+    const ses = cache[e.moduleId] || (cache[e.moduleId] = await sessionsOf(e.moduleId)); if (!ses.length) continue; res.scanned++;
+    const p = Math.round((await attended(e.studentId, ses.map((x) => x.id))).length / ses.length * 100); if (p >= REQUIRED_PCT) continue;
+    if (await prisma.notification.findFirst({ where: { userId: e.studentId, category: 'Attendance', createdAt: { gte: cutoff }, message: { contains: e.module.code } } })) { res.skipped++; continue; }
+    await notify(e.studentId, `Your attendance in ${e.module.code} is ${p}% - below the ${REQUIRED_PCT}% requirement. Please speak to your tutor.`, 'Attendance'); res.alerts++;
+  }
+  await audit(q.user.id, 'Low-attendance job', `${res.alerts} alerts sent, ${res.skipped} skipped`); s.json(res);
+}));
+
+// ---------- Notifications: unread count, mark all read ----------
+app.get('/api/notifications/unread-count', auth(), wrap(async (q, s) => s.json({ count: await prisma.notification.count({ where: { userId: q.user.id, isRead: false } }) })));
+app.post('/api/notifications/read-all', auth(), wrap(async (q, s) =>
+  s.json({ updated: (await prisma.notification.updateMany({ where: { userId: q.user.id, isRead: false }, data: { isRead: true } })).count })));
+
+// ---------- Profile: avatar upload / remove ----------
+const avatarUpload = multer({ storage: multer.diskStorage({ destination: 'uploads/', filename: (q, f, cb) => cb(null, `avatar-${q.user.id}-${Date.now()}${path.extname(f.originalname)}`) }),
+  limits: { fileSize: 2 * 1024 * 1024 }, fileFilter: (q, f, cb) => cb(null, /^image\/(png|jpe?g|webp)$/.test(f.mimetype)) });
+app.post('/api/me/avatar', auth(), avatarUpload.single('file'), wrap(async (q, s) => {
+  if (!q.file) throw Error('Please choose a PNG, JPG or WebP image (max 2 MB)');
+  s.json(userOut(await prisma.user.update({ where: { id: q.user.id }, data: { avatarUrl: '/uploads/' + q.file.filename } })));
+}));
+app.delete('/api/me/avatar', auth(), wrap(async (q, s) => s.json(userOut(await prisma.user.update({ where: { id: q.user.id }, data: { avatarUrl: null } })))));
+
+
 app.listen(process.env.PORT || 5000, () => console.log('CheckIn API ready (PostgreSQL + Prisma)'));
  

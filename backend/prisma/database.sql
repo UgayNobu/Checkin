@@ -1,6 +1,83 @@
--- Real CheckIn data (exported from the Supabase DB on 2026-10-08).
--- Safe to re-run: existing rows are skipped (ON CONFLICT DO NOTHING).
+-- CheckIn database file: structure changes + real data, in one place.
+-- Run the whole file in Supabase -> SQL Editor. Safe to run again: it only ADDS
+-- columns/constraints (IF NOT EXISTS) and skips rows that already exist.
+-- `npm run seed` runs only the SEED DATA part (below the marker).
 
+BEGIN;
+
+-- ===== Part 1: columns the frontend needs =====
+-- users: extra profile fields the frontend needs
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS phone              varchar(20),
+  ADD COLUMN IF NOT EXISTS department         varchar(100),
+  ADD COLUMN IF NOT EXISTS designation        varchar(50),
+  ADD COLUMN IF NOT EXISTS programme          varchar(100),
+  ADD COLUMN IF NOT EXISTS year               int,
+  ADD COLUMN IF NOT EXISTS is_active          boolean     NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS notification_prefs jsonb       NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS created_at         timestamptz NOT NULL DEFAULT now();
+-- users marked inactive in the old status column can't log in
+UPDATE users SET is_active = false WHERE status = 'inactive';
+
+-- modules / sections / sessions
+ALTER TABLE modules
+  ADD COLUMN IF NOT EXISTS year int,
+  ADD COLUMN IF NOT EXISTS semester int,
+  ADD COLUMN IF NOT EXISTS enrolment_key varchar(30),
+  ADD COLUMN IF NOT EXISTS module_count int;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS section_name varchar(30);
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS session_type varchar(10);
+ALTER TABLE class_sessions DROP CONSTRAINT IF EXISTS chk_sessions_type;
+ALTER TABLE class_sessions ADD CONSTRAINT chk_sessions_type
+  CHECK (session_type IS NULL OR session_type IN ('theory','practical'));
+
+-- relief_requests = the backend's "EvidenceDocument"
+ALTER TABLE relief_requests
+  ADD COLUMN IF NOT EXISTS leave_type varchar(10),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE relief_requests DROP CONSTRAINT IF EXISTS chk_relief_leave_type;
+ALTER TABLE relief_requests ADD CONSTRAINT chk_relief_leave_type
+  CHECK (leave_type IS NULL OR leave_type IN ('Medical','Official'));
+
+-- enrollments: backend never sends academic_year, so give it a default
+ALTER TABLE enrollments ALTER COLUMN academic_year SET DEFAULT '2026-27';
+ALTER TABLE enrollments ALTER COLUMN enrolled_date SET DEFAULT CURRENT_DATE;
+
+-- attendance: backend expects a check-in time
+ALTER TABLE attendance ALTER COLUMN "timestamp" SET DEFAULT now();
+
+-- notifications: backend uses the category 'Evidence Documents'
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS chk_notif_category;
+ALTER TABLE notifications ADD CONSTRAINT chk_notif_category
+  CHECK (category IN ('Attendance','Relief Requests','Evidence Documents','System','Reminders'));
+
+-- ===== Part 2: columns for the extra backend features =====
+-- users: profile picture + last-updated time
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS avatar_url varchar(255),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+-- class_sessions: scheduled -> ongoing -> ended
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'scheduled';
+ALTER TABLE class_sessions DROP CONSTRAINT IF EXISTS chk_sessions_status;
+ALTER TABLE class_sessions ADD CONSTRAINT chk_sessions_status CHECK (status IN ('scheduled','ongoing','ended'));
+
+-- attendance: where the student checked in from and why it was flagged
+ALTER TABLE attendance
+  ADD COLUMN IF NOT EXISTS submitted_lat   double precision,
+  ADD COLUMN IF NOT EXISTS submitted_lng   double precision,
+  ADD COLUMN IF NOT EXISTS accuracy        double precision,
+  ADD COLUMN IF NOT EXISTS distance_meters double precision,
+  ADD COLUMN IF NOT EXISTS flag_reason     varchar(100);
+
+-- relief_requests: uploaded file's original name + when it was reviewed
+ALTER TABLE relief_requests
+  ADD COLUMN IF NOT EXISTS original_filename varchar(255),
+  ADD COLUMN IF NOT EXISTS reviewed_at       timestamptz;
+
+COMMIT;
+
+-- ===== SEED DATA (real CheckIn data, exported from Supabase on 2026-10-08) =====
 -- programs (3 rows)
 INSERT INTO programs (program_id, program_name) VALUES
   ('P001', 'B.E. Software Engineering'),
