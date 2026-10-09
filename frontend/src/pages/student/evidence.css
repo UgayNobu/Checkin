@@ -1,0 +1,299 @@
+/* ---------- Student Evidence Document page ---------- */
+.ev {
+  max-width: 1000px;
+}
+
+/* 1. Leave buttons */
+.ev .ev-types {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ev .ev-type {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.ev .ev-type:hover {
+  border-color: var(--purple);
+}
+
+.ev .ev-type.on {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}
+
+.ev .ev-ic {
+  font-size: 18px;
+}
+
+/* 2. Requirements + stats */
+.ev .ev-info {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  margin-top: 18px;
+  align-items: stretch;
+}
+
+.ev .ev-req {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.ev .ev-req h4 {
+  margin: 0;
+  color: var(--red);
+  font-size: 14px;
+}
+
+.ev .ev-req p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.ev .ev-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.ev .ev-stat {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 22px;
+  min-width: 130px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ev .ev-stat b {
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.ev .ev-stat small {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* Message */
+.ev .ev-msg {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  background: #eafaf4;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  color: #0b7a57;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 3. Evidence Document list */
+.ev .ev-title {
+  margin: 28px 0 12px;
+  font-size: 18px;
+}
+
+.ev .ev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ev .ev-empty {
+  padding: 28px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ev .ev-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.ev .ev-ico {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: #f3edff;
+  border-radius: 10px;
+  font-size: 20px;
+}
+
+.ev .ev-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ev .ev-main b {
+  font-size: 14px;
+}
+
+.ev .ev-main small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ev .ev-main .ev-reason {
+  color: #555;
+}
+
+.ev .ev-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ev .ev-badge.approved {
+  background: #e3f8ef;
+  color: #0b7a57;
+}
+
+.ev .ev-badge.pending {
+  background: #fff4de;
+  color: #b26a00;
+}
+
+.ev .ev-badge.rejected {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.ev .ev-view {
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ev .ev-view:hover {
+  background: var(--blue);
+  color: #fff;
+}
+
+/* Leave form (pop-up) */
+.ev .overlay {
+  position: fixed;
+  inset: 0;
+  background: #0b1f3a99;
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.ev .overlay .form {
+  width: 100%;
+  max-width: 460px;
+  max-height: 92vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 16px 40px #0004;
+}
+
+.ev .overlay .form h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.ev .overlay .form small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ev .drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: #fafafc;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ev .drop:hover {
+  border-color: var(--purple);
+}
+
+.ev .drop span {
+  font-size: 26px;
+  color: var(--muted);
+}
+
+.ev .drop b {
+  font-size: 13px;
+}
+
+.ev .submit {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  background: var(--purple);
+  color: #fff;
+  border: 0;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ev .submit:hover {
+  opacity: 0.9;
+}
+
+/* Small screens */
+@media (max-width: 860px) {
+  .ev .ev-info {
+    grid-template-columns: 1fr;
+  }
+
+  .ev .ev-item {
+    flex-wrap: wrap;
+  }
+}
