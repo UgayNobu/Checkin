@@ -93,11 +93,17 @@ app.get('/api/student/modules/:id/records', auth('student'), wrap(async (q, s) =
   s.json({ theory: part('theory'), practical: part('practical') });
 }));
 app.get('/api/modules/browse', auth('student'), wrap(async (q, s) => {
+  const mineIds = new Set((await prisma.enrollment.findMany({ where: { studentId: q.user.id }, select: { moduleId: true } })).map((e) => e.moduleId));
   const l = await prisma.module.findMany({ include: { program: true, sections: { take: 1 }, _count: { select: { enrollments: true } } }, orderBy: { code: 'asc' } });
-  s.json(l.map((m) => ({ id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, department: m.program.name, section: m.sections[0]?.name, students: m._count.enrollments })));
+  s.json(l.map((m) => ({ id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, department: m.program.name, section: m.sections[0]?.name, students: m._count.enrollments, selfEnrol: m.selfEnrol, enrolled: mineIds.has(m.id) })));
 }));
 app.post('/api/modules/enrol', auth('student'), wrap(async (q, s) => {
-  const m = await prisma.module.findFirst({ where: { enrolmentKey: q.body.key || '__none__' } }); if (!m) throw Error('Enrolment key not found');
+  const key = String(q.body.key || '').trim(); if (!key) throw Error('Please enter the enrolment key');
+  const m = q.body.module ? await prisma.module.findUnique({ where: { id: String(q.body.module) } })
+    : await prisma.module.findFirst({ where: { enrolmentKey: { equals: key, mode: 'insensitive' } } });
+  if (!m) throw Error(q.body.module ? 'Module not found' : 'Enrolment key not found');
+  if (!m.selfEnrol) throw Error('Self-enrolment is closed for this module. Ask your tutor to add you.');
+  if (!m.enrolmentKey || m.enrolmentKey.toLowerCase() !== key.toLowerCase()) throw Error('Wrong enrolment key for this module');
   if (await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId: q.user.id, moduleId: m.id } } })) throw Error('Already enrolled');
   await prisma.enrollment.create({ data: { studentId: q.user.id, moduleId: m.id } }); s.json({ message: `Joined ${m.name}` });
 }));
@@ -140,12 +146,21 @@ app.get('/api/evidence/mine', auth('student'), wrap(async (q, s) => {
 app.get('/api/teacher/modules', auth('teacher'), wrap(async (q, s) => {
   const secs = await prisma.section.findMany({ where: { tutorId: q.user.id }, include: { module: true } }), seen = new Set(), out = [];
   for (const x of secs) { if (seen.has(x.moduleId)) continue; seen.add(x.moduleId);
-    out.push({ id: x.moduleId, name: x.module.name, code: x.module.code, section: x.name, students: await prisma.enrollment.count({ where: { moduleId: x.moduleId } }), enrolmentKey: x.module.enrolmentKey }); }
+    out.push({ id: x.moduleId, name: x.module.name, code: x.module.code, section: x.name, students: await prisma.enrollment.count({ where: { moduleId: x.moduleId } }), enrolmentKey: x.module.enrolmentKey, selfEnrol: x.module.selfEnrol }); }
   s.json(out);
 }));
 app.put('/api/modules/:id/key', auth('teacher'), wrap(async (q, s) => {
   if (!(await mine(q.params.id, q.user.id))) throw Error('This is not your module');
-  s.json(await prisma.module.update({ where: { id: q.params.id }, data: { enrolmentKey: q.body.key } }));
+  const data = {};
+  if (q.body.key !== undefined) {
+    const key = String(q.body.key || '').trim() || null;
+    if (key && await prisma.module.findFirst({ where: { enrolmentKey: { equals: key, mode: 'insensitive' }, NOT: { id: q.params.id } } }))
+      throw Error('This key is already used by another module. Please choose a different one.');
+    data.enrolmentKey = key;
+  }
+  if (typeof q.body.selfEnrol === 'boolean') data.selfEnrol = q.body.selfEnrol;
+  const m = await prisma.module.update({ where: { id: q.params.id }, data });
+  s.json({ id: m.id, enrolmentKey: m.enrolmentKey, selfEnrol: m.selfEnrol });
 }));
 app.get('/api/modules/:id/students', auth('teacher', 'admin', 'management'), wrap(async (q, s) => {
   const l = await prisma.enrollment.findMany({ where: { moduleId: q.params.id }, include: { student: true }, orderBy: { enrolledDate: 'asc' } });
@@ -494,6 +509,17 @@ const progOut = (p) => ({ id: p.id, name: p.name, level: p.level, years: p.durat
 app.get('/api/departments', wrap(async (q, s) => s.json((await prisma.department.findMany({ include: { programs: { orderBy: { name: 'asc' } } }, orderBy: { name: 'asc' } }))
   .map((d) => ({ id: d.id, code: d.code, name: d.name, website: d.website, programs: d.programs.map(({ id, name, level, durationYears }) => ({ id, name, level, years: durationYears })) })))));
 app.get('/api/programs', wrap(async (q, s) => s.json((await prisma.program.findMany({ where: { ...(q.query.level && { level: q.query.level }) }, include: { department: true }, orderBy: { name: 'asc' } })).map(progOut))));
+
+// ---------- Unenrol a student (tutor of the module, or admin) ----------
+app.delete('/api/modules/:id/students/:studentId', auth('teacher', 'admin'), wrap(async (q, s) => {
+  if (q.user.role === 'teacher' && !(await mine(q.params.id, q.user.id))) throw Error('This is not your module');
+  const m = await prisma.module.findUnique({ where: { id: q.params.id } }); if (!m) throw Error('Module not found');
+  const r = await prisma.enrollment.deleteMany({ where: { moduleId: m.id, studentId: q.params.studentId } });
+  if (!r.count) throw Error('That student is not enrolled in this module');
+  await notify(q.params.studentId, `You were removed from ${m.code} - ${m.name}.`, 'System');
+  if (q.user.role === 'admin') await audit(q.user.id, 'Student Unenrolled', `${q.params.studentId} from ${m.code}`);
+  s.json({ message: 'Student removed from the module' });
+}));
 
 app.listen(process.env.PORT || 5000, () => console.log('CheckIn API ready (PostgreSQL + Prisma)'));
  
