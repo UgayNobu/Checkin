@@ -178,7 +178,66 @@ INSERT INTO program_modules (program_id, module_id, year, semester)
 SELECT program_id, module_id, year, semester FROM modules WHERE year IS NOT NULL AND semester IS NOT NULL
 ON CONFLICT DO NOTHING;
 
+-- ===== Part 6: rooms and the fixed weekly timetable =====
+CREATE SEQUENCE IF NOT EXISTS seq_rooms;
+CREATE TABLE IF NOT EXISTS rooms (
+  room_id    varchar(10)  PRIMARY KEY DEFAULT gen_id('RM', 'seq_rooms'),
+  room_name  varchar(50)  NOT NULL,
+  capacity   int,
+  location   varchar(100),
+  latitude   double precision,
+  longitude  double precision,
+  created_at timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT uq_rooms_name UNIQUE (room_name),
+  CONSTRAINT chk_rooms_capacity CHECK (capacity IS NULL OR capacity > 0)
+);
+ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
+
+CREATE SEQUENCE IF NOT EXISTS seq_slots;
+CREATE TABLE IF NOT EXISTS timetable_slots (
+  slot_id          varchar(10)  PRIMARY KEY DEFAULT gen_id('TS', 'seq_slots'),
+  program_id       varchar(10)  NOT NULL,
+  year             int          NOT NULL,
+  semester         int          NOT NULL DEFAULT 1,
+  academic_session varchar(10)  NOT NULL DEFAULT 'AS2026',
+  day_of_week      int          NOT NULL,
+  start_time       time         NOT NULL,
+  end_time         time         NOT NULL,
+  module_code      varchar(15)  NOT NULL,
+  module_id        varchar(10),
+  session_type     varchar(10)  NOT NULL DEFAULT 'theory',
+  group_label      varchar(5),
+  room_id          varchar(10),
+  tutor_names      varchar(255),
+  tutor_id         varchar(10),
+  note             varchar(50),
+  CONSTRAINT fk_slots_program FOREIGN KEY (program_id) REFERENCES programs(program_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_slots_module  FOREIGN KEY (module_id)  REFERENCES modules(module_id)   ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_slots_room    FOREIGN KEY (room_id)    REFERENCES rooms(room_id)       ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_slots_tutor   FOREIGN KEY (tutor_id)   REFERENCES users(user_id)       ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT chk_slots_day      CHECK (day_of_week BETWEEN 1 AND 7),
+  CONSTRAINT chk_slots_time     CHECK (end_time > start_time),
+  CONSTRAINT chk_slots_year     CHECK (year BETWEEN 1 AND 5),
+  CONSTRAINT chk_slots_semester CHECK (semester IN (1, 2)),
+  CONSTRAINT chk_slots_type     CHECK (session_type IN ('theory', 'practical', 'tutorial'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_slots_natural ON timetable_slots
+  (program_id, year, academic_session, day_of_week, start_time, module_code, session_type, (COALESCE(group_label, '')));
+CREATE INDEX IF NOT EXISTS idx_slots_program_year ON timetable_slots (program_id, year);
+CREATE INDEX IF NOT EXISTS idx_slots_tutor ON timetable_slots (tutor_id);
+ALTER TABLE timetable_slots ENABLE ROW LEVEL SECURITY;
+
+-- link a class session to the timetable slot it came from (optional)
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS slot_id varchar(10);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_slot') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_slot FOREIGN KEY (slot_id) REFERENCES timetable_slots(slot_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
 COMMIT;
+
 
 
 

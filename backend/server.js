@@ -524,5 +524,32 @@ app.delete('/api/modules/:id/students/:studentId', auth('teacher', 'admin'), wra
   s.json({ message: 'Student removed from the module' });
 }));
 
+// ---------- Rooms and the fixed weekly timetable ----------
+const DAY = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const hhmm = (t) => t.toISOString().slice(11, 16);
+const slotOut = (x) => ({ id: x.id, day: DAY[x.dayOfWeek], dayOfWeek: x.dayOfWeek, start: hhmm(x.startTime), end: hhmm(x.endTime), year: x.year, semester: x.semester,
+  programme: x.program?.name, module: { id: x.moduleId, code: x.moduleCode, name: x.module?.name || x.moduleCode }, type: x.sessionType, group: x.groupLabel,
+  room: x.room ? { id: x.room.id, name: x.room.name, location: x.room.location } : null, tutors: x.tutorNames, note: x.note });
+const slotInclude = { program: true, module: true, room: true };
+const slotOrder = [{ dayOfWeek: 'asc' }, { startTime: 'asc' }];
+app.get('/api/rooms', auth(), wrap(async (q, s) => s.json(await prisma.room.findMany({ orderBy: { name: 'asc' } }))));
+// whole timetable for a programme + year (any logged-in user)
+app.get('/api/timetable', auth(), wrap(async (q, s) => {
+  const { program, year } = q.query; if (!program || !year) throw Error('Choose a programme and year');
+  s.json((await prisma.timetableSlot.findMany({ where: { program: { name: program }, year: +year }, include: slotInclude, orderBy: slotOrder })).map(slotOut));
+}));
+// a student's own weekly timetable (from their programme and year)
+app.get('/api/student/timetable', auth('student'), wrap(async (q, s) => {
+  const u = await prisma.user.findUnique({ where: { id: q.user.id } });
+  if (!u.programme) throw Error('Your programme is not set in your profile');
+  s.json((await prisma.timetableSlot.findMany({ where: { program: { name: u.programme }, year: u.year || 1 }, include: slotInclude, orderBy: slotOrder })).map(slotOut));
+}));
+// a tutor's own weekly timetable: slots linked to their account, or listing their name
+app.get('/api/teacher/timetable', auth('teacher'), wrap(async (q, s) => {
+  const u = await prisma.user.findUnique({ where: { id: q.user.id } });
+  s.json((await prisma.timetableSlot.findMany({ where: { OR: [{ tutorId: u.id }, ...(u.name ? [{ tutorNames: { contains: u.name, mode: 'insensitive' } }] : [])] },
+    include: slotInclude, orderBy: slotOrder })).map(slotOut));
+}));
+
 app.listen(process.env.PORT || 5000, () => console.log('CheckIn API ready (PostgreSQL + Prisma)'));
  
