@@ -27,6 +27,7 @@ model Program {
   durationYears Int?        @map("duration_years")
   department    Department? @relation(fields: [departmentId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_programs_department")
   modules       Module[]
+  curriculum    ProgramModule[]
 
   @@map("programs")
 }
@@ -73,8 +74,23 @@ model Module {
   sections     Section[]
   enrollments  Enrollment[]
   evidence     EvidenceDocument[]
+  curriculum   ProgramModule[]
 
   @@map("modules")
+}
+
+/// Which programmes a module belongs to, and in which year/semester (one module can be in several programmes)
+model ProgramModule {
+  programId String  @map("program_id") @db.VarChar(10)
+  moduleId  String  @map("module_id") @db.VarChar(10)
+  year      Int
+  semester  Int
+  program   Program @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_pm_program")
+  module    Module  @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_pm_module")
+
+  @@id([programId, moduleId])
+  @@index([moduleId], map: "idx_pm_module")
+  @@map("program_modules")
 }
 
 model Section {
