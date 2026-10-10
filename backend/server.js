@@ -94,8 +94,8 @@ app.get('/api/student/modules/:id/records', auth('student'), wrap(async (q, s) =
 }));
 app.get('/api/modules/browse', auth('student'), wrap(async (q, s) => {
   const mineIds = new Set((await prisma.enrollment.findMany({ where: { studentId: q.user.id }, select: { moduleId: true } })).map((e) => e.moduleId));
-  const l = await prisma.module.findMany({ include: { program: true, sections: { take: 1 }, _count: { select: { enrollments: true } } }, orderBy: { code: 'asc' } });
-  s.json(l.map((m) => ({ id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, department: m.program.name, section: m.sections[0]?.name, students: m._count.enrollments, selfEnrol: m.selfEnrol, enrolled: mineIds.has(m.id) })));
+  const l = await prisma.programModule.findMany({ include: { program: true, module: { include: { sections: { take: 1 }, _count: { select: { enrollments: true } } } } }, orderBy: { module: { code: 'asc' } } });
+  s.json(l.map(({ module: m, program, year, semester }) => ({ id: m.id, name: m.name, code: m.code, year, semester, department: program.name, section: m.sections[0]?.name, students: m._count.enrollments, selfEnrol: m.selfEnrol, enrolled: mineIds.has(m.id) })));
 }));
 app.post('/api/modules/enrol', auth('student'), wrap(async (q, s) => {
   const key = String(q.body.key || '').trim(); if (!key) throw Error('Please enter the enrolment key');
@@ -247,13 +247,16 @@ app.patch('/api/admin/users/:id', auth('admin'), wrap(async (q, s) => {
 }));
 app.get('/api/admin/modules', auth('admin'), wrap(async (q, s) => {
   const { department, year, semester } = q.query;
-  const l = await prisma.module.findMany({ where: { ...(department && { program: { name: department } }), ...(year && { year: +year }), ...(semester && { semester: +semester }) }, include: { sections: { include: { tutor: true }, take: 1 } }, orderBy: { code: 'asc' } });
+  const cur = { ...(department && { program: { name: department } }), ...(year && { year: +year }), ...(semester && { semester: +semester }) };
+  const l = await prisma.module.findMany({ where: Object.keys(cur).length ? { curriculum: { some: cur } } : {}, include: { sections: { include: { tutor: true }, take: 1 } }, orderBy: { code: 'asc' } });
   s.json(l.map((m) => ({ _id: m.id, name: m.name, code: m.code, count: m.moduleCount, tutor: m.sections[0] ? { userId: m.sections[0].tutor.id, name: m.sections[0].tutor.name } : null })));
 }));
 const saveModule = async (id, b) => {
   let program = await prisma.program.findFirst({ where: { name: b.department } }); if (!program) program = await prisma.program.create({ data: { name: b.department } });
   const data = { name: b.name, code: b.code, programId: program.id, year: +b.year || null, semester: +b.semester || null, moduleCount: +b.count || null };
-  const m = id ? await prisma.module.update({ where: { id }, data }) : await prisma.module.create({ data });
+  const m = id ? await prisma.module.update({ where: { id }, data: { ...data, programId: undefined } }) : await prisma.module.create({ data });
+  if (data.year && data.semester) await prisma.programModule.upsert({ where: { programId_moduleId: { programId: program.id, moduleId: m.id } },
+    update: { year: data.year, semester: data.semester }, create: { programId: program.id, moduleId: m.id, year: data.year, semester: data.semester } });
   if (b.tutorId) {
     const t = await prisma.user.findFirst({ where: { id: b.tutorId, role: 'tutor' } }); if (!t) throw Error('Tutor not found');
     const sec = await prisma.section.findFirst({ where: { moduleId: m.id } });
