@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 # user-uploaded evidence files
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# internal college data with real staff names (kept out of the public repo)
+backend/prisma/timetable_AS2026.sql

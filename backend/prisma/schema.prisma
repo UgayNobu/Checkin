@@ -28,6 +28,7 @@ model Program {
   department    Department? @relation(fields: [departmentId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_programs_department")
   modules       Module[]
   curriculum    ProgramModule[]
+  slots         TimetableSlot[]
 
   @@map("programs")
 }
@@ -56,6 +57,7 @@ model User {
   reviewed      EvidenceDocument[] @relation("EvidenceReviewer")
   notifications Notification[]
   auditLogs     AuditLog[]
+  slots         TimetableSlot[]
 
   @@map("users")
 }
@@ -75,6 +77,7 @@ model Module {
   enrollments  Enrollment[]
   evidence     EvidenceDocument[]
   curriculum   ProgramModule[]
+  slots        TimetableSlot[]
 
   @@map("modules")
 }
@@ -115,6 +118,8 @@ model ClassSession {
   duration    Int
   sessionType String?          @map("session_type")
   status      String           @default("scheduled") @db.VarChar(20)
+  slotId      String?          @map("slot_id") @db.VarChar(10)
+  slot        TimetableSlot?   @relation(fields: [slotId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_slot")
   section     Section          @relation(fields: [sectionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   codes       AttendanceCode[]
   attendance  Attendance[]
@@ -205,4 +210,45 @@ model AuditLog {
   admin     User     @relation(fields: [adminId], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
   @@map("audit_logs")
+}
+model Room {
+  id        String          @id @default(dbgenerated("gen_id('RM'::text, 'seq_rooms'::text)")) @map("room_id") @db.VarChar(10)
+  name      String          @unique(map: "uq_rooms_name") @map("room_name") @db.VarChar(50)
+  capacity  Int?
+  location  String?         @db.VarChar(100)
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime        @default(now()) @map("created_at")
+  slots     TimetableSlot[]
+
+  @@map("rooms")
+}
+
+/// One fixed weekly class from the college timetable (e.g. SWE Year 1, Monday 09:00-10:00, MAT205 lecture in IT-05)
+model TimetableSlot {
+  id              String         @id @default(dbgenerated("gen_id('TS'::text, 'seq_slots'::text)")) @map("slot_id") @db.VarChar(10)
+  programId       String         @map("program_id") @db.VarChar(10)
+  year            Int
+  semester        Int            @default(1)
+  academicSession String         @default("AS2026") @map("academic_session") @db.VarChar(10)
+  dayOfWeek       Int            @map("day_of_week")
+  startTime       DateTime       @map("start_time") @db.Time(6)
+  endTime         DateTime       @map("end_time") @db.Time(6)
+  moduleCode      String         @map("module_code") @db.VarChar(15)
+  moduleId        String?        @map("module_id") @db.VarChar(10)
+  sessionType     String         @default("theory") @map("session_type") @db.VarChar(10)
+  groupLabel      String?        @map("group_label") @db.VarChar(5)
+  roomId          String?        @map("room_id") @db.VarChar(10)
+  tutorNames      String?        @map("tutor_names") @db.VarChar(255)
+  tutorId         String?        @map("tutor_id") @db.VarChar(10)
+  note            String?        @db.VarChar(50)
+  program         Program        @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_slots_program")
+  module          Module?        @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_module")
+  room            Room?          @relation(fields: [roomId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_room")
+  tutor           User?          @relation(fields: [tutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_tutor")
+  sessions        ClassSession[]
+
+  @@index([programId, year], map: "idx_slots_program_year")
+  @@index([tutorId], map: "idx_slots_tutor")
+  @@map("timetable_slots")
 }
