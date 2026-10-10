@@ -37,7 +37,7 @@ export default function Landing() {
           <small>College of Science and Technology</small>
           <div className="cont">CONTINUE AS</div>
           <div className="opt hot" onClick={() => nav('/login')}>
-            <div><b>Student</b><small>Check in, view attendance, request relief</small></div>›
+            <div><b>Student</b><small>Check in, view attendance, submit evidence documents</small></div>›
           </div>
           <div className="opt" onClick={() => nav('/login?as=teacher')}>
             <div><b>Teacher</b><small>Manage sessions and rosters</small></div>›

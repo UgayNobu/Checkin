@@ -133,7 +133,7 @@ model Enrollment {
 }
 
 model EvidenceDocument {
-  id          String   @id @default(dbgenerated("gen_id('R'::text, 'seq_relief'::text)")) @map("request_id")
+  id          String   @id @default(dbgenerated("gen_id('E'::text, 'seq_evidence'::text)")) @map("evidence_id")
   studentId   String   @map("student_id")
   moduleId    String   @map("module_id")
   date        DateTime @db.Date
@@ -149,7 +149,7 @@ model EvidenceDocument {
   module      Module   @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   reviewer    User?    @relation("EvidenceReviewer", fields: [reviewedBy], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
-  @@map("relief_requests")
+  @@map("evidence_documents")
 }
 
 model Notification {

@@ -20,7 +20,7 @@ const apiStatus = (x) => (OK.includes(x) ? 'present' : ['Flagged', 'Pending revi
 const haversine = (a, b, c, d) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(h)); };
 const at = (x) => new Date(x.date.toISOString().slice(0, 10) + 'T' + x.startTime.toISOString().slice(11, 19) + 'Z'); // date + start_time as one instant
 const userOut = (u) => ({ _id: u.id, userId: u.id, name: u.name, email: u.email, phone: u.phone, department: u.department, designation: u.designation, programme: u.programme,
-  role: roleOut(u.role), active: u.isActive, createdAt: u.createdAt, avatarUrl: u.avatarUrl || null, prefs: { low: true, relief: true, reminders: false, email: true, sms: false, push: true, ...(u.prefs || {}) } });
+  role: roleOut(u.role), active: u.isActive, createdAt: u.createdAt, avatarUrl: u.avatarUrl || null, prefs: { low: true, evidence: true, reminders: false, email: true, sms: false, push: true, ...(u.prefs || {}) } });
 const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const audit = (adminId, action, details) => prisma.auditLog.create({ data: { adminId, action, details } }).catch(() => {});
 const notify = (userId, message, category) => prisma.notification.create({ data: { userId, message, category } }).catch(() => {});
@@ -280,7 +280,7 @@ app.get('/api/management/module/:id', mg, wrap(async (q, s) => {
   const att = await prisma.attendance.findMany({ where: { sessionId: { in: ses.map((x) => x.id) }, status: { in: OK } } });
   const rows = en.map(({ student: u }) => { const got = new Set(att.filter((a) => a.studentId === u.id).map((a) => a.sessionId)), missed = ses.filter((x) => !got.has(x.id));
     return { id: u.id, userId: u.id, name: u.name, absences: missed.length, absentH: missed.reduce((t, x) => t + x.duration / 60, 0), pct: ses.length ? Math.round(got.size / ses.length * 1000) / 10 : 0 }; });
-  s.json({ module: { name: m.name, code: m.code }, totals: { students: rows.length, absence: rows.reduce((t, r) => t + r.absences, 0), relief: await prisma.evidenceDocument.count({ where: { moduleId: m.id, status: 'Approved' } }) }, rows });
+  s.json({ module: { name: m.name, code: m.code }, totals: { students: rows.length, absence: rows.reduce((t, r) => t + r.absences, 0), evidence: await prisma.evidenceDocument.count({ where: { moduleId: m.id, status: 'Approved' } }) }, rows });
 }));
 app.get('/api/management/student/:id', mg, wrap(async (q, s) => {
   const st = await prisma.user.findUnique({ where: { id: q.params.id } }), ses = await sessionsOf(q.query.module), got = new Set((await attended(st.id, ses.map((x) => x.id))).map((a) => a.sessionId));

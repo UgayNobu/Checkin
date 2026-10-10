@@ -66,7 +66,7 @@ export default function Settings() {
       'Instant notification if attendance slips below critical 85% requirement.',
     ],
     [
-      'relief',
+      'evidence',
       'Update Evidence Details',
       'Get updates as soon as your submitted absence requests are processed.',
     ],
