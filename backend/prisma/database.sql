@@ -5,6 +5,52 @@
 
 BEGIN;
 
+-- ===== Part 0: rename relief_requests -> evidence_documents, remove the credit system =====
+DO $$
+BEGIN
+  IF to_regclass('public.relief_requests') IS NOT NULL AND to_regclass('public.evidence_documents') IS NULL THEN
+    ALTER TABLE relief_requests RENAME TO evidence_documents;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'evidence_documents' AND column_name = 'request_id') THEN
+    ALTER TABLE evidence_documents RENAME COLUMN request_id TO evidence_id;
+  END IF;
+  IF to_regclass('public.seq_relief') IS NOT NULL AND to_regclass('public.seq_evidence') IS NULL THEN
+    ALTER SEQUENCE seq_relief RENAME TO seq_evidence;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_relief_status') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT chk_relief_status TO chk_evidence_status;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_module') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_module TO fk_evidence_module;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_reviewer') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_reviewer TO fk_evidence_reviewer;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_student') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_student TO fk_evidence_student;
+  END IF;
+END $$;
+ALTER INDEX IF EXISTS relief_requests_pkey   RENAME TO evidence_documents_pkey;
+ALTER INDEX IF EXISTS idx_relief_module_date RENAME TO idx_evidence_module_date;
+ALTER INDEX IF EXISTS idx_relief_student     RENAME TO idx_evidence_student;
+ALTER TABLE evidence_documents DROP CONSTRAINT IF EXISTS chk_relief_leave_type;
+ALTER TABLE evidence_documents ALTER COLUMN evidence_id SET DEFAULT gen_id('E', 'seq_evidence');
+
+-- existing IDs R001.. become E001.., and old wording is updated
+UPDATE evidence_documents SET evidence_id = 'E' || substring(evidence_id from 2) WHERE evidence_id ~ '^R[0-9]+$';
+UPDATE evidence_documents SET document_url = replace(replace(document_url, '/uploads/relief/R', '/uploads/evidence/E'), '/uploads/relief/', '/uploads/evidence/')
+  WHERE document_url LIKE '/uploads/relief/%';
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS chk_notif_category;
+UPDATE notifications SET category = 'Evidence Documents' WHERE category = 'Relief Requests';
+UPDATE notifications SET message = replace(replace(message, 'relief request R', 'evidence document E'), 'relief request', 'evidence document')
+  WHERE message ILIKE '%relief request%';
+
+-- credit system removed (decided by the team)
+DROP VIEW IF EXISTS student_credit_balance;
+DROP TABLE IF EXISTS credit_records;
+DROP SEQUENCE IF EXISTS seq_credit;
+DELETE FROM audit_logs WHERE action ILIKE '%credit%' OR details ILIKE '%credit%';
+
 -- ===== Part 1: columns the frontend needs =====
 -- users: extra profile fields the frontend needs
 ALTER TABLE users
@@ -31,12 +77,12 @@ ALTER TABLE class_sessions DROP CONSTRAINT IF EXISTS chk_sessions_type;
 ALTER TABLE class_sessions ADD CONSTRAINT chk_sessions_type
   CHECK (session_type IS NULL OR session_type IN ('theory','practical'));
 
--- relief_requests = the backend's "EvidenceDocument"
-ALTER TABLE relief_requests
+-- evidence_documents: leave type + created time
+ALTER TABLE evidence_documents
   ADD COLUMN IF NOT EXISTS leave_type varchar(10),
   ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
-ALTER TABLE relief_requests DROP CONSTRAINT IF EXISTS chk_relief_leave_type;
-ALTER TABLE relief_requests ADD CONSTRAINT chk_relief_leave_type
+ALTER TABLE evidence_documents DROP CONSTRAINT IF EXISTS chk_evidence_leave_type;
+ALTER TABLE evidence_documents ADD CONSTRAINT chk_evidence_leave_type
   CHECK (leave_type IS NULL OR leave_type IN ('Medical','Official'));
 
 -- enrollments: backend never sends academic_year, so give it a default
@@ -49,7 +95,7 @@ ALTER TABLE attendance ALTER COLUMN "timestamp" SET DEFAULT now();
 -- notifications: backend uses the category 'Evidence Documents'
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS chk_notif_category;
 ALTER TABLE notifications ADD CONSTRAINT chk_notif_category
-  CHECK (category IN ('Attendance','Relief Requests','Evidence Documents','System','Reminders'));
+  CHECK (category IN ('Attendance','Evidence Documents','System','Reminders'));
 
 -- ===== Part 2: columns for the extra backend features =====
 -- users: profile picture + last-updated time
@@ -70,8 +116,8 @@ ALTER TABLE attendance
   ADD COLUMN IF NOT EXISTS distance_meters double precision,
   ADD COLUMN IF NOT EXISTS flag_reason     varchar(100);
 
--- relief_requests: uploaded file's original name + when it was reviewed
-ALTER TABLE relief_requests
+-- evidence_documents: uploaded file's original name + when it was reviewed
+ALTER TABLE evidence_documents
   ADD COLUMN IF NOT EXISTS original_filename varchar(255),
   ADD COLUMN IF NOT EXISTS reviewed_at       timestamptz;
 
@@ -144,34 +190,26 @@ INSERT INTO enrollments (student_id, module_id, academic_year, enrolled_date) VA
   ('U007', 'M002', '2026-27', '2026-08-12')
 ON CONFLICT DO NOTHING;
 
--- relief_requests (3 rows)
-INSERT INTO relief_requests (request_id, student_id, module_id, date, reason, document_url, status, reviewed_by) VALUES
-  ('R001', 'U006', 'M001', '2026-09-14', 'Medical appointment', '/uploads/relief/R001_medical_certificate.pdf', 'Pending', NULL),
-  ('R002', 'U005', 'M001', '2026-09-16', 'Family emergency', '/uploads/relief/R002_supporting_letter.pdf', 'Approved', 'U002'),
-  ('R003', 'U007', 'M002', '2026-09-14', 'Personal reasons', NULL, 'Rejected', 'U003')
-ON CONFLICT DO NOTHING;
-
--- credit_records (3 rows)
-INSERT INTO credit_records (credit_id, student_id, points, reason, awarded_by, date) VALUES
-  ('C001', 'U004', '5', 'Perfect attendance - week 2 of September', 'U001', '2026-09-18'),
-  ('C002', 'U005', '3', 'Consistent early check-in', 'U001', '2026-09-18'),
-  ('C003', 'U007', '2', 'Class participation', 'U001', '2026-09-18')
+-- evidence_documents (3 rows)
+INSERT INTO evidence_documents (evidence_id, student_id, module_id, date, reason, document_url, status, reviewed_by) VALUES
+  ('E001', 'U006', 'M001', '2026-09-14', 'Medical appointment', '/uploads/evidence/E001_medical_certificate.pdf', 'Pending', NULL),
+  ('E002', 'U005', 'M001', '2026-09-16', 'Family emergency', '/uploads/evidence/E002_supporting_letter.pdf', 'Approved', 'U002'),
+  ('E003', 'U007', 'M002', '2026-09-14', 'Personal reasons', NULL, 'Rejected', 'U003')
 ON CONFLICT DO NOTHING;
 
 -- notifications (4 rows)
 INSERT INTO notifications (notification_id, user_id, message, category, is_read, created_at) VALUES
   ('N001', 'U005', 'Attendance below 90% in Database Systems.', 'Attendance', 'f', '2026-09-15 02:00:00+00'),
-  ('N002', 'U002', 'New relief request submitted by Choki Wangdi.', 'Relief Requests', 'f', '2026-09-14 08:20:00+00'),
-  ('N003', 'U005', 'Your relief request R002 has been approved.', 'Relief Requests', 't', '2026-09-16 10:45:00+00'),
+  ('N002', 'U002', 'New evidence document submitted by Choki Wangdi.', 'Evidence Documents', 'f', '2026-09-14 08:20:00+00'),
+  ('N003', 'U005', 'Your evidence document E002 has been approved.', 'Evidence Documents', 't', '2026-09-16 10:45:00+00'),
   ('N004', 'U004', 'Reminder: Database Systems class tomorrow at 09:00.', 'Reminders', 'f', '2026-09-15 12:00:00+00')
 ON CONFLICT DO NOTHING;
 
--- audit_logs (4 rows)
+-- audit_logs (3 rows)
 INSERT INTO audit_logs (log_id, admin_id, action, details, "timestamp") VALUES
   ('L001', 'U001', 'User Created', 'Created student account U007', '2026-08-12 04:15:00+00'),
   ('L002', 'U001', 'Role Changed', 'Changed U003 role to tutor', '2026-08-05 03:30:00+00'),
-  ('L003', 'U001', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00'),
-  ('L004', 'U001', 'Credits Awarded', 'Awarded 5 points to U004', '2026-09-18 06:10:00+00')
+  ('L003', 'U001', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00')
 ON CONFLICT DO NOTHING;
 
 -- Move ID counters past the seeded IDs so new rows don't clash
@@ -181,8 +219,7 @@ SELECT setval('seq_modules', GREATEST((SELECT last_value FROM seq_modules), (SEL
 SELECT setval('seq_sections', GREATEST((SELECT last_value FROM seq_sections), (SELECT COALESCE(MAX(substring(section_id from '^SEC([0-9]+)$')::int), 1) FROM sections)));
 SELECT setval('seq_sessions', GREATEST((SELECT last_value FROM seq_sessions), (SELECT COALESCE(MAX(substring(session_id from '^S([0-9]+)$')::int), 1) FROM class_sessions)));
 SELECT setval('seq_attendance', GREATEST((SELECT last_value FROM seq_attendance), (SELECT COALESCE(MAX(substring(attendance_id from '^A([0-9]+)$')::int), 1) FROM attendance)));
-SELECT setval('seq_relief', GREATEST((SELECT last_value FROM seq_relief), (SELECT COALESCE(MAX(substring(request_id from '^R([0-9]+)$')::int), 1) FROM relief_requests)));
-SELECT setval('seq_credit', GREATEST((SELECT last_value FROM seq_credit), (SELECT COALESCE(MAX(substring(credit_id from '^C([0-9]+)$')::int), 1) FROM credit_records)));
+SELECT setval('seq_evidence', GREATEST((SELECT last_value FROM seq_evidence), (SELECT COALESCE(MAX(substring(evidence_id from '^E([0-9]+)$')::int), 1) FROM evidence_documents)));
 SELECT setval('seq_notif', GREATEST((SELECT last_value FROM seq_notif), (SELECT COALESCE(MAX(substring(notification_id from '^N([0-9]+)$')::int), 1) FROM notifications)));
 SELECT setval('seq_audit', GREATEST((SELECT last_value FROM seq_audit), (SELECT COALESCE(MAX(substring(log_id from '^L([0-9]+)$')::int), 1) FROM audit_logs)));
 

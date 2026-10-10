@@ -13,7 +13,7 @@ All routes need `Authorization: Bearer <token>`, except `/health`.
 | GET | `/api/sessions/:id/roster` | teacher | Live list: every enrolled student with present/flagged/absent, flag reason, distance and GPS accuracy, plus counts |
 | POST | `/api/sessions/:id/flagged/:attendanceId/accept` | teacher | Marks a flagged check-in Present and notifies the student (optional body `{ note }`) |
 | POST | `/api/sessions/:id/flagged/:attendanceId/reject` | teacher | Marks a flagged check-in Absent and notifies the student |
-| GET | `/api/evidence/:id` | student (own), teacher (own module), admin, management | One relief request, with file name, reviewer and review time |
+| GET | `/api/evidence/:id` | student (own), teacher (own module), admin, management | One evidence document, with file name, reviewer and review time |
 | GET | `/api/teacher/records-export/:moduleId/csv` | teacher | Downloads the module's attendance as CSV |
 | GET | `/api/teacher/records-export/:moduleId/pdf` | teacher | Downloads the module's attendance as PDF |
 | GET | `/api/admin/tutors/pending` | admin, management | Tutor sign-ups waiting for approval |
