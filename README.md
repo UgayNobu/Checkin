@@ -119,7 +119,7 @@ The whole team shares **one** Supabase database, so database changes go through 
 - After any change to `schema.prisma`, everyone runs `npm run generate`.
 - **Never** run `prisma migrate` or `prisma db push` against Supabase. They can drop tables.
 
-Main tables: `users`, `programs`, `modules`, `sections`, `enrollments`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `notifications`, `audit_logs`.
+Main tables: `users`, `departments`, `programs`, `modules`, `sections`, `enrollments`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `notifications`, `audit_logs`.
 
 ## Environment variables & secrets
 
