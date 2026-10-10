@@ -150,7 +150,17 @@ ALTER TABLE programs DROP CONSTRAINT IF EXISTS chk_programs_level;
 ALTER TABLE programs ADD CONSTRAINT chk_programs_level CHECK (level IS NULL OR level IN ('Bachelor', 'Master'));
 CREATE INDEX IF NOT EXISTS idx_programs_department ON programs (department_id);
 
+-- ===== Part 4: VLE-style enrolment (keys unique per module, self-enrolment on/off) =====
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS self_enrol boolean NOT NULL DEFAULT true;
+UPDATE modules SET enrolment_key = NULL WHERE enrolment_key IS NOT NULL AND trim(enrolment_key) = '';
+-- if two modules share a key, keep it on the first module and clear the others (tutors then set a new one)
+UPDATE modules m SET enrolment_key = NULL
+WHERE m.enrolment_key IS NOT NULL
+  AND EXISTS (SELECT 1 FROM modules o WHERE lower(o.enrolment_key) = lower(m.enrolment_key) AND o.module_id < m.module_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_modules_enrolment_key ON modules (lower(enrolment_key)) WHERE enrolment_key IS NOT NULL;
+
 COMMIT;
+
 
 
 -- ===== SEED DATA (real CheckIn data, exported from Supabase on 2026-10-08) =====

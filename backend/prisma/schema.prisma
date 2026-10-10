@@ -67,6 +67,7 @@ model Module {
   year         Int?
   semester     Int?
   enrolmentKey String?            @map("enrolment_key")
+  selfEnrol    Boolean            @default(true) @map("self_enrol")
   moduleCount  Int?               @map("module_count")
   program      Program            @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   sections     Section[]
