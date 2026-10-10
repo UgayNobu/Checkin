@@ -8,6 +8,8 @@ All routes need `Authorization: Bearer <token>`, except `/health`.
 | Method | Route | Who | What it does |
 |---|---|---|---|
 | GET | `/health` | anyone | Server status check |
+| GET | `/api/departments` | anyone | All departments with their programmes (used by the sign-up form) |
+| GET | `/api/programs?level=Bachelor` | anyone | All programmes with level, duration and department (`level` filter optional) |
 | GET | `/api/sessions/mine?limit=50` | teacher | The teacher's sessions, newest first, with status and number of check-ins |
 | POST | `/api/sessions/:id/end` | teacher | Ends a session; its code stops working immediately |
 | GET | `/api/sessions/:id/roster` | teacher | Live list: every enrolled student with present/flagged/absent, flag reason, distance and GPS accuracy, plus counts |

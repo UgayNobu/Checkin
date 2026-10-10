@@ -8,10 +8,25 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Department {
+  id        String    @id @default(dbgenerated("gen_id('D'::text, 'seq_departments'::text)")) @map("department_id") @db.VarChar(10)
+  code      String    @unique(map: "uq_departments_code") @map("department_code") @db.VarChar(10)
+  name      String    @unique(map: "uq_departments_name") @map("department_name") @db.VarChar(100)
+  website   String?   @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at")
+  programs  Program[]
+
+  @@map("departments")
+}
+
 model Program {
-  id      String   @id @default(dbgenerated("gen_id('P'::text, 'seq_programs'::text)")) @map("program_id")
-  name    String   @map("program_name")
-  modules Module[]
+  id            String      @id @default(dbgenerated("gen_id('P'::text, 'seq_programs'::text)")) @map("program_id")
+  name          String      @map("program_name")
+  departmentId  String?     @map("department_id") @db.VarChar(10)
+  level         String?     @db.VarChar(10)
+  durationYears Int?        @map("duration_years")
+  department    Department? @relation(fields: [departmentId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_programs_department")
+  modules       Module[]
 
   @@map("programs")
 }

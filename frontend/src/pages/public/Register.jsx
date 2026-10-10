@@ -1,21 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import './public.css';
 
-const PROG = [
-  'BE Information Technology',
-  'BE Software Engineering',
-  'BE Civil Engineering',
-  'BE Electrical Engineering',
-];
-
-const DEPT = [
-  'Dept. of Information Technology',
-  'Dept. of Software Engineering',
-  'Dept. of Civil Engineering',
-  'Dept. of Electrical Engineering',
-];
+// Fallback lists, used only if the backend can't be reached. The real lists come from /api/programs and /api/departments.
+const PROG = ['B.E. Information Technology', 'B.E. Software Engineering'];
+const DEPT = ['Computing Technologies Department'];
 
 export default function Register() {
   const [params] = useSearchParams();
@@ -32,6 +22,13 @@ export default function Register() {
     again: '',
   });
   const [msg, setMsg] = useState('');
+  const [lists, setLists] = useState({ prog: PROG, dept: DEPT });
+
+  useEffect(() => {
+    Promise.all([api('/programs?level=Bachelor'), api('/departments')])
+      .then(([p, d]) => setLists({ prog: p.map((x) => x.name), dept: d.map((x) => x.name) }))
+      .catch(() => {});
+  }, []);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -104,7 +101,7 @@ export default function Register() {
         <label>{tutor ? 'Department' : 'Programme'}</label>
         <select value={f.pick} onChange={set('pick')}>
           <option value="">Select</option>
-          {(tutor ? DEPT : PROG).map((x) => (
+          {(tutor ? lists.dept : lists.prog).map((x) => (
             <option key={x}>{x}</option>
           ))}
         </select>

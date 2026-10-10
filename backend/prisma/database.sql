@@ -121,7 +121,37 @@ ALTER TABLE evidence_documents
   ADD COLUMN IF NOT EXISTS original_filename varchar(255),
   ADD COLUMN IF NOT EXISTS reviewed_at       timestamptz;
 
+-- ===== Part 3: departments (from cst.edu.bt) and programme details =====
+CREATE SEQUENCE IF NOT EXISTS seq_departments;
+CREATE TABLE IF NOT EXISTS departments (
+  department_id   varchar(10)  PRIMARY KEY DEFAULT gen_id('D', 'seq_departments'),
+  department_code varchar(10)  NOT NULL,
+  department_name varchar(100) NOT NULL,
+  website         varchar(255),
+  created_at      timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT uq_departments_code UNIQUE (department_code),
+  CONSTRAINT uq_departments_name UNIQUE (department_name)
+);
+ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+
+-- each programme belongs to a department; level = Bachelor/Master
+ALTER TABLE programs
+  ADD COLUMN IF NOT EXISTS department_id  varchar(10),
+  ADD COLUMN IF NOT EXISTS level          varchar(10),
+  ADD COLUMN IF NOT EXISTS duration_years int;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_programs_department') THEN
+    ALTER TABLE programs ADD CONSTRAINT fk_programs_department FOREIGN KEY (department_id)
+      REFERENCES departments(department_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+ALTER TABLE programs DROP CONSTRAINT IF EXISTS chk_programs_level;
+ALTER TABLE programs ADD CONSTRAINT chk_programs_level CHECK (level IS NULL OR level IN ('Bachelor', 'Master'));
+CREATE INDEX IF NOT EXISTS idx_programs_department ON programs (department_id);
+
 COMMIT;
+
 
 -- ===== SEED DATA (real CheckIn data, exported from Supabase on 2026-10-08) =====
 -- programs (3 rows)
@@ -229,3 +259,52 @@ FROM (SELECT DISTINCT ON (e.student_id) e.student_id, pr.program_name
       FROM enrollments e JOIN modules m ON m.module_id = e.module_id JOIN programs pr ON pr.program_id = m.program_id
       ORDER BY e.student_id, e.enrolled_date) p
 WHERE u.user_id = p.student_id AND u.role = 'student' AND u.programme IS NULL;
+
+-- ===== departments + all CST programmes (source: cst.edu.bt, October 2026) =====
+INSERT INTO departments (department_id, department_code, department_name, website) VALUES
+  ('D001', 'AD',   'Architecture Department',                            'https://ad.cst.edu.bt'),
+  ('D002', 'CEED', 'Civil and Environmental Engineering Department',     'https://ceed.cst.edu.bt'),
+  ('D003', 'CTD',  'Computing Technologies Department',                  'https://ctd.cst.edu.bt'),
+  ('D004', 'EEED', 'Electrical and Electronics Engineering Department',  'https://eeed.cst.edu.bt'),
+  ('D005', 'MED',  'Mechanical Engineering Department',                  'https://med.cst.edu.bt'),
+  ('D006', 'SHD',  'Science and Humanities Department',                  'https://shd.cst.edu.bt')
+ON CONFLICT DO NOTHING;
+SELECT setval('seq_departments', GREATEST((SELECT last_value FROM seq_departments), (SELECT COALESCE(MAX(substring(department_id from '^D([0-9]+)$')::int), 1) FROM departments)));
+
+-- add the programmes we don't have yet (matched by name, new IDs come from seq_programs)
+INSERT INTO programs (program_name)
+SELECT v.name FROM (VALUES
+  ('B.E. Civil Engineering'),
+  ('B.E. Electrical Engineering'),
+  ('Bachelor of Architecture'),
+  ('B.E. Engineering Geology'),
+  ('B.E. Instrumentation and Control Engineering'),
+  ('B.E. Water Resource Engineering'),
+  ('B.E. Mechanical Engineering'),
+  ('Master of Engineering in Renewable Energy'),
+  ('Master in Construction Management'),
+  ('Master of Science in Engineering (by Research)')
+) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM programs p WHERE lower(p.program_name) = lower(v.name));
+
+-- link every programme to its department (NULL where the website doesn't say)
+UPDATE programs p SET
+  department_id  = COALESCE(p.department_id, m.dept),
+  level          = COALESCE(p.level, m.lvl),
+  duration_years = COALESCE(p.duration_years, m.yrs)
+FROM (VALUES
+  ('B.E. Software Engineering',                      'D003', 'Bachelor', 4),
+  ('B.E. Information Technology',                    'D003', 'Bachelor', 4),
+  ('B.E. Civil Engineering',                         'D002', 'Bachelor', 4),
+  ('B.E. Engineering Geology',                       'D002', 'Bachelor', 4),
+  ('B.E. Water Resource Engineering',                'D002', 'Bachelor', 4),
+  ('B.E. Electrical Engineering',                    'D004', 'Bachelor', 4),
+  ('B.E. Electronics and Communication',             'D004', 'Bachelor', 4),
+  ('B.E. Instrumentation and Control Engineering',   'D004', 'Bachelor', 4),
+  ('B.E. Mechanical Engineering',                    'D005', 'Bachelor', 4),
+  ('Bachelor of Architecture',                       'D001', 'Bachelor', 5),
+  ('Master in Construction Management',              'D002', 'Master',   NULL),
+  ('Master of Engineering in Renewable Energy',      NULL,   'Master',   NULL),
+  ('Master of Science in Engineering (by Research)', NULL,   'Master',   NULL)
+) AS m(name, dept, lvl, yrs)
+WHERE lower(p.program_name) = lower(m.name);

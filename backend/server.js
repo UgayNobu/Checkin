@@ -489,5 +489,11 @@ app.post('/api/me/avatar', auth(), avatarUpload.single('file'), wrap(async (q, s
 app.delete('/api/me/avatar', auth(), wrap(async (q, s) => s.json(userOut(await prisma.user.update({ where: { id: q.user.id }, data: { avatarUrl: null } })))));
 
 
+// ---------- Departments & programmes (public: used by the sign-up form) ----------
+const progOut = (p) => ({ id: p.id, name: p.name, level: p.level, years: p.durationYears, department: p.department ? { id: p.department.id, code: p.department.code, name: p.department.name } : null });
+app.get('/api/departments', wrap(async (q, s) => s.json((await prisma.department.findMany({ include: { programs: { orderBy: { name: 'asc' } } }, orderBy: { name: 'asc' } }))
+  .map((d) => ({ id: d.id, code: d.code, name: d.name, website: d.website, programs: d.programs.map(({ id, name, level, durationYears }) => ({ id, name, level, years: durationYears })) })))));
+app.get('/api/programs', wrap(async (q, s) => s.json((await prisma.program.findMany({ where: { ...(q.query.level && { level: q.query.level }) }, include: { department: true }, orderBy: { name: 'asc' } })).map(progOut))));
+
 app.listen(process.env.PORT || 5000, () => console.log('CheckIn API ready (PostgreSQL + Prisma)'));
  
