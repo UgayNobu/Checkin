@@ -409,6 +409,8 @@ export function Enrol() {
             </small>
           </p>
 
+          {chosen.enrolled && <p className="foot">You are already enrolled in this module.</p>}
+          {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
           <label>Enrolment Key</label>
           <input
             className="grey"
@@ -420,7 +422,7 @@ export function Enrol() {
           <button
             className="join"
             onClick={() =>
-              api('/modules/enrol', { key })
+              api('/modules/enrol', { module: f.module, key })
                 .then((r) => setMsg(r.message))
                 .catch((e) => setMsg(e.message))
             }

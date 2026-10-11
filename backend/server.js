@@ -450,25 +450,36 @@ app.get('/api/student/modules/:id/records', auth('student'), wrap(async (req, re
 }));
 
 app.get('/api/modules/browse', auth('student'), wrap(async (req, res) => {
-  const l = await prisma.module.findMany({
-    include: { program: true, sections: { take: 1 }, _count: { select: { enrollments: true } } },
-    orderBy: { code: 'asc' },
+  const mineIds = new Set((await prisma.enrollment.findMany({ where: { studentId: req.user.id }, select: { moduleId: true } })).map((e) => e.moduleId));
+  // one row per programme/year/semester the module belongs to (program_modules)
+  const l = await prisma.programModule.findMany({
+    include: { program: true, module: { include: { sections: { take: 1 }, _count: { select: { enrollments: true } } } } },
+    orderBy: { module: { code: 'asc' } },
   });
-  res.json(l.map((m) => ({
+  res.json(l.map(({ module: m, program, year, semester }) => ({
     id: m.id,
     name: m.name,
     code: m.code,
-    year: m.year,
-    semester: m.semester,
-    department: m.program.name,
+    year,
+    semester,
+    department: program.name,
     section: m.sections[0]?.name,
     students: m._count.enrollments,
+    selfEnrol: m.selfEnrol,
+    enrolled: mineIds.has(m.id),
   })));
 }));
 
+// VLE-style enrolment: body { module, key } (or just { key })
 app.post('/api/modules/enrol', auth('student'), wrap(async (req, res) => {
-  const m = await prisma.module.findFirst({ where: { enrolmentKey: req.body.key || '__none__' } });
-  if (!m) throw Error('Enrolment key not found');
+  const key = String(req.body.key || '').trim();
+  if (!key) throw Error('Please enter the enrolment key');
+  const m = req.body.module
+    ? await prisma.module.findUnique({ where: { id: String(req.body.module) } })
+    : await prisma.module.findFirst({ where: { enrolmentKey: { equals: key, mode: 'insensitive' } } });
+  if (!m) throw Error(req.body.module ? 'Module not found' : 'Enrolment key not found');
+  if (!m.selfEnrol) throw Error('Self-enrolment is closed for this module. Ask your tutor to add you.');
+  if (!m.enrolmentKey || m.enrolmentKey.toLowerCase() !== key.toLowerCase()) throw Error('Wrong enrolment key for this module');
   const exists = await prisma.enrollment.findUnique({
     where: { studentId_moduleId: { studentId: req.user.id, moduleId: m.id } },
   });
@@ -635,6 +646,7 @@ app.get('/api/teacher/modules', auth('teacher'), wrap(async (req, res) => {
       section: x.name,
       students: await prisma.enrollment.count({ where: { moduleId: x.moduleId } }),
       enrolmentKey: x.module.enrolmentKey,
+      selfEnrol: x.module.selfEnrol,
     });
   }
   res.json(out);
@@ -642,7 +654,16 @@ app.get('/api/teacher/modules', auth('teacher'), wrap(async (req, res) => {
 
 app.put('/api/modules/:id/key', auth('teacher'), wrap(async (req, res) => {
   if (!(await mine(req.params.id, req.user.id))) throw Error('This is not your module');
-  res.json(await prisma.module.update({ where: { id: req.params.id }, data: { enrolmentKey: req.body.key } }));
+  const data = {};
+  if (req.body.key !== undefined) {
+    const key = String(req.body.key || '').trim() || null;
+    if (key && await prisma.module.findFirst({ where: { enrolmentKey: { equals: key, mode: 'insensitive' }, NOT: { id: req.params.id } } }))
+      throw Error('This key is already used by another module. Please choose a different one.');
+    data.enrolmentKey = key;
+  }
+  if (typeof req.body.selfEnrol === 'boolean') data.selfEnrol = req.body.selfEnrol;
+  const m = await prisma.module.update({ where: { id: req.params.id }, data });
+  res.json({ id: m.id, enrolmentKey: m.enrolmentKey, selfEnrol: m.selfEnrol });
 }));
 
 app.get('/api/modules/:id/students', auth('teacher', 'admin', 'management'), wrap(async (req, res) => {
@@ -1169,12 +1190,14 @@ app.post('/api/admin/tutors/:id/reject', auth('admin'), wrap(async (req, res) =>
 /* ---------- Modules (admin assigns the tutor here) ---------- */
 app.get('/api/admin/modules', auth('admin'), wrap(async (req, res) => {
   const { department, year, semester } = req.query;
+  // filter through program_modules so shared modules show under every programme
+  const cur = {
+    ...(department && { program: { name: department } }),
+    ...(year && { year: +year }),
+    ...(semester && { semester: +semester }),
+  };
   const l = await prisma.module.findMany({
-    where: {
-      ...(department && { program: { name: department } }),
-      ...(year && { year: +year }),
-      ...(semester && { semester: +semester }),
-    },
+    where: Object.keys(cur).length ? { curriculum: { some: cur } } : {},
     include: { sections: { include: { tutor: true }, take: 1 } },
     orderBy: { code: 'asc' },
   });
@@ -1200,7 +1223,15 @@ const saveModule = async (id, b) => {
     semester: +b.semester || null,
     moduleCount: +b.count || null,
   };
-  const m = id ? await prisma.module.update({ where: { id }, data }) : await prisma.module.create({ data });
+  // on update keep the module's original programme; the link is stored in program_modules
+  const m = id ? await prisma.module.update({ where: { id }, data: { ...data, programId: undefined } }) : await prisma.module.create({ data });
+  if (data.year && data.semester) {
+    await prisma.programModule.upsert({
+      where: { programId_moduleId: { programId: program.id, moduleId: m.id } },
+      update: { year: data.year, semester: data.semester },
+      create: { programId: program.id, moduleId: m.id, year: data.year, semester: data.semester },
+    });
+  }
 
   if (b.tutorId) {
     const t = await prisma.user.findFirst({ where: { id: b.tutorId, role: 'tutor' } });
@@ -1507,6 +1538,60 @@ app.get('/api/management/history', mg, wrap(async (req, res) => {
 
 app.get('/api/management/calendar', mg, wrap(async (req, res) => {
   res.json(await monthDays(req.query.student, [req.query.module], req.query.month));
+}));
+
+/* =====================================================================
+   12b. Unenrolment, rooms and the fixed weekly timetable
+   ===================================================================== */
+
+// Remove a student from a module (tutor of the module, or admin)
+app.delete('/api/modules/:id/students/:studentId', auth('teacher', 'admin'), wrap(async (req, res) => {
+  if (req.user.role === 'teacher' && !(await mine(req.params.id, req.user.id))) throw Error('This is not your module');
+  const m = await prisma.module.findUnique({ where: { id: req.params.id } });
+  if (!m) throw Error('Module not found');
+  const r = await prisma.enrollment.deleteMany({ where: { moduleId: m.id, studentId: req.params.studentId } });
+  if (!r.count) throw Error('That student is not enrolled in this module');
+  await notify(req.params.studentId, `You were removed from ${m.code} - ${m.name}.`, 'System');
+  if (req.user.role === 'admin') await audit(req.user.id, 'Student Unenrolled', `${req.params.studentId} from ${m.code}`);
+  res.json({ message: 'Student removed from the module' });
+}));
+
+const DAY = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const hhmm = (t) => t.toISOString().slice(11, 16);
+const slotOut = (x) => ({
+  id: x.id, day: DAY[x.dayOfWeek], dayOfWeek: x.dayOfWeek, start: hhmm(x.startTime), end: hhmm(x.endTime),
+  year: x.year, semester: x.semester, programme: x.program?.name,
+  module: { id: x.moduleId, code: x.moduleCode, name: x.module?.name || x.moduleCode },
+  type: x.sessionType, group: x.groupLabel,
+  room: x.room ? { id: x.room.id, name: x.room.name, location: x.room.location } : null,
+  tutors: x.tutorNames, note: x.note,
+});
+const slotInclude = { program: true, module: true, room: true };
+const slotOrder = [{ dayOfWeek: 'asc' }, { startTime: 'asc' }];
+
+app.get('/api/rooms', auth(), wrap(async (req, res) => res.json(await prisma.room.findMany({ orderBy: { name: 'asc' } }))));
+
+// Whole timetable for a programme + year (any logged-in user)
+app.get('/api/timetable', auth(), wrap(async (req, res) => {
+  const { program, year } = req.query;
+  if (!program || !year) throw Error('Choose a programme and year');
+  res.json((await prisma.timetableSlot.findMany({ where: { program: { name: program }, year: +year }, include: slotInclude, orderBy: slotOrder })).map(slotOut));
+}));
+
+// A student's own weekly timetable (from their programme and year)
+app.get('/api/student/timetable', auth('student'), wrap(async (req, res) => {
+  const u = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!u.programme) throw Error('Your programme is not set in your profile');
+  res.json((await prisma.timetableSlot.findMany({ where: { program: { name: u.programme }, year: u.year || 1 }, include: slotInclude, orderBy: slotOrder })).map(slotOut));
+}));
+
+// A tutor's own weekly timetable: slots linked to their account, or listing their name
+app.get('/api/teacher/timetable', auth('teacher'), wrap(async (req, res) => {
+  const u = await prisma.user.findUnique({ where: { id: req.user.id } });
+  res.json((await prisma.timetableSlot.findMany({
+    where: { OR: [{ tutorId: u.id }, ...(u.name ? [{ tutorNames: { contains: u.name, mode: 'insensitive' } }] : [])] },
+    include: slotInclude, orderBy: slotOrder,
+  })).map(slotOut));
 }));
 
 /* =====================================================================

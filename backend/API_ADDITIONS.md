@@ -27,6 +27,7 @@ All routes need `Authorization: Bearer <token>`, except `/health`.
 | GET | `/api/admin/reports/at-risk/export.csv` | admin, management | The same list as CSV |
 | GET | `/api/admin/programmes/:name/export.csv` | admin, management | Per-student overall % for one programme (department) |
 | POST | `/api/admin/jobs/low-attendance` | admin | Notifies every student below `REQUIRED_ATTENDANCE_PERCENT` in a module; skips anyone alerted in the last 7 days |
+| DELETE | `/api/modules/:id/students/:studentId` | teacher (own module), admin | Unenrols a student and notifies them |
 | GET | `/api/notifications/unread-count` | any | `{ count }` |
 | POST | `/api/notifications/read-all` | any | Marks all of the user's notifications as read |
 | POST | `/api/me/avatar` | any | Uploads a profile picture (form field `file`; PNG, JPG or WebP; max 2 MB) |
@@ -40,6 +41,12 @@ All routes need `Authorization: Bearer <token>`, except `/health`.
 - `PATCH /api/admin/users/:id` with `active` also updates `users.status`. Pending tutors are those with `is_active = false` and `status = 'active'`.
 - `GET /api/me` (and other user responses) include `avatarUrl`.
 - Security: `helmet` headers and a rate limit of 300 requests per minute per IP.
+
+## Enrolment (VLE-style)
+
+- `POST /api/modules/enrol` takes `{ module, key }`. The key is checked against the module the student picked, like Moodle. It is refused if self-enrolment is closed.
+- `PUT /api/modules/:id/key` takes `{ key }` and/or `{ selfEnrol: true|false }`. Keys must be unique across modules (case-insensitive). An empty key removes it.
+- `GET /api/modules/browse` now returns `selfEnrol` and `enrolled` for each module.
 
 ## Not added
 
