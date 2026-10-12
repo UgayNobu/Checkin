@@ -138,7 +138,7 @@ export default function Settings() {
                 nav('/login');
               }}
             >
-              ⇥ Log out of EduPortal
+              ⇥ Log out
             </button>
           </div>
         </div>

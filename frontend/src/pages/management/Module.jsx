@@ -82,7 +82,7 @@ export function Department() {
   }, [name]);
 
   const pts = d.trend && d.trend.length > 0 
-    ? d.trend.map((v, i) => `${i * 120},${80 - (v - 70) * 1.5}`).join(' ') 
+    ? d.trend.map((v, i) => `${i * 120},${Math.max(0, Math.min(80, 80 - (v - 70) * 1.5))}`).join(' ') // 70–100% fills the chart; lower values sit on the bottom line 
     : '0,80 600,80';
 
   return (
@@ -99,7 +99,7 @@ export function Department() {
 
       <div className="stats">
         <Stat l="Total Students" v={d.students} chip="Active Status" cls="g" />
-        <Stat l="Average Attendance" v={d.avg ? `${d.avg}%` : null} chip="Target Exceeded" cls="g" />
+        <Stat l="Average Attendance" v={d.avg != null ? `${d.avg}%` : null} chip="Target Exceeded" cls="g" />
         <Stat l="Students At Risk" v={d.atRisk} chip="Below 80% Threshold" cls="r" />
       </div>
 
@@ -153,7 +153,7 @@ export function ModuleView() {
       <div className="stats">
         <Stat l="Total Students" v={d.totals?.students} />
         <Stat l="Total Absence" v={d.totals?.absence} />
-        <Stat l="Total Approve/ Relief Request" v={d.totals?.relief} />
+        <Stat l="Approved Evidence Documents" v={d.totals?.evidence} />
       </div>
       <div className="tbl" style={{ maxWidth: 720, marginTop: 20 }}>
         <table>
