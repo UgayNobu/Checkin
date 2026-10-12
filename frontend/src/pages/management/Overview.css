@@ -1,0 +1,130 @@
+/* src/pages/management/Overview.css */
+
+/* Base Layout */
+.mg {
+  max-width: 960px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.mg h2.ttl {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 24px 0;
+  color: #1b2745;
+}
+
+.mg h4 {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 32px 0 12px 0;
+  color: #1b2745;
+}
+
+/* Stats Cards */
+.stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  flex: 1;
+  min-width: 160px;
+  background: #ffffff;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.stat small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stat b {
+  font-size: 28px;
+  color: #1b2745;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+/* Status Chips */
+.chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.chip.g {
+  background: #dff5e7;
+  color: #1b8a4c;
+}
+
+.chip.o {
+  background: #fdecc8;
+  color: #b7791f;
+}
+
+/* Table Layout */
+.tbl {
+  background: #ffffff;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.tbl table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tbl th {
+  background: #f8fafc;
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e3e7f0;
+}
+
+.tbl td {
+  padding: 16px 20px;
+  font-size: 13px;
+  color: #333;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.tbl td b {
+  font-weight: 600;
+  color: #1b2745;
+}
+
+.tbl tr:last-child td {
+  border-bottom: none;
+}
+
+/* Table Action Link */
+.view {
+  color: #2f6df0;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.view:hover {
+  text-decoration: underline;
+}

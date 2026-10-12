@@ -30,7 +30,10 @@ import { ProgramStudents, ProgramTeachers } from './pages/admin/ProgramView.jsx'
 import * as A from './pages/admin/Admin.jsx';
 
 /* ---------- Management pages ---------- */
-import * as M from './pages/management/Management.jsx';
+import { Overview as MOverview } from './pages/management/Overview.jsx';
+import { Departments, Department, ModuleView, StudentView } from './pages/management/Module.jsx';
+import { TeacherList } from './pages/management/Teacher.jsx';
+import { History, HistoryCalendar } from './pages/management/History.jsx';
 
 /* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
@@ -241,6 +244,13 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
+  // Clicking the name/avatar in the top bar opens that user's profile page
+  const handleProfileClick = () => {
+    if (user.role === 'student') nav('/settings/profile');
+    else if (user.role === 'teacher') nav('/profile');
+    else nav('/');
+  };
+
   return (
     <div className={'shell ' + user.role}>
       {/* Sidebar */}
@@ -286,11 +296,27 @@ function Shell({ user, children, title, sub }) {
             <div className="me">
               {user.role === 'student' && title === 'Dashboard' && <Bell />}
 
-              <div className="avatar">{ini}</div>
-              <div>
-                <b>{user.name}</b>
-                <br />
-                <small>{(SUB[user.role] || SUB.student)(user)}</small>
+              <div
+                onClick={handleProfileClick}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                title="View Profile"
+              >
+                <div className="avatar">{ini}</div>
+                <div>
+                  <b>{user.name}</b>
+                  <br />
+                  <small>{(SUB[user.role] || SUB.student)(user)}</small>
+                </div>
               </div>
             </div>
           </header>
@@ -337,16 +363,16 @@ const PAGES = {
   },
 
   management: {
-    '/': [M.Overview, '', ''],
-    '/module': [M.Departments, '', ''],
-    '/department/:name': [M.Department, '', ''],
-    '/module/:id': [M.ModuleView, '', ''],
-    '/student/:id/:mid': [M.StudentView, '', ''],
-    '/teachers': [M.TeacherList, '', ''],
+    '/': [MOverview, '', ''],
+    '/module': [Departments, '', ''],
+    '/department/:name': [Department, '', ''],
+    '/module/:id': [ModuleView, '', ''],
+    '/student/:id/:mid': [StudentView, '', ''],
+    '/teachers': [TeacherList, '', ''],
     '/evidence': [SharedEvidence, 'Evidence Document', 'Ask a colleague to cover a session'],
     '/evidence/:id': [Certificate, 'Medical Report', ''],
-    '/history': [M.History, '', ''],
-    '/history/:sid/:mid': [M.HistoryCalendar, '', ''],
+    '/history': [History, '', ''],
+    '/history/:sid/:mid': [HistoryCalendar, '', ''],
   },
 
   admin: {
@@ -377,18 +403,21 @@ function Private() {
   return (
     <Routes>
       {paths.map((path) => {
+        // Fallback component if a page is missing
         const [C, t, s] = PAGES[u.role][path] || [
           Soon,
           NAV[u.role].find((n) => n[0] === path)?.[1],
           '',
         ];
+        // Safety check: if a component is undefined, show Soon instead of crashing
+        const Component = C || Soon;
         return (
           <Route
             key={path}
             path={path}
             element={
               <Shell user={u} title={t} sub={s}>
-                <C />
+                <Component />
               </Shell>
             }
           />
