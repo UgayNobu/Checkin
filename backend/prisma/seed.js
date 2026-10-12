@@ -7,7 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 (async () => {
-  const file = fs.readFileSync(path.join(__dirname, 'prisma', 'database.sql'), 'utf8'), marker = '-- ===== SEED DATA';
+  const file = fs.readFileSync(path.join(__dirname, 'database.sql'), 'utf8'), marker = '-- ===== SEED DATA';
   if (!file.includes(marker)) throw Error('SEED DATA marker not found in prisma/database.sql');
   const sql = file.slice(file.indexOf(marker))
     .split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
