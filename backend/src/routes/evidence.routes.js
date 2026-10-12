@@ -10,6 +10,7 @@ const v = require('../validators/evidence.validators');
 const router = Router();
 router.use(requireAuth);
 const staff = requireRole('teacher', 'admin', 'management');
+const deciders = requireRole('admin', 'management'); // tutors can view, only management/admin approve or reject
 const id = validateParams(v.evidenceIdParamSchema);
 
 // Student — multer runs first so the form fields exist before validation.
@@ -18,8 +19,8 @@ router.get('/mine', requireRole('student'), c.mine);
 
 // Staff
 router.get('/', staff, validateQuery(v.listEvidenceQuerySchema), c.list);
-router.patch('/:id', staff, id, validateBody(v.reviewEvidenceSchema), c.review);
-router.post('/:id/review', staff, id, validateBody(v.reviewEvidenceSchema), c.review);
+router.patch('/:id', deciders, id, validateBody(v.reviewEvidenceSchema), c.review);
+router.post('/:id/review', deciders, id, validateBody(v.reviewEvidenceSchema), c.review);
 
 // Anyone allowed to see it (checked in the service). Registered last so /mine isn't taken as an id.
 router.get('/:id', id, c.getOne);
