@@ -250,16 +250,12 @@ INSERT INTO programs (program_id, program_name) VALUES
   ('P003', 'B.E. Electronics and Communication')
 ON CONFLICT DO NOTHING;
 
--- users (8 rows)
-INSERT INTO users (user_id, name, email, password_hash, role, status) VALUES
-  ('U001', 'Test Admin', 'test.admin@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'admin', 'active'),
-  ('U002', 'Test Tutor 01', 'test.tutor01@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
-  ('U003', 'Test Tutor 02', 'test.tutor02@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
-  ('U004', 'Test Student 01', 'test.student01@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U005', 'Test Student 02', 'test.student02@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U006', 'Test Student 03', 'test.student03@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U007', 'Test Student 04', 'test.student04@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U008', 'Test Management', 'test.management@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'management', 'active')
+-- users: the 4 test accounts only (password for all: Test@1234). Rows that already exist are left alone.
+INSERT INTO users (user_id, name, email, password_hash, role, status, is_active) VALUES
+  ('CST-ICT01', 'ICT Officer',     'test.admin@example.com',      '$2a$10$7Qo9/SXDZzgFD/KAwgfITOdh1BV.DQdiuPjNGlrMF1flNtn7WoPKG', 'admin',      'active', true),
+  ('CST-MGT01', 'CST Management',  'test.management@example.com', '$2a$10$7Qo9/SXDZzgFD/KAwgfITOdh1BV.DQdiuPjNGlrMF1flNtn7WoPKG', 'management', 'active', true),
+  ('CST-0142',  'Test Tutor',      'test.tutor@example.com',      '$2a$10$7Qo9/SXDZzgFD/KAwgfITOdh1BV.DQdiuPjNGlrMF1flNtn7WoPKG', 'tutor',      'active', true),
+  ('U004',      'Test Student 01', 'test.student01@example.com',  '$2a$10$7Qo9/SXDZzgFD/KAwgfITOdh1BV.DQdiuPjNGlrMF1flNtn7WoPKG', 'student',    'active', true)
 ON CONFLICT DO NOTHING;
 
 -- modules (3 rows)
@@ -271,9 +267,9 @@ ON CONFLICT DO NOTHING;
 
 -- sections (3 rows)
 INSERT INTO sections (section_id, module_id, tutor_id, room, schedule) VALUES
-  ('SEC001', 'M001', 'U002', 'B-201', 'Mon & Wed 09:00-10:00'),
-  ('SEC002', 'M002', 'U003', 'B-105', 'Mon 11:00-12:00'),
-  ('SEC003', 'M003', 'U002', 'Lab-3', 'Tue 14:00-16:00')
+  ('SEC001', 'M001', 'CST-0142', 'B-201', 'Mon & Wed 09:00-10:00'),
+  ('SEC002', 'M002', 'CST-0142', 'B-105', 'Mon 11:00-12:00'),
+  ('SEC003', 'M003', 'CST-0142', 'Lab-3', 'Tue 14:00-16:00')
 ON CONFLICT DO NOTHING;
 
 -- class_sessions (3 rows)
@@ -290,45 +286,38 @@ INSERT INTO attendance_codes (session_id, code, expiry_timestamp, geofence_radiu
   ('S003', '903276', '2026-09-16 03:10:00+00', '25', '26.8578', '89.3944')
 ON CONFLICT DO NOTHING;
 
--- attendance (6 rows)
+-- attendance (3 rows)
 INSERT INTO attendance (attendance_id, student_id, session_id, "timestamp", status) VALUES
   ('A001', 'U004', 'S001', '2026-09-14 03:02:15+00', 'Present'),
-  ('A002', 'U005', 'S001', '2026-09-14 03:08:40+00', 'Late'),
-  ('A003', 'U006', 'S001', '2026-09-14 03:05:31+00', 'Flagged'),
   ('A004', 'U004', 'S002', '2026-09-14 05:01:50+00', 'Present'),
-  ('A005', 'U007', 'S002', NULL, 'Absent'),
   ('A006', 'U004', 'S003', '2026-09-16 03:03:05+00', 'Present')
 ON CONFLICT DO NOTHING;
 
--- enrollments (5 rows)
+-- enrollments (2 rows)
 INSERT INTO enrollments (student_id, module_id, academic_year, enrolled_date) VALUES
   ('U004', 'M001', '2026-27', '2026-08-10'),
-  ('U005', 'M001', '2026-27', '2026-08-10'),
-  ('U006', 'M001', '2026-27', '2026-08-11'),
-  ('U004', 'M002', '2026-27', '2026-08-10'),
-  ('U007', 'M002', '2026-27', '2026-08-12')
+  ('U004', 'M002', '2026-27', '2026-08-10')
 ON CONFLICT DO NOTHING;
 
--- evidence_documents (3 rows)
+-- evidence_documents (2 rows)
 INSERT INTO evidence_documents (evidence_id, student_id, module_id, date, reason, document_url, status, reviewed_by) VALUES
-  ('E001', 'U006', 'M001', '2026-09-14', 'Medical appointment', '/uploads/evidence/E001_medical_certificate.pdf', 'Pending', NULL),
-  ('E002', 'U005', 'M001', '2026-09-16', 'Family emergency', '/uploads/evidence/E002_supporting_letter.pdf', 'Approved', 'U002'),
-  ('E003', 'U007', 'M002', '2026-09-14', 'Personal reasons', NULL, 'Rejected', 'U003')
+  ('E001', 'U004', 'M001', '2026-09-21', 'Medical appointment', '/uploads/evidence/E001_medical_certificate.pdf', 'Pending', NULL),
+  ('E002', 'U004', 'M002', '2026-09-22', 'Family emergency', '/uploads/evidence/E002_supporting_letter.pdf', 'Approved', 'CST-0142')
 ON CONFLICT DO NOTHING;
 
 -- notifications (4 rows)
 INSERT INTO notifications (notification_id, user_id, message, category, is_read, created_at) VALUES
-  ('N001', 'U005', 'Attendance below 90% in Database Systems.', 'Attendance', 'f', '2026-09-15 02:00:00+00'),
-  ('N002', 'U002', 'New evidence document submitted by Test Student 03.', 'Evidence Documents', 'f', '2026-09-14 08:20:00+00'),
-  ('N003', 'U005', 'Your evidence document E002 has been approved.', 'Evidence Documents', 't', '2026-09-16 10:45:00+00'),
+  ('N001', 'U004', 'Attendance below 90% in Database Systems.', 'Attendance', 'f', '2026-09-15 02:00:00+00'),
+  ('N002', 'CST-0142', 'New evidence document submitted by Test Student 01.', 'Evidence Documents', 'f', '2026-09-21 08:20:00+00'),
+  ('N003', 'U004', 'Your evidence document E002 has been approved.', 'Evidence Documents', 't', '2026-09-22 10:45:00+00'),
   ('N004', 'U004', 'Reminder: Database Systems class tomorrow at 09:00.', 'Reminders', 'f', '2026-09-15 12:00:00+00')
 ON CONFLICT DO NOTHING;
 
 -- audit_logs (3 rows)
 INSERT INTO audit_logs (log_id, admin_id, action, details, "timestamp") VALUES
-  ('L001', 'U001', 'User Created', 'Created student account U007', '2026-08-12 04:15:00+00'),
-  ('L002', 'U001', 'Role Changed', 'Changed U003 role to tutor', '2026-08-05 03:30:00+00'),
-  ('L003', 'U001', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00')
+  ('L001', 'CST-ICT01', 'User Created', 'Created student account U004', '2026-08-12 04:15:00+00'),
+  ('L002', 'CST-ICT01', 'Role Changed', 'Changed CST-0142 role to tutor', '2026-08-05 03:30:00+00'),
+  ('L003', 'CST-ICT01', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00')
 ON CONFLICT DO NOTHING;
 
 -- Move ID counters past the seeded IDs so new rows don't clash
@@ -544,16 +533,6 @@ JOIN modules m ON m.module_code = c.code
 ON CONFLICT (program_id, module_id) DO UPDATE SET year = EXCLUDED.year, semester = EXCLUDED.semester;
 
 -- ===== Synthetic test accounts (no real people; real users are added only after the college approves the project) =====
-UPDATE users u SET name = t.name, email = t.email
-FROM (VALUES
-  ('U001', 'Test Admin',       'test.admin@example.com'),
-  ('U002', 'Test Tutor 01',    'test.tutor01@example.com'),
-  ('U003', 'Test Tutor 02',    'test.tutor02@example.com'),
-  ('U004', 'Test Student 01',  'test.student01@example.com'),
-  ('U005', 'Test Student 02',  'test.student02@example.com'),
-  ('U006', 'Test Student 03',  'test.student03@example.com'),
-  ('U007', 'Test Student 04',  'test.student04@example.com'),
-  ('U008', 'Test Management',  'test.management@example.com')
-) AS t(id, name, email)
-WHERE u.user_id = t.id;
+-- Only 4 test accounts are kept: CST-ICT01 (admin), CST-MGT01 (management), CST-0142 (teacher), U004 (student).
+UPDATE users SET name = 'Test Student 01', email = 'test.student01@example.com' WHERE user_id = 'U004';
 UPDATE notifications SET message = replace(message, 'Choki Wangdi', 'Test Student 03') WHERE message LIKE '%Choki Wangdi%';
