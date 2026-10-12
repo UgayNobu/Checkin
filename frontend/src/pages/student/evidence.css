@@ -297,3 +297,14 @@
     flex-wrap: wrap;
   }
 }
+/* Error inside the leave form (red, so it isn't mistaken for success) */
+.ev .ev-err {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: #fdecec;
+  border: 1px solid #e5484d;
+  border-radius: 8px;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 600;
+}
