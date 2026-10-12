@@ -3,7 +3,7 @@ const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { loadMatrix, enrolledModuleIds } = require('./stats.service');
 const { sessionStart, round1 } = require('../utils/format');
-const { NotFound, Forbidden, Conflict } = require('../utils/errors');
+const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors');
 const { normalizeEnrolmentKey } = require('../utils/enrolment-key');
 
 /** One card per enrolled module with its attendance %. */
@@ -40,23 +40,36 @@ async function moduleRecords(studentId, moduleId) {
   return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) ?? 0 };
 }
 
-/** Every module, with how many students are in it. The enrolment key is never sent. */
+/**
+ * Every module in every programme's curriculum (program_modules), so a shared module appears
+ * under each programme/year/semester it belongs to. The enrolment key is never sent.
+ */
 async function browseModules(studentId) {
-  const [mods, mine] = await Promise.all([
-    prisma.module.findMany({ include: { program: true, sections: { take: 1 }, _count: { select: { enrollments: true } } }, orderBy: { code: 'asc' } }),
+  const [rows, mine] = await Promise.all([
+    prisma.programModule.findMany({
+      include: { program: true, module: { include: { sections: { take: 1 }, _count: { select: { enrollments: true } } } } },
+      orderBy: { module: { code: 'asc' } },
+    }),
     enrolledModuleIds(studentId),
   ]);
-  return mods.map((m) => ({
-    id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, department: m.program.name,
-    section: m.sections[0]?.name, students: m._count.enrollments, enrolled: mine.includes(m.id),
+  return rows.map(({ module: m, program, year, semester }) => ({
+    id: m.id, name: m.name, code: m.code, year, semester, department: program.name,
+    section: m.sections[0]?.name, students: m._count.enrollments, selfEnrol: m.selfEnrol, enrolled: mine.includes(m.id),
   }));
 }
 
-/** Join a module with the key the tutor shared. */
-async function enrol(studentId, key) {
+/**
+ * Join a module, like Moodle: the student picks the module and types that module's key.
+ * Without a module, the key alone is looked up. Refused when the tutor closed self-enrolment.
+ */
+async function enrol(studentId, { module, key }) {
   const k = normalizeEnrolmentKey(key);
-  const m = await prisma.module.findFirst({ where: { enrolmentKey: { equals: k, mode: 'insensitive' } } });
-  if (!m) throw NotFound('Enrolment key not found. Check it with your tutor.', 'KEY_NOT_FOUND');
+  const m = module
+    ? await prisma.module.findUnique({ where: { id: module } })
+    : await prisma.module.findFirst({ where: { enrolmentKey: { equals: k, mode: 'insensitive' } } });
+  if (!m) throw NotFound(module ? 'Module not found' : 'Enrolment key not found. Check it with your tutor.', module ? 'MODULE_NOT_FOUND' : 'KEY_NOT_FOUND');
+  if (!m.selfEnrol) throw Forbidden('Self-enrolment is closed for this module. Ask your tutor to add you.', 'SELF_ENROL_CLOSED');
+  if (!m.enrolmentKey || m.enrolmentKey.toUpperCase() !== k) throw BadRequest('Wrong enrolment key for this module', 'WRONG_KEY');
   const exists = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId, moduleId: m.id } } });
   if (exists) throw Conflict(`You are already enrolled in ${m.name}`, 'ALREADY_ENROLLED');
   await prisma.enrollment.create({ data: { studentId, moduleId: m.id } });

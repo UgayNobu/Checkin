@@ -7,6 +7,6 @@ module.exports = {
   summary: asyncHandler(async (req, res) => res.json(await student.summary(req.user.id))),
   moduleRecords: asyncHandler(async (req, res) => res.json(await student.moduleRecords(req.user.id, req.params.id))),
   browse: asyncHandler(async (req, res) => res.json(await student.browseModules(req.user.id))),
-  enrol: asyncHandler(async (req, res) => res.json(await student.enrol(req.user.id, req.body.key))),
+  enrol: asyncHandler(async (req, res) => res.json(await student.enrol(req.user.id, req.body))),
   calendar: asyncHandler(async (req, res) => res.json(await monthDays(req.user.id, await enrolledModuleIds(req.user.id), req.query.month))),
 };

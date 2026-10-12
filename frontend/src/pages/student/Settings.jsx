@@ -66,7 +66,7 @@ export default function Settings() {
       'Instant notification if attendance slips below critical 85% requirement.',
     ],
     [
-      'relief',
+      'evidence',
       'Update Evidence Details',
       'Get updates as soon as your submitted absence requests are processed.',
     ],
@@ -138,7 +138,7 @@ export default function Settings() {
                 nav('/login');
               }}
             >
-              ⇥ Log out of EduPortal
+              ⇥ Log out
             </button>
           </div>
         </div>
@@ -409,6 +409,8 @@ export function Enrol() {
             </small>
           </p>
 
+          {chosen.enrolled && <p className="foot">You are already enrolled in this module.</p>}
+          {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
           <label>Enrolment Key</label>
           <input
             className="grey"
@@ -420,7 +422,7 @@ export function Enrol() {
           <button
             className="join"
             onClick={() =>
-              api('/modules/enrol', { key })
+              api('/modules/enrol', { module: f.module, key })
                 .then((r) => setMsg(r.message))
                 .catch((e) => setMsg(e.message))
             }

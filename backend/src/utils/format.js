@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Small converters between database rows and API responses.
 // ─────────────────────────────────────────────────────────────
-const { ATTENDED, FLAGGED } = require('../config/constants');
+const { ATTENDED, FLAGGED, FLAG_TEXT } = require('../config/constants');
 
 // The DB says 'tutor'; the API and frontend say 'teacher'.
 const roleOut = (r) => (r === 'tutor' ? 'teacher' : r);
@@ -15,10 +15,13 @@ const apiStatus = (s) => (ATTENDED.includes(s) ? 'present' : FLAGGED.includes(s)
 const sessionStart = (x) => new Date(x.date.toISOString().slice(0, 10) + 'T' + x.startTime.toISOString().slice(11, 19) + 'Z');
 
 const round1 = (n) => Math.round(n * 10) / 10;
+
+/** Readable flag reason. A tutor's note may be appended as " - note". */
+const flagText = (reason) => (reason ? FLAG_TEXT[String(reason).split(' - ')[0]] || reason : null);
 const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const initials = (name = '') => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
-const DEFAULT_PREFS = { low: true, relief: true, reminders: false, email: true, sms: false, push: true };
+const DEFAULT_PREFS = { low: true, evidence: true, reminders: false, email: true, sms: false, push: true };
 
 /** Public shape of a user. Never includes the password hash. */
 const userOut = (u) => ({
@@ -28,4 +31,4 @@ const userOut = (u) => ({
   avatarUrl: u.avatarUrl || null, prefs: { ...DEFAULT_PREFS, ...(u.prefs || {}) },
 });
 
-module.exports = { roleOut, roleIn, cap, apiStatus, sessionStart, round1, monthStart, initials, userOut, DEFAULT_PREFS };
+module.exports = { roleOut, roleIn, cap, apiStatus, sessionStart, round1, flagText, monthStart, initials, userOut, DEFAULT_PREFS };

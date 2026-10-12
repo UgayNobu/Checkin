@@ -8,6 +8,8 @@ const checkInSchema = z.object({
   lng: coord(-180, 180),
   accuracy: z.preprocess(blankToUndef, z.coerce.number().min(0).optional()),
   permissionDenied: z.coerce.boolean().optional(),
+  locationError: z.coerce.boolean().optional(), // the browser's location API failed
+  offline: z.coerce.boolean().optional(),       // the app held the check-in back because of bad internet
 });
 
 module.exports = { checkInSchema };

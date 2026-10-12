@@ -74,7 +74,7 @@ async function department(name) {
 async function moduleView(id) {
   const mod = await prisma.module.findUnique({ where: { id } });
   if (!mod) throw NotFound('Module not found');
-  const [en, m, relief] = await Promise.all([
+  const [en, m, evidence] = await Promise.all([
     prisma.enrollment.findMany({ where: { moduleId: id }, include: { student: true } }),
     loadMatrix([id]),
     prisma.evidenceDocument.count({ where: { moduleId: id, status: 'Approved' } }),
@@ -83,7 +83,7 @@ async function moduleView(id) {
     const t = m.tally(u.id, id);
     return { id: u.id, userId: u.id, name: u.name, absences: t.missed, absentH: round1(t.missedHours), pct: m.pct(u.id, id) ?? 0 };
   });
-  return { module: { name: mod.name, code: mod.code }, totals: { students: rows.length, absence: rows.reduce((a, r) => a + r.absences, 0), relief }, rows };
+  return { module: { name: mod.name, code: mod.code }, totals: { students: rows.length, absence: rows.reduce((a, r) => a + r.absences, 0), evidence }, rows };
 }
 
 async function studentView(studentId, moduleId) {

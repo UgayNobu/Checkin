@@ -18,7 +18,10 @@ const env = {
 
   geofenceMetres: num(process.env.GEOFENCE_METRES, 10),
   accuracyFlagMetres: num(process.env.ACCURACY_FLAG_METRES, 50),
-  codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, 10),
+  // how long a check-in code stays valid (CHECKIN_WINDOW_MINUTES is the older name for the same setting)
+  codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),
+  // extra time for a check-in that the app held back because of bad internet
+  networkGraceSeconds: num(process.env.NETWORK_GRACE_SECONDS, 120),
   requiredPct: num(process.env.REQUIRED_ATTENDANCE_PERCENT, 90),
   atRiskPct: num(process.env.AT_RISK_ATTENDANCE_PERCENT, 80),
   realertDays: num(process.env.LOW_ATTENDANCE_REALERT_DAYS, 7),

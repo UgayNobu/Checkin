@@ -1,0 +1,121 @@
+/* =========================================================
+   Admin Overview (scoped under .ao)
+   ========================================================= */
+.ao{max-width:1100px}
+
+.ao-title{
+  margin:0 0 24px;
+  font-size:28px;
+  font-weight:600;
+}
+.ao-title small{
+  margin-left:10px;
+  font-size:14px;
+  font-weight:400;
+  color:#6b7280;
+}
+
+/* ----- Totals: 3 big cards on one line ----- */
+.ao-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+}
+.ao-stat{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:10px;
+  min-height:180px;
+  padding:28px 30px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:16px;
+  box-shadow:0 2px 10px rgba(15,27,61,.05);
+}
+.ao-stat small{font-size:17px;color:#6b7280}
+.ao-stat b{font-size:52px;line-height:1;color:#0f1b3d}
+.ao-stat span{
+  margin-top:auto;
+  padding:4px 12px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:600;
+}
+.ao-icon{
+  position:absolute;
+  top:24px;
+  right:24px;
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  border-radius:12px;
+  font-size:24px;
+}
+
+/* colour per card */
+.ao-stat.blue .ao-icon{background:#dbeafe}
+.ao-stat.blue span{background:#dbeafe;color:#1d4ed8}
+.ao-stat.green .ao-icon{background:#d1fae5}
+.ao-stat.green span{background:#d1fae5;color:#047857}
+.ao-stat.orange .ao-icon{background:#fef3c7}
+.ao-stat.orange span{background:#fef3c7;color:#b45309}
+
+/* ----- Students view + Tutors view on one line ----- */
+.ao-views{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:24px;
+  margin-top:28px;
+}
+.ao-view{
+  padding:26px 28px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:16px;
+  box-shadow:0 2px 10px rgba(15,27,61,.05);
+}
+.ao-vhead{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.ao-vicon{
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  background:#eef2ff;
+  border-radius:10px;
+  font-size:20px;
+}
+.ao-view h3{margin:0;font-size:20px}
+.ao-view p{
+  margin:12px 0 18px;
+  font-size:13px;
+  line-height:1.5;
+  color:#6b7280;
+}
+.ao-view select{
+  width:100%;
+  padding:12px 14px;
+  background:#fff;
+  border:1px solid #9ca3af;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+.ao-view select:focus{
+  outline:none;
+  border-color:#2f6df0;
+  box-shadow:0 0 0 3px rgba(47,109,240,.15);
+}
+
+/* ----- Small screens: stack ----- */
+@media (max-width:800px){
+  .ao-stats,
+  .ao-views{grid-template-columns:1fr}
+}

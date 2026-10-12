@@ -1,5 +1,5 @@
 const { asyncHandler } = require('../utils/errors');
-const r = require('../services/relief.service');
+const r = require('../services/evidence.service');
 
 module.exports = {
   submit: asyncHandler(async (req, res) => res.json(await r.submit(req.user, req.body, req.file))),

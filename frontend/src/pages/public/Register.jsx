@@ -1,20 +1,31 @@
-import { useState } from 'react';
+import { useState } from 'react'; // CHANGED: useEffect no longer needed
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import './public.css';
 
+// CHANGED: full programme and department lists
 const PROG = [
-  'BE Information Technology',
-  'BE Software Engineering',
-  'BE Civil Engineering',
-  'BE Electrical Engineering',
+  'B.E. Software Engineering',
+  'B.E. Information Technology',
+  'B.E. Electronics and Communication',
+  'B.E. Civil Engineering',
+  'B.E. Electrical Engineering',
+  'Bachelor of Architecture',
+  'B.E. Engineering Geology',
+  'B.E. Instrumentation and Control Engineering',
+  'B.E. Water Resource Engineering',
+  'Master in Construction Management',
+  'Master of Science in Engineering (by Research)',
 ];
-
 const DEPT = [
-  'Dept. of Information Technology',
-  'Dept. of Software Engineering',
-  'Dept. of Civil Engineering',
-  'Dept. of Electrical Engineering',
+  'Architecture',
+  'Civil & Environmental Engineering',
+  'Computing Technologies',
+  'Electrical & Electronics Engineering',
+  'Mechanical Engineering',
+  'Science & Humanities',
+  'Dean of Academic Affairs',
+  'Dean of Student Affairs',
 ];
 
 export default function Register() {
@@ -28,10 +39,12 @@ export default function Register() {
     userId: '',
     email: '',
     pick: '',
+    tprog: '', // CHANGED: tutor's programme
     password: '',
     again: '',
   });
   const [msg, setMsg] = useState('');
+  const lists = { prog: PROG, dept: DEPT }; // CHANGED: use the lists above directly
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -45,6 +58,7 @@ export default function Register() {
       name: f.name,
       email: f.email,
       [tutor ? 'department' : 'programme']: f.pick,
+      ...(tutor ? { programme: f.tprog } : {}), // CHANGED: send tutor's programme
       password: f.password,
     })
       .then((r) => {
@@ -104,10 +118,23 @@ export default function Register() {
         <label>{tutor ? 'Department' : 'Programme'}</label>
         <select value={f.pick} onChange={set('pick')}>
           <option value="">Select</option>
-          {(tutor ? DEPT : PROG).map((x) => (
+          {(tutor ? lists.dept : lists.prog).map((x) => (
             <option key={x}>{x}</option>
           ))}
         </select>
+
+        {/* CHANGED: extra Programme dropdown for tutors */}
+        {tutor && (
+          <>
+            <label>Programme</label>
+            <select value={f.tprog} onChange={set('tprog')}>
+              <option value="">Select</option>
+              {lists.prog.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </>
+        )}
 
         {inp('Password', 'password', 'password')}
         {inp('Confirm password', 'again', 'password')}

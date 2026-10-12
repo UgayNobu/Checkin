@@ -47,9 +47,11 @@ async function renameProgram(adminId, from, to) {
 }
 
 // ── Users ─────────────────────────────────────────────────────
-async function listUsers({ role, department, year }) {
-  const where = { role: roleIn(role), ...(department && { department }) };
-  if (year) where.OR = year === 1 ? [{ year: 1 }, { year: null }] : [{ year }]; // older accounts have no year → treat as year 1
+async function listUsers({ role, department, programme, year }) {
+  const where = { role: roleIn(role), AND: [] };
+  if (department) where.AND.push({ department });
+  if (programme) where.AND.push({ OR: [{ programme }, { department: programme }] });
+  if (year) where.AND.push({ OR: year === 1 ? [{ year: 1 }, { year: null }] : [{ year }] }); // older accounts have no year → treat as year 1
   const users = await prisma.user.findMany({ where, orderBy: { name: 'asc' } });
   if (role !== 'student') return users.map(userOut);
   const pct = await overallFor(users.map((u) => u.id));
@@ -67,9 +69,11 @@ async function patchUser(adminId, id, { active, name }) {
 }
 
 // ── Modules ───────────────────────────────────────────────────
+/** Filters through program_modules, so a module shared by several programmes shows under each of them. */
 async function listModules({ department, year, semester }) {
+  const cur = { ...(department && { program: { name: department } }), ...(year && { year }), ...(semester && { semester }) };
   const rows = await prisma.module.findMany({
-    where: { ...(department && { program: { name: department } }), ...(year && { year }), ...(semester && { semester }) },
+    where: Object.keys(cur).length ? { curriculum: { some: cur } } : {},
     include: { sections: { include: { tutor: true }, take: 1 }, _count: { select: { enrollments: true } } }, orderBy: { code: 'asc' },
   });
   return rows.map((m) => ({
@@ -89,7 +93,15 @@ async function saveModule(adminId, id, b) {
     if (!tutor) throw NotFound('Tutor not found', 'TUTOR_NOT_FOUND');
   }
   const m = await prisma.$transaction(async (tx) => {
-    const mod = id ? await tx.module.update({ where: { id }, data }) : await tx.module.create({ data });
+    // On update the module keeps its original programme; the programme link lives in program_modules.
+    const mod = id ? await tx.module.update({ where: { id }, data: { ...data, programId: undefined } }) : await tx.module.create({ data });
+    if (data.year && data.semester) {
+      await tx.programModule.upsert({
+        where: { programId_moduleId: { programId: program.id, moduleId: mod.id } },
+        update: { year: data.year, semester: data.semester },
+        create: { programId: program.id, moduleId: mod.id, year: data.year, semester: data.semester },
+      });
+    }
     if (tutor) {
       const sec = await tx.section.findFirst({ where: { moduleId: mod.id } });
       if (sec) await tx.section.update({ where: { id: sec.id }, data: { tutorId: tutor.id } });

@@ -1,6 +1,7 @@
 // Mounted at /api/student
 const { Router } = require('express');
 const c = require('../controllers/student.controller');
+const catalog = require('../controllers/catalog.controller');
 const { requireAuth } = require('../middleware/requireAuth');
 const { requireRole } = require('../middleware/requireRole');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
@@ -16,5 +17,6 @@ router.get('/calendar', validateQuery(monthQuerySchema), c.calendar);
 router.get('/modules', c.browse);
 router.get('/modules/:id/records', validateParams(moduleIdParamSchema), c.moduleRecords);
 router.post('/enrol', validateBody(enrolBodySchema), c.enrol);
+router.get('/timetable', catalog.studentTimetable); // own weekly timetable
 
 module.exports = router;

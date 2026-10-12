@@ -4,9 +4,9 @@
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
-const { WEEK_MS } = require('../config/constants');
+const { WEEK_MS, FLAGGED } = require('../config/constants');
 const { loadMatrix, classRate } = require('./stats.service');
-const { sessionStart, round1 } = require('../utils/format');
+const { sessionStart, round1, apiStatus, flagText } = require('../utils/format');
 const { NotFound } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
 const pdf = require('../utils/pdf');
@@ -27,7 +27,7 @@ async function myModules(tutorId) {
   const secs = await tutorSections(tutorId), counts = await enrolCounts(secs.map((s) => s.moduleId));
   return secs.map((x) => ({
     id: x.moduleId, name: x.module.name, code: x.module.code, year: x.module.year, semester: x.module.semester,
-    section: x.name, room: x.room, schedule: x.schedule, students: counts.get(x.moduleId) || 0, enrolmentKey: x.module.enrolmentKey,
+    section: x.name, room: x.room, schedule: x.schedule, students: counts.get(x.moduleId) || 0, enrolmentKey: x.module.enrolmentKey, selfEnrol: x.module.selfEnrol,
   }));
 }
 
@@ -36,7 +36,7 @@ async function dashboard(tutorId) {
   const mods = await myModules(tutorId);
   const ids = mods.map((m) => m.id);
   const today = new Date(new Date().toISOString().slice(0, 10)); // UTC midnight, matches @db.Date
-  const [students, todays, flagged, pendingRelief] = await Promise.all([
+  const [students, todays, flagged, pendingEvidence] = await Promise.all([
     prisma.enrollment.findMany({ where: { moduleId: { in: ids } }, distinct: ['studentId'], select: { studentId: true } }),
     prisma.classSession.findMany({ where: { section: { tutorId }, date: today }, include: { section: { include: { module: true } }, _count: { select: { attendance: true } } }, orderBy: { startTime: 'asc' } }),
     prisma.attendance.count({ where: { status: { in: ['Flagged', 'Pending review'] }, session: { section: { tutorId } } } }),
@@ -44,7 +44,7 @@ async function dashboard(tutorId) {
   ]);
   const size = new Map(mods.map((m) => [m.id, m.students]));
   return {
-    totals: { modules: mods.length, students: students.length, flaggedCheckIns: flagged, pendingRelief },
+    totals: { modules: mods.length, students: students.length, flaggedCheckIns: flagged, pendingEvidence },
     today: todays.map((s) => ({
       _id: s.id, code: s.section.module.code, name: s.section.module.name, room: s.section.room, start: sessionStart(s),
       hours: s.duration / 60, type: s.sessionType, status: s.status, checkedIn: s._count.attendance, enrolled: size.get(s.section.moduleId) || 0,
@@ -53,16 +53,21 @@ async function dashboard(tutorId) {
   };
 }
 
-/** One row per student: theory %, practical %, total %. */
+/** One row per student: theory %, practical %, total % (null = no sessions yet) and how many check-ins are flagged. */
 async function moduleRecords(moduleId, tutorId) {
   await assertTutorOwnsModule(moduleId, tutorId);
   const en = await prisma.enrollment.findMany({ where: { moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } });
   const m = await loadMatrix([moduleId]);
+  const flags = await prisma.attendance.groupBy({
+    by: ['studentId'], where: { status: { in: FLAGGED }, session: { section: { moduleId } } }, _count: { _all: true },
+  });
+  const flagged = new Map(flags.map((f) => [f.studentId, f._count._all]));
   return {
     sessions: m.sessionsOf(moduleId).length,
     rows: en.map(({ student: u }) => ({
       id: u.id, userId: u.id, name: u.name,
       theory: m.pct(u.id, moduleId, 'theory'), practical: m.pct(u.id, moduleId, 'practical'), total: m.pct(u.id, moduleId),
+      flagged: flagged.get(u.id) || 0,
     })),
   };
 }
@@ -73,12 +78,21 @@ async function studentRecord(moduleId, studentId, tutorId) {
   const st = await prisma.user.findUnique({ where: { id: studentId } });
   if (!st) throw NotFound('Student not found');
   const m = await loadMatrix([moduleId], [studentId]), rows = {};
-  for (const s of m.sessionsOf(moduleId)) {
-    const d = s.date.toISOString().slice(0, 10);
+  const ses = m.sessionsOf(moduleId);
+  const att = await prisma.attendance.findMany({ where: { studentId, sessionId: { in: ses.map((s) => s.id) } } });
+  const bySession = new Map(att.map((a) => [a.sessionId, a]));
+  const RANK = { absent: 0, flagged: 1, present: 2 }; // best result wins if there are 2 sessions of a type on one day
+  for (const s of ses) {
+    const d = s.date.toISOString().slice(0, 10), a = bySession.get(s.id);
+    const status = a ? apiStatus(a.status) : 'absent';
     rows[d] = rows[d] || { date: d };
-    rows[d][s.sessionType] = m.attendedSession(studentId, s.id) ? 'present' : 'absent';
+    const prev = rows[d][s.sessionType];
+    if (!prev || RANK[status] > RANK[prev]) {
+      rows[d][s.sessionType] = status;
+      rows[d][s.sessionType + 'Reason'] = status === 'flagged' ? flagText(a.flagReason) : null; // e.g. theoryReason
+    }
   }
-  return { student: { userId: st.id, name: st.name }, pct: m.pct(studentId, moduleId) ?? 0, rows: Object.values(rows).reverse() };
+  return { student: { userId: st.id, name: st.name }, pct: m.pct(studentId, moduleId) ?? 0, rows: Object.values(rows) }; // oldest first
 }
 
 /** Last 6 weeks of class attendance per module + overall. */

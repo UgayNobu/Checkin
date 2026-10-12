@@ -5,6 +5,52 @@
 
 BEGIN;
 
+-- ===== Part 0: rename relief_requests -> evidence_documents, remove the credit system =====
+DO $$
+BEGIN
+  IF to_regclass('public.relief_requests') IS NOT NULL AND to_regclass('public.evidence_documents') IS NULL THEN
+    ALTER TABLE relief_requests RENAME TO evidence_documents;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'evidence_documents' AND column_name = 'request_id') THEN
+    ALTER TABLE evidence_documents RENAME COLUMN request_id TO evidence_id;
+  END IF;
+  IF to_regclass('public.seq_relief') IS NOT NULL AND to_regclass('public.seq_evidence') IS NULL THEN
+    ALTER SEQUENCE seq_relief RENAME TO seq_evidence;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_relief_status') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT chk_relief_status TO chk_evidence_status;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_module') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_module TO fk_evidence_module;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_reviewer') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_reviewer TO fk_evidence_reviewer;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relief_student') THEN
+    ALTER TABLE evidence_documents RENAME CONSTRAINT fk_relief_student TO fk_evidence_student;
+  END IF;
+END $$;
+ALTER INDEX IF EXISTS relief_requests_pkey   RENAME TO evidence_documents_pkey;
+ALTER INDEX IF EXISTS idx_relief_module_date RENAME TO idx_evidence_module_date;
+ALTER INDEX IF EXISTS idx_relief_student     RENAME TO idx_evidence_student;
+ALTER TABLE evidence_documents DROP CONSTRAINT IF EXISTS chk_relief_leave_type;
+ALTER TABLE evidence_documents ALTER COLUMN evidence_id SET DEFAULT gen_id('E', 'seq_evidence');
+
+-- existing IDs R001.. become E001.., and old wording is updated
+UPDATE evidence_documents SET evidence_id = 'E' || substring(evidence_id from 2) WHERE evidence_id ~ '^R[0-9]+$';
+UPDATE evidence_documents SET document_url = replace(replace(document_url, '/uploads/relief/R', '/uploads/evidence/E'), '/uploads/relief/', '/uploads/evidence/')
+  WHERE document_url LIKE '/uploads/relief/%';
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS chk_notif_category;
+UPDATE notifications SET category = 'Evidence Documents' WHERE category = 'Relief Requests';
+UPDATE notifications SET message = replace(replace(message, 'relief request R', 'evidence document E'), 'relief request', 'evidence document')
+  WHERE message ILIKE '%relief request%';
+
+-- credit system removed (decided by the team)
+DROP VIEW IF EXISTS student_credit_balance;
+DROP TABLE IF EXISTS credit_records;
+DROP SEQUENCE IF EXISTS seq_credit;
+DELETE FROM audit_logs WHERE action ILIKE '%credit%' OR details ILIKE '%credit%';
+
 -- ===== Part 1: columns the frontend needs =====
 -- users: extra profile fields the frontend needs
 ALTER TABLE users
@@ -31,12 +77,12 @@ ALTER TABLE class_sessions DROP CONSTRAINT IF EXISTS chk_sessions_type;
 ALTER TABLE class_sessions ADD CONSTRAINT chk_sessions_type
   CHECK (session_type IS NULL OR session_type IN ('theory','practical'));
 
--- relief_requests = the backend's "EvidenceDocument"
-ALTER TABLE relief_requests
+-- evidence_documents: leave type + created time
+ALTER TABLE evidence_documents
   ADD COLUMN IF NOT EXISTS leave_type varchar(10),
   ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
-ALTER TABLE relief_requests DROP CONSTRAINT IF EXISTS chk_relief_leave_type;
-ALTER TABLE relief_requests ADD CONSTRAINT chk_relief_leave_type
+ALTER TABLE evidence_documents DROP CONSTRAINT IF EXISTS chk_evidence_leave_type;
+ALTER TABLE evidence_documents ADD CONSTRAINT chk_evidence_leave_type
   CHECK (leave_type IS NULL OR leave_type IN ('Medical','Official'));
 
 -- enrollments: backend never sends academic_year, so give it a default
@@ -49,7 +95,7 @@ ALTER TABLE attendance ALTER COLUMN "timestamp" SET DEFAULT now();
 -- notifications: backend uses the category 'Evidence Documents'
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS chk_notif_category;
 ALTER TABLE notifications ADD CONSTRAINT chk_notif_category
-  CHECK (category IN ('Attendance','Relief Requests','Evidence Documents','System','Reminders'));
+  CHECK (category IN ('Attendance','Evidence Documents','System','Reminders'));
 
 -- ===== Part 2: columns for the extra backend features =====
 -- users: profile picture + last-updated time
@@ -70,12 +116,131 @@ ALTER TABLE attendance
   ADD COLUMN IF NOT EXISTS distance_meters double precision,
   ADD COLUMN IF NOT EXISTS flag_reason     varchar(100);
 
--- relief_requests: uploaded file's original name + when it was reviewed
-ALTER TABLE relief_requests
+-- evidence_documents: uploaded file's original name + when it was reviewed
+ALTER TABLE evidence_documents
   ADD COLUMN IF NOT EXISTS original_filename varchar(255),
   ADD COLUMN IF NOT EXISTS reviewed_at       timestamptz;
 
+-- ===== Part 3: departments (from cst.edu.bt) and programme details =====
+CREATE SEQUENCE IF NOT EXISTS seq_departments;
+CREATE TABLE IF NOT EXISTS departments (
+  department_id   varchar(10)  PRIMARY KEY DEFAULT gen_id('D', 'seq_departments'),
+  department_code varchar(10)  NOT NULL,
+  department_name varchar(100) NOT NULL,
+  website         varchar(255),
+  created_at      timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT uq_departments_code UNIQUE (department_code),
+  CONSTRAINT uq_departments_name UNIQUE (department_name)
+);
+ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+
+-- each programme belongs to a department; level = Bachelor/Master
+ALTER TABLE programs
+  ADD COLUMN IF NOT EXISTS department_id  varchar(10),
+  ADD COLUMN IF NOT EXISTS level          varchar(10),
+  ADD COLUMN IF NOT EXISTS duration_years int;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_programs_department') THEN
+    ALTER TABLE programs ADD CONSTRAINT fk_programs_department FOREIGN KEY (department_id)
+      REFERENCES departments(department_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+ALTER TABLE programs DROP CONSTRAINT IF EXISTS chk_programs_level;
+ALTER TABLE programs ADD CONSTRAINT chk_programs_level CHECK (level IS NULL OR level IN ('Bachelor', 'Master'));
+CREATE INDEX IF NOT EXISTS idx_programs_department ON programs (department_id);
+
+-- ===== Part 4: VLE-style enrolment (keys unique per module, self-enrolment on/off) =====
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS self_enrol boolean NOT NULL DEFAULT true;
+UPDATE modules SET enrolment_key = NULL WHERE enrolment_key IS NOT NULL AND trim(enrolment_key) = '';
+-- if two modules share a key, keep it on the first module and clear the others (tutors then set a new one)
+UPDATE modules m SET enrolment_key = NULL
+WHERE m.enrolment_key IS NOT NULL
+  AND EXISTS (SELECT 1 FROM modules o WHERE lower(o.enrolment_key) = lower(m.enrolment_key) AND o.module_id < m.module_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_modules_enrolment_key ON modules (lower(enrolment_key)) WHERE enrolment_key IS NOT NULL;
+
+-- ===== Part 5: curriculum table (a module can belong to several programmes, each with its own year/semester) =====
+CREATE TABLE IF NOT EXISTS program_modules (
+  program_id varchar(10) NOT NULL,
+  module_id  varchar(10) NOT NULL,
+  year       int NOT NULL,
+  semester   int NOT NULL,
+  CONSTRAINT program_modules_pkey PRIMARY KEY (program_id, module_id),
+  CONSTRAINT fk_pm_program FOREIGN KEY (program_id) REFERENCES programs(program_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_pm_module  FOREIGN KEY (module_id)  REFERENCES modules(module_id)   ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT chk_pm_year     CHECK (year BETWEEN 1 AND 5),
+  CONSTRAINT chk_pm_semester CHECK (semester IN (1, 2))
+);
+CREATE INDEX IF NOT EXISTS idx_pm_module ON program_modules (module_id);
+ALTER TABLE program_modules ENABLE ROW LEVEL SECURITY;
+-- modules that already have a year/semester get a curriculum row for their own programme
+INSERT INTO program_modules (program_id, module_id, year, semester)
+SELECT program_id, module_id, year, semester FROM modules WHERE year IS NOT NULL AND semester IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- ===== Part 6: rooms and the fixed weekly timetable =====
+CREATE SEQUENCE IF NOT EXISTS seq_rooms;
+CREATE TABLE IF NOT EXISTS rooms (
+  room_id    varchar(10)  PRIMARY KEY DEFAULT gen_id('RM', 'seq_rooms'),
+  room_name  varchar(50)  NOT NULL,
+  capacity   int,
+  location   varchar(100),
+  latitude   double precision,
+  longitude  double precision,
+  created_at timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT uq_rooms_name UNIQUE (room_name),
+  CONSTRAINT chk_rooms_capacity CHECK (capacity IS NULL OR capacity > 0)
+);
+ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
+
+CREATE SEQUENCE IF NOT EXISTS seq_slots;
+CREATE TABLE IF NOT EXISTS timetable_slots (
+  slot_id          varchar(10)  PRIMARY KEY DEFAULT gen_id('TS', 'seq_slots'),
+  program_id       varchar(10)  NOT NULL,
+  year             int          NOT NULL,
+  semester         int          NOT NULL DEFAULT 1,
+  academic_session varchar(10)  NOT NULL DEFAULT 'AS2026',
+  day_of_week      int          NOT NULL,
+  start_time       time         NOT NULL,
+  end_time         time         NOT NULL,
+  module_code      varchar(15)  NOT NULL,
+  module_id        varchar(10),
+  session_type     varchar(10)  NOT NULL DEFAULT 'theory',
+  group_label      varchar(5),
+  room_id          varchar(10),
+  tutor_names      varchar(255),
+  tutor_id         varchar(10),
+  note             varchar(50),
+  CONSTRAINT fk_slots_program FOREIGN KEY (program_id) REFERENCES programs(program_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_slots_module  FOREIGN KEY (module_id)  REFERENCES modules(module_id)   ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_slots_room    FOREIGN KEY (room_id)    REFERENCES rooms(room_id)       ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_slots_tutor   FOREIGN KEY (tutor_id)   REFERENCES users(user_id)       ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT chk_slots_day      CHECK (day_of_week BETWEEN 1 AND 7),
+  CONSTRAINT chk_slots_time     CHECK (end_time > start_time),
+  CONSTRAINT chk_slots_year     CHECK (year BETWEEN 1 AND 5),
+  CONSTRAINT chk_slots_semester CHECK (semester IN (1, 2)),
+  CONSTRAINT chk_slots_type     CHECK (session_type IN ('theory', 'practical', 'tutorial'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_slots_natural ON timetable_slots
+  (program_id, year, academic_session, day_of_week, start_time, module_code, session_type, (COALESCE(group_label, '')));
+CREATE INDEX IF NOT EXISTS idx_slots_program_year ON timetable_slots (program_id, year);
+CREATE INDEX IF NOT EXISTS idx_slots_tutor ON timetable_slots (tutor_id);
+ALTER TABLE timetable_slots ENABLE ROW LEVEL SECURITY;
+
+-- link a class session to the timetable slot it came from (optional)
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS slot_id varchar(10);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_slot') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_slot FOREIGN KEY (slot_id) REFERENCES timetable_slots(slot_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
 COMMIT;
+
+
+
+
 
 -- ===== SEED DATA (real CheckIn data, exported from Supabase on 2026-10-08) =====
 -- programs (3 rows)
@@ -87,14 +252,14 @@ ON CONFLICT DO NOTHING;
 
 -- users (8 rows)
 INSERT INTO users (user_id, name, email, password_hash, role, status) VALUES
-  ('U001', 'Karma Wangchuk', 'karma.wangchuk@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'admin', 'active'),
-  ('U002', 'Sonam Tenzin', 'sonam.tenzin@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
-  ('U003', 'Kinley Dema', 'kinley.dema@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
-  ('U004', 'Tashi Phuntsho', 'tashi.phuntsho@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U005', 'Yangchen Lhamo', 'yangchen.lhamo@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U006', 'Choki Wangdi', 'choki.wangdi@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U007', 'Dorji Pelden', 'dorji.pelden@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
-  ('U008', 'Dean of Academic Affairs', 'daa@cst.edu.bt', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'management', 'active')
+  ('U001', 'Test Admin', 'test.admin@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'admin', 'active'),
+  ('U002', 'Test Tutor 01', 'test.tutor01@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
+  ('U003', 'Test Tutor 02', 'test.tutor02@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'tutor', 'active'),
+  ('U004', 'Test Student 01', 'test.student01@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
+  ('U005', 'Test Student 02', 'test.student02@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
+  ('U006', 'Test Student 03', 'test.student03@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
+  ('U007', 'Test Student 04', 'test.student04@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'student', 'active'),
+  ('U008', 'Test Management', 'test.management@example.com', '$2b$10$6dx4kVNg0C27WC2Pj.hxJe.JqR.q4ELH4gmm/HVxZn2fxzci9m4n.', 'management', 'active')
 ON CONFLICT DO NOTHING;
 
 -- modules (3 rows)
@@ -144,34 +309,26 @@ INSERT INTO enrollments (student_id, module_id, academic_year, enrolled_date) VA
   ('U007', 'M002', '2026-27', '2026-08-12')
 ON CONFLICT DO NOTHING;
 
--- relief_requests (3 rows)
-INSERT INTO relief_requests (request_id, student_id, module_id, date, reason, document_url, status, reviewed_by) VALUES
-  ('R001', 'U006', 'M001', '2026-09-14', 'Medical appointment', '/uploads/relief/R001_medical_certificate.pdf', 'Pending', NULL),
-  ('R002', 'U005', 'M001', '2026-09-16', 'Family emergency', '/uploads/relief/R002_supporting_letter.pdf', 'Approved', 'U002'),
-  ('R003', 'U007', 'M002', '2026-09-14', 'Personal reasons', NULL, 'Rejected', 'U003')
-ON CONFLICT DO NOTHING;
-
--- credit_records (3 rows)
-INSERT INTO credit_records (credit_id, student_id, points, reason, awarded_by, date) VALUES
-  ('C001', 'U004', '5', 'Perfect attendance - week 2 of September', 'U001', '2026-09-18'),
-  ('C002', 'U005', '3', 'Consistent early check-in', 'U001', '2026-09-18'),
-  ('C003', 'U007', '2', 'Class participation', 'U001', '2026-09-18')
+-- evidence_documents (3 rows)
+INSERT INTO evidence_documents (evidence_id, student_id, module_id, date, reason, document_url, status, reviewed_by) VALUES
+  ('E001', 'U006', 'M001', '2026-09-14', 'Medical appointment', '/uploads/evidence/E001_medical_certificate.pdf', 'Pending', NULL),
+  ('E002', 'U005', 'M001', '2026-09-16', 'Family emergency', '/uploads/evidence/E002_supporting_letter.pdf', 'Approved', 'U002'),
+  ('E003', 'U007', 'M002', '2026-09-14', 'Personal reasons', NULL, 'Rejected', 'U003')
 ON CONFLICT DO NOTHING;
 
 -- notifications (4 rows)
 INSERT INTO notifications (notification_id, user_id, message, category, is_read, created_at) VALUES
   ('N001', 'U005', 'Attendance below 90% in Database Systems.', 'Attendance', 'f', '2026-09-15 02:00:00+00'),
-  ('N002', 'U002', 'New relief request submitted by Choki Wangdi.', 'Relief Requests', 'f', '2026-09-14 08:20:00+00'),
-  ('N003', 'U005', 'Your relief request R002 has been approved.', 'Relief Requests', 't', '2026-09-16 10:45:00+00'),
+  ('N002', 'U002', 'New evidence document submitted by Test Student 03.', 'Evidence Documents', 'f', '2026-09-14 08:20:00+00'),
+  ('N003', 'U005', 'Your evidence document E002 has been approved.', 'Evidence Documents', 't', '2026-09-16 10:45:00+00'),
   ('N004', 'U004', 'Reminder: Database Systems class tomorrow at 09:00.', 'Reminders', 'f', '2026-09-15 12:00:00+00')
 ON CONFLICT DO NOTHING;
 
--- audit_logs (4 rows)
+-- audit_logs (3 rows)
 INSERT INTO audit_logs (log_id, admin_id, action, details, "timestamp") VALUES
   ('L001', 'U001', 'User Created', 'Created student account U007', '2026-08-12 04:15:00+00'),
   ('L002', 'U001', 'Role Changed', 'Changed U003 role to tutor', '2026-08-05 03:30:00+00'),
-  ('L003', 'U001', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00'),
-  ('L004', 'U001', 'Credits Awarded', 'Awarded 5 points to U004', '2026-09-18 06:10:00+00')
+  ('L003', 'U001', 'System Setting Updated', 'Default geofence radius set to 25 m', '2026-09-01 05:00:00+00')
 ON CONFLICT DO NOTHING;
 
 -- Move ID counters past the seeded IDs so new rows don't clash
@@ -181,8 +338,7 @@ SELECT setval('seq_modules', GREATEST((SELECT last_value FROM seq_modules), (SEL
 SELECT setval('seq_sections', GREATEST((SELECT last_value FROM seq_sections), (SELECT COALESCE(MAX(substring(section_id from '^SEC([0-9]+)$')::int), 1) FROM sections)));
 SELECT setval('seq_sessions', GREATEST((SELECT last_value FROM seq_sessions), (SELECT COALESCE(MAX(substring(session_id from '^S([0-9]+)$')::int), 1) FROM class_sessions)));
 SELECT setval('seq_attendance', GREATEST((SELECT last_value FROM seq_attendance), (SELECT COALESCE(MAX(substring(attendance_id from '^A([0-9]+)$')::int), 1) FROM attendance)));
-SELECT setval('seq_relief', GREATEST((SELECT last_value FROM seq_relief), (SELECT COALESCE(MAX(substring(request_id from '^R([0-9]+)$')::int), 1) FROM relief_requests)));
-SELECT setval('seq_credit', GREATEST((SELECT last_value FROM seq_credit), (SELECT COALESCE(MAX(substring(credit_id from '^C([0-9]+)$')::int), 1) FROM credit_records)));
+SELECT setval('seq_evidence', GREATEST((SELECT last_value FROM seq_evidence), (SELECT COALESCE(MAX(substring(evidence_id from '^E([0-9]+)$')::int), 1) FROM evidence_documents)));
 SELECT setval('seq_notif', GREATEST((SELECT last_value FROM seq_notif), (SELECT COALESCE(MAX(substring(notification_id from '^N([0-9]+)$')::int), 1) FROM notifications)));
 SELECT setval('seq_audit', GREATEST((SELECT last_value FROM seq_audit), (SELECT COALESCE(MAX(substring(log_id from '^L([0-9]+)$')::int), 1) FROM audit_logs)));
 
@@ -192,3 +348,212 @@ FROM (SELECT DISTINCT ON (e.student_id) e.student_id, pr.program_name
       FROM enrollments e JOIN modules m ON m.module_id = e.module_id JOIN programs pr ON pr.program_id = m.program_id
       ORDER BY e.student_id, e.enrolled_date) p
 WHERE u.user_id = p.student_id AND u.role = 'student' AND u.programme IS NULL;
+
+-- ===== departments + all CST programmes (source: cst.edu.bt, October 2026) =====
+INSERT INTO departments (department_id, department_code, department_name, website) VALUES
+  ('D001', 'AD',   'Architecture Department',                            'https://ad.cst.edu.bt'),
+  ('D002', 'CEED', 'Civil and Environmental Engineering Department',     'https://ceed.cst.edu.bt'),
+  ('D003', 'CTD',  'Computing Technologies Department',                  'https://ctd.cst.edu.bt'),
+  ('D004', 'EEED', 'Electrical and Electronics Engineering Department',  'https://eeed.cst.edu.bt'),
+  ('D005', 'MED',  'Mechanical Engineering Department',                  'https://med.cst.edu.bt'),
+  ('D006', 'SHD',  'Science and Humanities Department',                  'https://shd.cst.edu.bt')
+ON CONFLICT DO NOTHING;
+SELECT setval('seq_departments', GREATEST((SELECT last_value FROM seq_departments), (SELECT COALESCE(MAX(substring(department_id from '^D([0-9]+)$')::int), 1) FROM departments)));
+
+-- add the programmes we don't have yet (matched by name, new IDs come from seq_programs)
+INSERT INTO programs (program_name)
+SELECT v.name FROM (VALUES
+  ('B.E. Civil Engineering'),
+  ('B.E. Electrical Engineering'),
+  ('Bachelor of Architecture'),
+  ('B.E. Engineering Geology'),
+  ('B.E. Instrumentation and Control Engineering'),
+  ('B.E. Water Resource Engineering'),
+  ('B.E. Mechanical Engineering'),
+  ('Master of Engineering in Renewable Energy'),
+  ('Master in Construction Management'),
+  ('Master of Science in Engineering (by Research)')
+) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM programs p WHERE lower(p.program_name) = lower(v.name));
+
+-- link every programme to its department (NULL where the website doesn't say)
+UPDATE programs p SET
+  department_id  = COALESCE(p.department_id, m.dept),
+  level          = COALESCE(p.level, m.lvl),
+  duration_years = COALESCE(p.duration_years, m.yrs)
+FROM (VALUES
+  ('B.E. Software Engineering',                      'D003', 'Bachelor', 4),
+  ('B.E. Information Technology',                    'D003', 'Bachelor', 4),
+  ('B.E. Civil Engineering',                         'D002', 'Bachelor', 4),
+  ('B.E. Engineering Geology',                       'D002', 'Bachelor', 4),
+  ('B.E. Water Resource Engineering',                'D002', 'Bachelor', 4),
+  ('B.E. Electrical Engineering',                    'D004', 'Bachelor', 4),
+  ('B.E. Electronics and Communication',             'D004', 'Bachelor', 4),
+  ('B.E. Instrumentation and Control Engineering',   'D004', 'Bachelor', 4),
+  ('B.E. Mechanical Engineering',                    'D005', 'Bachelor', 4),
+  ('Bachelor of Architecture',                       'D001', 'Bachelor', 5),
+  ('Master in Construction Management',              'D002', 'Master',   NULL),
+  ('Master of Engineering in Renewable Energy',      NULL,   'Master',   NULL),
+  ('Master of Science in Engineering (by Research)', NULL,   'Master',   NULL)
+) AS m(name, dept, lvl, yrs)
+WHERE lower(p.program_name) = lower(m.name);
+
+-- ===== Public curriculum (source: CTD programme pages, ctd.cst.edu.bt, accessed October 2026) =====
+-- B.E. Software Engineering: https://ctd.cst.edu.bt/?page_id=3148
+-- B.E. Information Technology: https://ctd.cst.edu.bt/?page_id=3322
+-- Elective placeholders (Elective I-VIII) are not modules yet, so they are left out.
+-- A module shared by both programmes is stored once (owned by the first programme listed) and linked to both in program_modules.
+INSERT INTO modules (module_code, module_name, program_id, year, semester)
+SELECT DISTINCT ON (c.code) c.code, c.name, p.program_id, c.yr, c.sem
+FROM (VALUES
+  ('B.E. Software Engineering', 'DZG101', 'Dzongkha Communication', 1, 1),
+  ('B.E. Software Engineering', 'CSF101', 'Programming Methodology', 1, 1),
+  ('B.E. Software Engineering', 'SDA101', 'User Interface Design and Implementation', 1, 1),
+  ('B.E. Software Engineering', 'MAT205', 'Statistics & Theory of Probability', 1, 1),
+  ('B.E. Software Engineering', 'NWC201', 'Computer Communication Networks', 1, 1),
+  ('B.E. Software Engineering', 'MAT110', 'Discrete Mathematics', 1, 2),
+  ('B.E. Software Engineering', 'DBS101', 'Database Systems Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'WEB101', 'Web Application Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'WEB102', 'Server Application Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'ACS101', 'Academic Skills', 1, 2),
+  ('B.E. Software Engineering', 'IDE201', 'Software Engineering Capstone Project I', 2, 1),
+  ('B.E. Software Engineering', 'IDE202', 'Software Engineering Internship I', 2, 1),
+  ('B.E. Software Engineering', 'CTE205', 'Operating Systems', 2, 2),
+  ('B.E. Software Engineering', 'DIS303', 'Cryptology', 2, 2),
+  ('B.E. Software Engineering', 'SWE201', 'Cross Platform Development', 2, 2),
+  ('B.E. Software Engineering', 'SDA202', 'System Design & Solution Architecture', 2, 2),
+  ('B.E. Software Engineering', 'SWE302', 'Software Testing & Quality Assurance', 3, 1),
+  ('B.E. Software Engineering', 'SWE303', 'Software Project Management', 3, 1),
+  ('B.E. Software Engineering', 'CSF302', 'Algorithm Design & Analysis', 3, 1),
+  ('B.E. Software Engineering', 'WEB303', 'Microservices & Serverless Applications', 3, 1),
+  ('B.E. Software Engineering', 'IDE303', 'Software Engineering Startup', 3, 2),
+  ('B.E. Software Engineering', 'CSF303', 'Competitive Programming', 3, 2),
+  ('B.E. Software Engineering', 'DBS302', 'NoSQL Database Management', 3, 2),
+  ('B.E. Software Engineering', 'SIS401', 'Smart Integrated Systems', 4, 1),
+  ('B.E. Software Engineering', 'WEB404', 'Secure Coding Practices', 4, 1),
+  ('B.E. Software Engineering', 'IDE404', 'Software Engineering Capstone Project II', 4, 2),
+  ('B.E. Software Engineering', 'IDE405', 'Software Engineering Internship II', 4, 2),
+  ('B.E. Information Technology', 'MAT101', 'Calculus and Infinite Series', 1, 1),
+  ('B.E. Information Technology', 'PHY101', 'Engineering Physics-I', 1, 1),
+  ('B.E. Information Technology', 'DZG101', 'Dzongkha', 1, 1),
+  ('B.E. Information Technology', 'CPL101', 'Introduction to Programming', 1, 1),
+  ('B.E. Information Technology', 'ACS101', 'Academic Skills', 1, 1),
+  ('B.E. Information Technology', 'CPL102', 'Object-Oriented Programming', 1, 2),
+  ('B.E. Information Technology', 'CTE101', 'Computer Organization & Architecture', 1, 2),
+  ('B.E. Information Technology', 'MAT110', 'Discrete Mathematics', 1, 2),
+  ('B.E. Information Technology', 'DIS101', 'Database Systems', 1, 2),
+  ('B.E. Information Technology', 'ECD202', 'Digital Electronics and Logic Design', 1, 2),
+  ('B.E. Information Technology', 'CTE205', 'Operating Systems', 2, 1),
+  ('B.E. Information Technology', 'CTE202', 'Data Structures & Algorithms', 2, 1),
+  ('B.E. Information Technology', 'MAT205', 'Statistics & Theory of Probability', 2, 1),
+  ('B.E. Information Technology', 'NWC201', 'Computer Communication Networks', 2, 1),
+  ('B.E. Information Technology', 'CTE203', 'Human-Computer Interaction', 2, 1),
+  ('B.E. Information Technology', 'CTE204', 'Web Application Development', 2, 2),
+  ('B.E. Information Technology', 'MAT206', 'Computational Mathematics', 2, 2),
+  ('B.E. Information Technology', 'CTE206', 'Software Engineering', 2, 2),
+  ('B.E. Information Technology', 'CTE207', 'Artificial Intelligence', 2, 2),
+  ('B.E. Information Technology', 'NWC202', 'Introduction to the IoT', 2, 2),
+  ('B.E. Information Technology', 'ITM301', 'Professionalism and Ethics in IT', 3, 1),
+  ('B.E. Information Technology', 'CTE308', 'Mobile Application Development', 3, 1),
+  ('B.E. Information Technology', 'CTE309', 'Machine Learning', 3, 1),
+  ('B.E. Information Technology', 'EDP101', 'Entrepreneurship', 3, 1),
+  ('B.E. Information Technology', 'ITM302', 'System Administration', 3, 1),
+  ('B.E. Information Technology', 'DIS302', 'Data Analytics', 3, 2),
+  ('B.E. Information Technology', 'DIS303', 'Cryptology', 3, 2),
+  ('B.E. Information Technology', 'PRW301', 'Introduction to Research', 3, 2),
+  ('B.E. Information Technology', 'ITM304', 'IT Project Management', 3, 2),
+  ('B.E. Information Technology', 'DIS404', 'Advanced Database Systems', 4, 1),
+  ('B.E. Information Technology', 'DIS405', 'Information Security', 4, 1),
+  ('B.E. Information Technology', 'CTE412', 'Integrated Systems Technology', 4, 1),
+  ('B.E. Information Technology', 'IRP401', 'Industry Research Project Proposal', 4, 1),
+  ('B.E. Information Technology', 'IRP402', 'Industry Research Project', 4, 2),
+  ('B.E. Information Technology', 'ONL401', 'Online Courses', 4, 2)
+) AS c(prog, code, name, yr, sem)
+JOIN programs p ON lower(p.program_name) = lower(c.prog)
+ORDER BY c.code, (c.prog <> 'B.E. Software Engineering')
+ON CONFLICT (module_code) DO NOTHING;
+
+INSERT INTO program_modules (program_id, module_id, year, semester)
+SELECT p.program_id, m.module_id, c.yr, c.sem
+FROM (VALUES
+  ('B.E. Software Engineering', 'DZG101', 'Dzongkha Communication', 1, 1),
+  ('B.E. Software Engineering', 'CSF101', 'Programming Methodology', 1, 1),
+  ('B.E. Software Engineering', 'SDA101', 'User Interface Design and Implementation', 1, 1),
+  ('B.E. Software Engineering', 'MAT205', 'Statistics & Theory of Probability', 1, 1),
+  ('B.E. Software Engineering', 'NWC201', 'Computer Communication Networks', 1, 1),
+  ('B.E. Software Engineering', 'MAT110', 'Discrete Mathematics', 1, 2),
+  ('B.E. Software Engineering', 'DBS101', 'Database Systems Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'WEB101', 'Web Application Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'WEB102', 'Server Application Fundamentals', 1, 2),
+  ('B.E. Software Engineering', 'ACS101', 'Academic Skills', 1, 2),
+  ('B.E. Software Engineering', 'IDE201', 'Software Engineering Capstone Project I', 2, 1),
+  ('B.E. Software Engineering', 'IDE202', 'Software Engineering Internship I', 2, 1),
+  ('B.E. Software Engineering', 'CTE205', 'Operating Systems', 2, 2),
+  ('B.E. Software Engineering', 'DIS303', 'Cryptology', 2, 2),
+  ('B.E. Software Engineering', 'SWE201', 'Cross Platform Development', 2, 2),
+  ('B.E. Software Engineering', 'SDA202', 'System Design & Solution Architecture', 2, 2),
+  ('B.E. Software Engineering', 'SWE302', 'Software Testing & Quality Assurance', 3, 1),
+  ('B.E. Software Engineering', 'SWE303', 'Software Project Management', 3, 1),
+  ('B.E. Software Engineering', 'CSF302', 'Algorithm Design & Analysis', 3, 1),
+  ('B.E. Software Engineering', 'WEB303', 'Microservices & Serverless Applications', 3, 1),
+  ('B.E. Software Engineering', 'IDE303', 'Software Engineering Startup', 3, 2),
+  ('B.E. Software Engineering', 'CSF303', 'Competitive Programming', 3, 2),
+  ('B.E. Software Engineering', 'DBS302', 'NoSQL Database Management', 3, 2),
+  ('B.E. Software Engineering', 'SIS401', 'Smart Integrated Systems', 4, 1),
+  ('B.E. Software Engineering', 'WEB404', 'Secure Coding Practices', 4, 1),
+  ('B.E. Software Engineering', 'IDE404', 'Software Engineering Capstone Project II', 4, 2),
+  ('B.E. Software Engineering', 'IDE405', 'Software Engineering Internship II', 4, 2),
+  ('B.E. Information Technology', 'MAT101', 'Calculus and Infinite Series', 1, 1),
+  ('B.E. Information Technology', 'PHY101', 'Engineering Physics-I', 1, 1),
+  ('B.E. Information Technology', 'DZG101', 'Dzongkha', 1, 1),
+  ('B.E. Information Technology', 'CPL101', 'Introduction to Programming', 1, 1),
+  ('B.E. Information Technology', 'ACS101', 'Academic Skills', 1, 1),
+  ('B.E. Information Technology', 'CPL102', 'Object-Oriented Programming', 1, 2),
+  ('B.E. Information Technology', 'CTE101', 'Computer Organization & Architecture', 1, 2),
+  ('B.E. Information Technology', 'MAT110', 'Discrete Mathematics', 1, 2),
+  ('B.E. Information Technology', 'DIS101', 'Database Systems', 1, 2),
+  ('B.E. Information Technology', 'ECD202', 'Digital Electronics and Logic Design', 1, 2),
+  ('B.E. Information Technology', 'CTE205', 'Operating Systems', 2, 1),
+  ('B.E. Information Technology', 'CTE202', 'Data Structures & Algorithms', 2, 1),
+  ('B.E. Information Technology', 'MAT205', 'Statistics & Theory of Probability', 2, 1),
+  ('B.E. Information Technology', 'NWC201', 'Computer Communication Networks', 2, 1),
+  ('B.E. Information Technology', 'CTE203', 'Human-Computer Interaction', 2, 1),
+  ('B.E. Information Technology', 'CTE204', 'Web Application Development', 2, 2),
+  ('B.E. Information Technology', 'MAT206', 'Computational Mathematics', 2, 2),
+  ('B.E. Information Technology', 'CTE206', 'Software Engineering', 2, 2),
+  ('B.E. Information Technology', 'CTE207', 'Artificial Intelligence', 2, 2),
+  ('B.E. Information Technology', 'NWC202', 'Introduction to the IoT', 2, 2),
+  ('B.E. Information Technology', 'ITM301', 'Professionalism and Ethics in IT', 3, 1),
+  ('B.E. Information Technology', 'CTE308', 'Mobile Application Development', 3, 1),
+  ('B.E. Information Technology', 'CTE309', 'Machine Learning', 3, 1),
+  ('B.E. Information Technology', 'EDP101', 'Entrepreneurship', 3, 1),
+  ('B.E. Information Technology', 'ITM302', 'System Administration', 3, 1),
+  ('B.E. Information Technology', 'DIS302', 'Data Analytics', 3, 2),
+  ('B.E. Information Technology', 'DIS303', 'Cryptology', 3, 2),
+  ('B.E. Information Technology', 'PRW301', 'Introduction to Research', 3, 2),
+  ('B.E. Information Technology', 'ITM304', 'IT Project Management', 3, 2),
+  ('B.E. Information Technology', 'DIS404', 'Advanced Database Systems', 4, 1),
+  ('B.E. Information Technology', 'DIS405', 'Information Security', 4, 1),
+  ('B.E. Information Technology', 'CTE412', 'Integrated Systems Technology', 4, 1),
+  ('B.E. Information Technology', 'IRP401', 'Industry Research Project Proposal', 4, 1),
+  ('B.E. Information Technology', 'IRP402', 'Industry Research Project', 4, 2),
+  ('B.E. Information Technology', 'ONL401', 'Online Courses', 4, 2)
+) AS c(prog, code, name, yr, sem)
+JOIN programs p ON lower(p.program_name) = lower(c.prog)
+JOIN modules m ON m.module_code = c.code
+ON CONFLICT (program_id, module_id) DO UPDATE SET year = EXCLUDED.year, semester = EXCLUDED.semester;
+
+-- ===== Synthetic test accounts (no real people; real users are added only after the college approves the project) =====
+UPDATE users u SET name = t.name, email = t.email
+FROM (VALUES
+  ('U001', 'Test Admin',       'test.admin@example.com'),
+  ('U002', 'Test Tutor 01',    'test.tutor01@example.com'),
+  ('U003', 'Test Tutor 02',    'test.tutor02@example.com'),
+  ('U004', 'Test Student 01',  'test.student01@example.com'),
+  ('U005', 'Test Student 02',  'test.student02@example.com'),
+  ('U006', 'Test Student 03',  'test.student03@example.com'),
+  ('U007', 'Test Student 04',  'test.student04@example.com'),
+  ('U008', 'Test Management',  'test.management@example.com')
+) AS t(id, name, email)
+WHERE u.user_id = t.id;
+UPDATE notifications SET message = replace(message, 'Choki Wangdi', 'Test Student 03') WHERE message LIKE '%Choki Wangdi%';
