@@ -3,6 +3,7 @@ const express = require('express'), bcrypt = require('bcryptjs'), jwt = require(
 const { PrismaClient } = require('@prisma/client');
 const helmet = require('helmet'), { rateLimit } = require('express-rate-limit'), PDFDocument = require('pdfkit');
 const prisma = new PrismaClient(), app = express();
+if (process.env.TRUST_PROXY) app.set('trust proxy', +process.env.TRUST_PROXY); // behind nginx: rate-limit per real client IP
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }), rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false }));
 app.use(cors(), express.json()); app.use('/uploads', express.static('uploads'));
 const upload = multer({ storage: multer.diskStorage({ destination: 'uploads/', filename: (q, f, cb) => cb(null, Date.now() + path.extname(f.originalname)) }), limits: { fileSize: 10 * 1024 * 1024 } });

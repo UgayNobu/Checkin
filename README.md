@@ -52,7 +52,11 @@ Checkin/
 │   └── prisma/
 │       ├── schema.prisma     # Prisma map of the database tables
 │       └── database.sql      # all database changes + seed data
-├── docs/                     # proposal, sprint reports
+├── .github/workflows/        # CI/CD pipeline
+├── docker-compose.yml        # local Docker stack (own Postgres)
+├── docker-compose.prod.yml   # production (GHCR images + Supabase)
+├── scripts/smoke-test.sh     # end-to-end check used by CI
+├── docs/                     # proposal, sprint reports, DEPLOYMENT.md
 └── README.md
 ```
 
@@ -95,9 +99,22 @@ npm install
 npm run dev        # open http://localhost:5173
 ```
 
+Or run both from the repo root in one terminal: `npm run install:all` once, then `npm run dev`.
+
 Check the backend is up with `curl http://localhost:5001/health`.
 
 > **macOS:** port 5000 is used by AirPlay Receiver, so we use port **5001**. Either turn AirPlay Receiver off, or keep `PORT=5001` in `backend/.env` and `VITE_API` pointing to 5001.
+
+### Or: run everything in Docker
+
+No Node, Supabase or `.env` values needed. Docker starts its own local database with the seed data.
+
+```bash
+cp .env.example .env          # then set JWT_SECRET
+docker compose up -d --build  # open http://localhost:8080
+```
+
+The CI/CD pipeline, image publishing and server deployment are covered in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ### Test accounts
 

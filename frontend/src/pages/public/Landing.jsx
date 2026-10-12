@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import './public.css';
-import front from '../../../Photo/front.jpg';
-import logo from '../../../Photo/logo.jpg';
+const front = '/front.jpg';
+const logo = '/logo.jpg';
 const Logo = () => <img className="logo" src={logo} alt="CST logo" />;
 
 export default function Landing() {

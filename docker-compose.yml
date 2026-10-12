@@ -1,0 +1,76 @@
+# Full CheckIn stack on your own machine (and in CI), with its own local PostgreSQL.
+#   cp .env.example .env      # then set JWT_SECRET
+#   docker compose up -d --build
+#   open http://localhost:8080   (log in as U001 / Test@1234)
+# Production uses docker-compose.prod.yml (Supabase, prebuilt images) instead.
+
+x-db-env: &db-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-checkin_user}:${POSTGRES_PASSWORD:-checkin_dev_password}@db:5432/${POSTGRES_DB:-checkin_db}?schema=public
+  DIRECT_URL: postgresql://${POSTGRES_USER:-checkin_user}:${POSTGRES_PASSWORD:-checkin_dev_password}@db:5432/${POSTGRES_DB:-checkin_db}?schema=public
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-checkin_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-checkin_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-checkin_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # uncomment to reach the database from pgAdmin / DBeaver on your machine
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # one-off job: creates tables + seed data in the local db, then exits
+  db-setup:
+    build:
+      context: ./backend
+      target: dbsetup
+    environment:
+      <<: *db-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: checkin-backend:local
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: *db-env
+      PORT: 5000
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      GEOFENCE_METRES: ${GEOFENCE_METRES:-10}
+      TRUST_PROXY: 1
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    volumes:
+      - uploads_data:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API: /api
+    image: checkin-frontend:local
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads_data:

@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+.git
+Dockerfile
+.dockerignore
+uploads/*
+!uploads/.gitkeep
+prisma/timetable_AS2026.sql
