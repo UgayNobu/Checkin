@@ -6,7 +6,7 @@ import './Overview.css';
 const Stat = ({ l, v, chip, cls }) => (
   <div className="stat">
     <small>{l}</small>
-    <b>{v || '-'}</b>
+    <b>{v ?? '-'}</b>
     {chip && <div><span className={'chip ' + (cls || 'g')}>{chip}</span></div>}
   </div>
 );
@@ -26,8 +26,6 @@ export function Overview() {
   const [depts, setDepts] = useState(initialDepts); 
 
   useEffect(() => {
-    // Uncomment this when your API is ready
-    /*
     api('/management/overview')
       .then((d) => {
         setStats(d.totals);
@@ -36,7 +34,6 @@ export function Overview() {
         }
       })
       .catch((err) => console.error("API Error:", err));
-    */
   }, []);
 
   return (
@@ -44,7 +41,7 @@ export function Overview() {
       <h2 className="ttl">Overall View</h2>
       
       <div className="stats">
-        <Stat l="Total Students" v={stats.students} chip="↑ 12 this month" cls="g" />
+        <Stat l="Total Students" v={stats.students} chip={stats.newStudents != null ? `↑ ${stats.newStudents} this month` : null} cls="g" />
         <Stat l="Total Tutors" v={stats.tutors} chip="Active faculty" cls="g" />
         <Stat l="Total Modules" v={stats.modules} />
         <Stat l="Below 80%" v={stats.below80} chip="Needs review" cls="o" />
@@ -66,9 +63,9 @@ export function Overview() {
             {depts.map((dept, i) => (
               <tr key={i}>
                 <td><b>{dept.department}</b></td>
-                <td>{dept.students || '-'}</td>
-                <td>{dept.modules || '-'}</td>
-                <td>{dept.attendance ? `${dept.attendance}%` : '-'}</td>
+                <td>{dept.students ?? '-'}</td>
+                <td>{dept.modules ?? '-'}</td>
+                <td>{dept.attendance != null ? `${dept.attendance}%` : '-'}</td>
                 <td>
                   <a 
                     className="view" 

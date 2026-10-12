@@ -12,23 +12,33 @@ import {
 import { api, auth } from './api';
 import './base.css';
 
+/* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
 import Register from './pages/public/Register.jsx';
 
+/* ---------- Teacher pages ---------- */
 import TDash from './pages/teacher/Dashboard.jsx';
-import { Modules as TModules, ModuleKey, RecordModules } from './pages/teacher/Modules.jsx';
-import { RecordStudents, RecordStudent } from './pages/teacher/Records.jsx';
+import { Modules as TModules, ModuleKey } from './pages/teacher/Modules.jsx';
+import StartAttendance from './pages/teacher/StartAttendance.jsx';
+import { RecordModules, RecordStudents, RecordStudent } from './pages/teacher/Records.jsx';
 import Reports from './pages/teacher/Reports.jsx';
 import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
 
-// --- Management Imports (Make sure these files exist!) ---
+/* ---------- Admin pages ---------- */
+import AdminOverview from './pages/admin/AdminOverview.jsx';
+import { ProgramStudents, ProgramTeachers } from './pages/admin/ProgramView.jsx';
+import * as A from './pages/admin/Admin.jsx';
+
+/* ---------- Management pages ---------- */
 import { Overview as MOverview } from './pages/management/Overview.jsx';
 import { Departments, Department, ModuleView, StudentView } from './pages/management/Module.jsx';
 import { TeacherList } from './pages/management/Teacher.jsx';
 import { History, HistoryCalendar } from './pages/management/History.jsx';
 
+/* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
 
+/* ---------- Student pages ---------- */
 import StudentDash from './pages/student/Dashboard.jsx';
 import StudentAttendance from './pages/student/Attendance.jsx';
 import Evidence from './pages/student/Evidence.jsx';
@@ -60,6 +70,10 @@ const NAV = {
     ['/profile', 'My Profile'],
     ['/settings', 'Settings'],
   ],
+  admin: [
+    ['/', 'Admin'],
+    ['/programs', 'Program / Module'],
+  ],
   management: [
     ['/', 'Management'],
     ['/module', 'Module'],
@@ -72,11 +86,12 @@ const NAV = {
 const FOOT = {
   student: 'College of Science and Technology',
   teacher: 'College of Science and Technology',
+  admin: 'CST • Fair, Fast & Honest',
   management: 'CST • Fair, Fast & Honest',
 };
 
 /* =========================================================
-   Login page
+   Login page (student + teacher)
    ========================================================= */
 function Login() {
   const nav = useNavigate();
@@ -104,32 +119,27 @@ function Login() {
 
   return (
     <div className="login">
+      {/* Left side */}
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
         <div>
-          <h1>
-            {teacher
-              ? 'Manage your sessions and student attendance'
-              : 'Student Attendance System'}
-          </h1>
+          <h1>{teacher ? 'Manage your sessions and student attendance' : 'Student Attendance System'}</h1>
           <p>Sign in to access classes, tutor sessions, and your personal academic dashboard.</p>
         </div>
         <small>College of Science and Technology</small>
       </div>
 
+      {/* Form card */}
       <form className="lcard" onSubmit={go}>
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{teacher ? 'Teacher login' : 'CheckIn'}</h2>
         <p className="sub">College of Science and Technology</p>
 
         <label>{teacher ? 'Staff ID' : 'Student ID'}</label>
-        <input
-          value={f.userId}
-          onChange={(e) => setF({ ...f, userId: e.target.value })}
-        />
+        <input value={f.userId} onChange={(e) => setF({ ...f, userId: e.target.value })} />
 
         <label>Password</label>
         <input
@@ -149,25 +159,28 @@ function Login() {
           {teacher ? 'New tutor? ' : 'No account? '}
           <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign in</Link>
         </p>
+        <p className="ok" style={{ fontSize: 11, textAlign: 'center' }}>
+          Routes to the right dashboard after sign-in
+        </p>
       </form>
     </div>
   );
 }
 
 /* =========================================================
-   Notification bell
+   Notification bell (student dashboard)
    ========================================================= */
 function Bell() {
   const [open, setOpen] = useState(false);
-  const [l, setL] = useState([]);
+  const [list, setList] = useState([]);
 
-  const load = () => api('/notifications').then(setL).catch(() => {});
+  const load = () => api('/notifications').then(setList).catch(() => {});
 
   useEffect(() => {
     load();
   }, []);
 
-  const unread = l.filter((n) => !n.isRead).length;
+  const unread = list.filter((n) => !n.isRead).length;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -183,8 +196,8 @@ function Bell() {
 
       {open && (
         <div className="bellpanel">
-          {l.length ? (
-            l.map((n) => (
+          {list.length ? (
+            list.map((n) => (
               <p
                 key={n.id}
                 className={n.isRead ? '' : 'unread'}
@@ -204,7 +217,7 @@ function Bell() {
 }
 
 /* =========================================================
-   Shell Layout
+   Shell: sidebar + top bar + page area
    ========================================================= */
 const SUB = {
   student: (u) => 'ID: ' + u.userId,
@@ -222,6 +235,7 @@ function Shell({ user, children, title, sub }) {
     .slice(0, 2)
     .toUpperCase();
 
+  // Pending evidence badge for teachers
   useEffect(() => {
     if (user.role === 'teacher') {
       api('/evidence?status=pending')
@@ -230,27 +244,30 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
+  // Clicking the name/avatar in the top bar opens that user's profile page
   const handleProfileClick = () => {
-    if (user.role === 'student') {
-      nav('/settings/profile');
-    } else if (user.role === 'teacher') {
-      nav('/profile');
-    } else {
-      nav('/'); 
-    }
+    if (user.role === 'student') nav('/settings/profile');
+    else if (user.role === 'teacher') nav('/profile');
+    else nav('/');
   };
 
   return (
     <div className={'shell ' + user.role}>
+      {/* Sidebar */}
       <aside className="side">
         <div className="brand">
           <img className="logo" src="/logo.jpg" alt="" /> CheckIn
+          {user.role === 'admin' && (
+            <small style={{ display: 'block', fontSize: 9, opacity: 0.5, fontWeight: 400, padding: 0 }}>
+              Admin Panel
+            </small>
+          )}
         </div>
 
         <nav>
-          {NAV[user.role].map(([to, l]) => (
+          {NAV[user.role].map(([to, label]) => (
             <NavLink key={to} to={to} end={to === '/'}>
-              {l}
+              {label}
               {to === '/evidence' && pend > 0 && <span className="nbadge">{pend}</span>}
             </NavLink>
           ))}
@@ -267,8 +284,9 @@ function Shell({ user, children, title, sub }) {
         <small>{FOOT[user.role]}</small>
       </aside>
 
+      {/* Main area */}
       <div className="main">
-        {title && (
+        {user.role !== 'admin' && title && (
           <header className="top">
             <div>
               <h2>{title}</h2>
@@ -278,19 +296,19 @@ function Shell({ user, children, title, sub }) {
             <div className="me">
               {user.role === 'student' && title === 'Dashboard' && <Bell />}
 
-              <div 
+              <div
                 onClick={handleProfileClick}
-                style={{ 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '10px',
                   padding: '5px 10px',
                   borderRadius: '8px',
-                  transition: 'background-color 0.2s'
+                  transition: 'background-color 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 title="View Profile"
               >
                 <div className="avatar">{ini}</div>
@@ -311,99 +329,7 @@ function Shell({ user, children, title, sub }) {
 }
 
 /* =========================================================
-   Teacher: Start Attendance
-   ========================================================= */
-function TeacherStart() {
-  const [mods, setMods] = useState([]);
-  const [f, setF] = useState({ module: '', room: '', type: 'theory', hours: 1 });
-  const [live, setLive] = useState(null);
-  const [sid, setSid] = useState(null);
-
-  useEffect(() => {
-    api('/teacher/modules').then(setMods);
-  }, []);
-
-  useEffect(() => {
-    if (!sid) return;
-    const t = setInterval(() => api(`/sessions/${sid}/live`).then(setLive), 4000);
-    api(`/sessions/${sid}/live`).then(setLive);
-    return () => clearInterval(t);
-  }, [sid]);
-
-  const gen = () =>
-    navigator.geolocation.getCurrentPosition((p) =>
-      api('/sessions', { ...f, lat: p.coords.latitude, lng: p.coords.longitude }).then((s) =>
-        setSid(s._id)
-      )
-    );
-
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-
-  return (
-    <div className="row" style={{ alignItems: 'flex-start' }}>
-      <div className="panel" style={{ flex: 1, marginTop: 0 }}>
-        <h3>Session details</h3>
-
-        <label>Module</label>
-        <select value={f.module} onChange={set('module')}>
-          <option value="">Select module</option>
-          {mods.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.code} – {m.name}
-            </option>
-          ))}
-        </select>
-
-        <label>Room</label>
-        <input value={f.room} onChange={set('room')} />
-
-        <label>Practical / theory</label>
-        <select value={f.type} onChange={set('type')}>
-          <option>theory</option>
-          <option>practical</option>
-        </select>
-
-        <label>Total hour</label>
-        <input type="number" value={f.hours} onChange={set('hours')} />
-
-        <p><small>Students can check in until the window closes.</small></p>
-        
-        <button className="btn" style={{ width: '100%' }} onClick={gen}>
-          Generate Check-in Code
-        </button>
-      </div>
-
-      {live && (
-        <div className="panel" style={{ flex: 1, marginTop: 0, textAlign: 'center' }}>
-          <h2>{live.code}</h2>
-          <small>Students enter this code in the CheckIn app to mark themselves present.</small>
-
-          <div className="row" style={{ justifyContent: 'center', gap: 40, marginTop: 14 }}>
-            <div>
-              <b className="ok" style={{ fontSize: 22 }}>{live.checkedIn}</b>
-              <br />
-              <small>Checked in</small>
-            </div>
-            <div>
-              <b className="err" style={{ fontSize: 22 }}>{live.absent}</b>
-              <br />
-              <small>Absent</small>
-            </div>
-          </div>
-
-          {live.flagged.length > 0 && (
-            <p className="err">
-              Location check failed: {live.flagged.map((s) => s.name).join(', ')}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   Routes configuration
+   Routes per role: path -> [Component, title, subtitle]
    ========================================================= */
 const Soon = () => <p>This screen is next in the build.</p>;
 
@@ -425,7 +351,7 @@ const PAGES = {
     '/': [TDash, 'Dashboard', 'Overview of your day'],
     '/modules': [TModules, 'My Modules', 'Modules you teach this semester'],
     '/modules/:id': [ModuleKey, 'My Modules', 'Modules you teach this semester'],
-    '/start': [TeacherStart, 'Start Attendance', 'Generate a check-in code for your class'],
+    '/start': [StartAttendance, 'Start Attendance', 'Generate a check-in code for your class'],
     '/records': [RecordModules, 'Attendance Records', 'History of past sessions'],
     '/records/:id': [RecordStudents, 'Attendance Records', ''],
     '/records/:id/:sid': [RecordStudent, 'Attendance Records', ''],
@@ -448,10 +374,21 @@ const PAGES = {
     '/history': [History, '', ''],
     '/history/:sid/:mid': [HistoryCalendar, '', ''],
   },
+
+  admin: {
+    '/': [AdminOverview, '', ''],
+    '/students/:program': [ProgramStudents, '', ''],
+    '/students/:program/:year': [A.Students, '', ''],
+    '/teachers/:program': [ProgramTeachers, '', ''],
+    '/programs': [A.Programs, '', ''],
+    '/programs/:program': [A.ProgramYears, '', ''],
+    '/programs/:program/:year/:semester': [A.SemesterModules, '', ''],
+    '/programs/:program/:year/:semester/module/:id': [A.ModuleForm, '', ''],
+  },
 };
 
 /* =========================================================
-   Private routes logic
+   Private routes (after login)
    ========================================================= */
 function Private() {
   const u = auth.get()?.user;
@@ -466,16 +403,14 @@ function Private() {
   return (
     <Routes>
       {paths.map((path) => {
-        // Fallback component if something is missing
+        // Fallback component if a page is missing
         const [C, t, s] = PAGES[u.role][path] || [
           Soon,
           NAV[u.role].find((n) => n[0] === path)?.[1],
           '',
         ];
-
-        // Safety check: If component C is undefined, show Soon instead of crashing
-        const Component = C || Soon; 
-
+        // Safety check: if a component is undefined, show Soon instead of crashing
+        const Component = C || Soon;
         return (
           <Route
             key={path}
@@ -493,7 +428,7 @@ function Private() {
 }
 
 /* =========================================================
-   App Entry Point
+   App
    ========================================================= */
 export default function App() {
   return (

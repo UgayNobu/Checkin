@@ -1,11 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react'; // CHANGED: useEffect no longer needed
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import './public.css';
 
-// Fallback lists, used only if the backend can't be reached. The real lists come from /api/programs and /api/departments.
-const PROG = ['B.E. Information Technology', 'B.E. Software Engineering'];
-const DEPT = ['Computing Technologies Department'];
+// CHANGED: full programme and department lists
+const PROG = [
+  'B.E. Software Engineering',
+  'B.E. Information Technology',
+  'B.E. Electronics and Communication',
+  'B.E. Civil Engineering',
+  'B.E. Electrical Engineering',
+  'Bachelor of Architecture',
+  'B.E. Engineering Geology',
+  'B.E. Instrumentation and Control Engineering',
+  'B.E. Water Resource Engineering',
+  'Master in Construction Management',
+  'Master of Science in Engineering (by Research)',
+];
+const DEPT = [
+  'Architecture',
+  'Civil & Environmental Engineering',
+  'Computing Technologies',
+  'Electrical & Electronics Engineering',
+  'Mechanical Engineering',
+  'Science & Humanities',
+  'Dean of Academic Affairs',
+  'Dean of Student Affairs',
+];
 
 export default function Register() {
   const [params] = useSearchParams();
@@ -18,17 +39,12 @@ export default function Register() {
     userId: '',
     email: '',
     pick: '',
+    tprog: '', // CHANGED: tutor's programme
     password: '',
     again: '',
   });
   const [msg, setMsg] = useState('');
-  const [lists, setLists] = useState({ prog: PROG, dept: DEPT });
-
-  useEffect(() => {
-    Promise.all([api('/programs?level=Bachelor'), api('/departments')])
-      .then(([p, d]) => setLists({ prog: p.map((x) => x.name), dept: d.map((x) => x.name) }))
-      .catch(() => {});
-  }, []);
+  const lists = { prog: PROG, dept: DEPT }; // CHANGED: use the lists above directly
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -42,6 +58,7 @@ export default function Register() {
       name: f.name,
       email: f.email,
       [tutor ? 'department' : 'programme']: f.pick,
+      ...(tutor ? { programme: f.tprog } : {}), // CHANGED: send tutor's programme
       password: f.password,
     })
       .then((r) => {
@@ -105,6 +122,19 @@ export default function Register() {
             <option key={x}>{x}</option>
           ))}
         </select>
+
+        {/* CHANGED: extra Programme dropdown for tutors */}
+        {tutor && (
+          <>
+            <label>Programme</label>
+            <select value={f.tprog} onChange={set('tprog')}>
+              <option value="">Select</option>
+              {lists.prog.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </>
+        )}
 
         {inp('Password', 'password', 'password')}
         {inp('Confirm password', 'again', 'password')}
