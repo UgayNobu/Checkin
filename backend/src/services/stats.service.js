@@ -32,16 +32,23 @@ async function heldSessions(moduleId) {
  * answers % questions from memory. Use this for lists and reports.
  */
 async function loadMatrix(moduleIds, studentIds) {
-  const sessions = (await prisma.classSession.findMany({
-    where: { section: { moduleId: { in: moduleIds } } },
-    select: { id: true, date: true, startTime: true, duration: true, sessionType: true, section: { select: { moduleId: true } } },
-    orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
-  })).filter((s) => isHeld(s));
-
-  const att = await prisma.attendance.findMany({
-    where: { sessionId: { in: sessions.map((s) => s.id) }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
-    select: { studentId: true, sessionId: true },
-  });
+  // Both queries run at the same time (one round trip to the database instead of two).
+  const [allSessions, allAtt] = await Promise.all([
+    prisma.classSession.findMany({
+      where: { section: { moduleId: { in: moduleIds } } },
+      select: { id: true, date: true, startTime: true, duration: true, sessionType: true, section: { select: { moduleId: true } } },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    }),
+    prisma.attendance.findMany({
+      where: { session: { section: { moduleId: { in: moduleIds } } }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
+      select: { studentId: true, sessionId: true },
+    }),
+  ]);
+  const sessions = allSessions.filter((s) => isHeld(s));
+  const heldIds = new Set(sessions.map((s) => s.id));
+  const att = allAtt.filter((a) => heldIds.has(a.sessionId));
+  const perSession = new Map();
+  for (const a of att) perSession.set(a.sessionId, (perSession.get(a.sessionId) || 0) + 1);
 
   const byModule = new Map();
   for (const s of sessions) {
@@ -66,6 +73,11 @@ async function loadMatrix(moduleIds, studentIds) {
   return {
     sessionsOf: (moduleId) => byModule.get(moduleId) || [],
     attendedSession,
+    /** How many students attended a session (Present or Late). */
+    studentsWho: (sessionId) => perSession.get(sessionId) || 0,
+    /** Class rate for some sessions: attended records ÷ (sessions × class size), no extra query. */
+    classRate: (list, classSize) => (list.length && classSize
+      ? round1((list.reduce((a, s) => a + (perSession.get(s.id) || 0), 0) / (list.length * classSize)) * 100) : 0),
     /** % in one module; type = 'theory' | 'practical' to split. null when nothing held yet. */
     pct: (studentId, moduleId, type) => pctOf(tally(studentId, (byModule.get(moduleId) || []).filter((s) => !type || s.sessionType === type))),
     tally: (studentId, moduleId) => tally(studentId, byModule.get(moduleId) || []),
@@ -91,6 +103,7 @@ async function overallPct(studentId) {
 
 /** Overall % for many students at once: Map(studentId → %). */
 async function overallFor(studentIds) {
+  if (!studentIds.length) return new Map();
   const en = await prisma.enrollment.findMany({ where: { studentId: { in: studentIds } }, select: { studentId: true, moduleId: true } });
   const mods = [...new Set(en.map((e) => e.moduleId))];
   const m = await loadMatrix(mods, studentIds);
@@ -105,10 +118,12 @@ async function overallFor(studentIds) {
  */
 async function monthDays(studentId, moduleIds, month) {
   const [y, mo] = month.split('-').map(Number);
-  const sessions = (await prisma.classSession.findMany({
-    where: { section: { moduleId: { in: moduleIds } }, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } },
-  })).filter((s) => isHeld(s));
-  const att = await prisma.attendance.findMany({ where: { studentId, sessionId: { in: sessions.map((s) => s.id) } } });
+  const inMonth = { section: { moduleId: { in: moduleIds } }, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
+  const [all, att] = await Promise.all([
+    prisma.classSession.findMany({ where: inMonth }),
+    prisma.attendance.findMany({ where: { studentId, session: inMonth } }),
+  ]);
+  const sessions = all.filter((s) => isHeld(s));
   const rank = { absent: 0, flagged: 1, present: 2 }, out = {};
   for (const s of sessions) {
     const r = att.find((a) => a.sessionId === s.id), st = r ? apiStatus(r.status) : 'absent', d = s.date.getUTCDate();

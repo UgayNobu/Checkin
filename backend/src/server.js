@@ -7,7 +7,8 @@ const { sweepExpiredSessions } = require('./services/session.service');
 
 const server = createApp().listen(env.port, () => {
   console.log(`CheckIn API ready on http://localhost:${env.port} (PostgreSQL + Prisma)`);
-  runSweep();
+  // Open the database connection now, so the first page doesn't wait for it.
+  prisma.$connect().then(runSweep).catch((e) => console.error('Database connection failed:', e.message));
 });
 
 // Every minute: close sessions whose code has run out and mark the students who didn't check in as Absent.

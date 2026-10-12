@@ -9,6 +9,7 @@ const { verifyAuthToken } = require('../utils/jwt');
 const { COOKIE_NAME } = require('../utils/cookies');
 const { roleOut } = require('../utils/format');
 const { Unauthorized } = require('../utils/errors');
+const userCache = require('../utils/userCache');
 
 function readToken(req) {
   const header = req.headers.authorization || '';
@@ -22,7 +23,12 @@ async function identify(req) {
   if (!token) return null;
   try {
     const { id } = verifyAuthToken(token);
-    const u = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, name: true, email: true, isActive: true } });
+    // Cached for a few seconds so every page doesn't wait for this lookup (see utils/userCache.js).
+    let u = userCache.get(id);
+    if (u === undefined) {
+      u = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, name: true, email: true, isActive: true } });
+      userCache.set(id, u);
+    }
     if (!u || !u.isActive) return null;
     return { id: u.id, role: roleOut(u.role), name: u.name, email: u.email };
   } catch {
