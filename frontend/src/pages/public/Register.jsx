@@ -48,8 +48,16 @@ export default function Register() {
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
+  // Same rule the backend checks, shown as a checklist so people know what's needed.
+  const rules = [
+    ['At least 8 characters', f.password.length >= 8],
+    ['One number (0–9)', /\d/.test(f.password)],
+    ['One symbol, e.g. @ # ! $', /[^\w\s]/.test(f.password)],
+  ];
+
   const go = (e) => {
     e.preventDefault();
+    if (rules.some(([, ok]) => !ok)) return setMsg('Your password needs 8+ characters, a number and a symbol (for example Cst@2026).');
     if (f.password !== f.again) return setMsg('Passwords do not match');
 
     api('/auth/register', {
@@ -137,6 +145,11 @@ export default function Register() {
         )}
 
         {inp('Password', 'password', 'password')}
+        <ul className="pwrules">
+          {rules.map(([label, ok]) => (
+            <li key={label} className={ok ? 'ok' : ''}>{ok ? '✓' : '○'} {label}</li>
+          ))}
+        </ul>
         {inp('Confirm password', 'again', 'password')}
 
         <p className="err">{msg}</p>
