@@ -9,7 +9,7 @@ const make = ({ maxBytes, mimes }, label) => multer({
   fileFilter: (req, file, cb) => (mimes.includes(file.mimetype) ? cb(null, true) : cb(BadRequest(`Please upload ${label}`, 'FILE_TYPE'))),
 });
 
-const reliefUpload = make(FILES.relief, 'a PDF, PNG, JPG or WebP file (max 10 MB)').single('file');
+const evidenceUpload = make(FILES.evidence, 'a PDF, PNG, JPG or WebP file (max 10 MB)').single('file');
 const avatarUpload = make(FILES.avatar, 'a PNG, JPG or WebP image (max 2 MB)').single('file');
 
-module.exports = { reliefUpload, avatarUpload };
+module.exports = { evidenceUpload, avatarUpload };

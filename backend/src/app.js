@@ -20,9 +20,10 @@ const moduleRoutes = require('./routes/modules.routes');
 const { attendanceRouter, checkinRouter } = require('./routes/attendance.routes');
 const sessionRoutes = require('./routes/session.routes');
 const tutorRoutes = require('./routes/tutor.routes');
-const reliefRoutes = require('./routes/relief.routes');
+const evidenceRoutes = require('./routes/evidence.routes');
 const adminRoutes = require('./routes/admin.routes');
 const managementRoutes = require('./routes/management.routes');
+const catalogRoutes = require('./routes/catalog.routes');
 
 function createApp() {
   const app = express();
@@ -58,9 +59,10 @@ function createApp() {
   app.use('/api/checkin', checkinRouter);
   app.use('/api/sessions', sessionRoutes);
   app.use(['/api/teacher', '/api/tutor'], tutorRoutes);
-  app.use(['/api/evidence', '/api/relief'], reliefRoutes);
+  app.use('/api/evidence', evidenceRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/management', managementRoutes);
+  app.use('/api', catalogRoutes); // /departments, /programs, /rooms, /timetable
 
   // ── 404 + errors (always last)
   app.use(notFound);

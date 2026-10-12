@@ -20,6 +20,6 @@ router.get('/:id/key/suggest', requireRole('teacher'), id, c.suggestKey);
 router.put('/:id/key', requireRole('teacher'), id, validateBody(v.enrolmentKeyBodySchema), c.setKey);
 router.get('/:id/students', requireRole('teacher', 'admin', 'management'), id, c.students);
 router.post('/:id/students', requireRole('teacher'), id, validateBody(v.addStudentBodySchema), c.addStudent);
-router.delete('/:id/students/:studentId', requireRole('teacher'), c.removeStudent);
+router.delete('/:id/students/:studentId', requireRole('teacher', 'admin'), c.removeStudent);
 
 module.exports = router;

@@ -1,15 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 // The core feature: a student checks in with the code + GPS.
 //
-//  1. code exists and hasn't expired
+//  1. code exists and hasn't expired (an "offline" check-in held back by
+//     bad internet is still accepted up to NETWORK_GRACE_SECONDS late)
 //  2. session not ended
 //  3. student is enrolled in the module
 //  4. not already checked in
 //  5. location:
-//       no location shared           → Flagged (permission_denied)
-//       distance > geofence radius    → Flagged (outside_radius)
-//       GPS accuracy worse than 50 m  → Flagged (low_accuracy)
-//       otherwise                     → Present
+//       location permission denied        → Flagged (permission_denied)
+//       browser could not get a location  → Flagged (location_error)
+//       distance > geofence radius        → Flagged (outside_radius), or
+//         (low_accuracy) when the GPS error margin could put them inside
+//       GPS accuracy worse than 50 m      → Flagged (low_accuracy)
+//       arrived after expiry (offline)    → Flagged (network_issue)
+//       otherwise                         → Present
 // Flagged check-ins don't count until the tutor accepts them.
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
@@ -17,21 +21,24 @@ const { env } = require('../config/env');
 const { FLAG_REASONS, SESSION_STATUS } = require('../config/constants');
 const { haversineMeters } = require('../utils/haversine');
 const { normalizeCode, isValidCodeFormat } = require('../utils/code');
-const { round1 } = require('../utils/format');
+const { round1, flagText } = require('../utils/format');
 const { BadRequest, Forbidden, Conflict } = require('../utils/errors');
 const { notify } = require('./notifications.service');
 
-async function checkIn(student, { code, lat, lng, accuracy, permissionDenied }) {
+async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, locationError, offline }) {
   const c = normalizeCode(code);
   if (!isValidCodeFormat(c)) throw BadRequest('That code doesn’t look right. Check it and try again.', 'CODE_INVALID');
 
+  const now = new Date();
   const row = await prisma.attendanceCode.findFirst({
     where: { code: c }, orderBy: { expiryTimestamp: 'desc' },
     include: { session: { include: { section: { include: { module: true } } } } },
   });
   if (!row) throw BadRequest('That code is not valid. Ask your tutor to confirm it.', 'CODE_INVALID');
   if (row.session.status === SESSION_STATUS.ENDED) throw BadRequest('This session has ended', 'SESSION_ENDED');
-  if (row.expiryTimestamp <= new Date()) throw BadRequest('This code has expired', 'CODE_EXPIRED');
+  const graceEnd = row.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000;
+  if (row.expiryTimestamp <= now && !(offline && now.getTime() < graceEnd)) throw BadRequest('This code has expired', 'CODE_EXPIRED');
+  const late = row.expiryTimestamp <= now; // only possible when offline = true
 
   const sec = row.session.section, m = sec.module;
   const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId: student.id, moduleId: m.id } } });
@@ -39,20 +46,25 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied }) 
 
   // ── decide present vs flagged
   let flagReason = null, distance = null;
-  const noLocation = permissionDenied || lat === undefined || lng === undefined;
-  if (noLocation) flagReason = FLAG_REASONS.PERMISSION;
+  const noLocation = lat === undefined || lng === undefined;
+  if (permissionDenied) flagReason = FLAG_REASONS.PERMISSION;
+  else if (locationError) flagReason = FLAG_REASONS.LOCATION;
+  else if (noLocation) flagReason = FLAG_REASONS.PERMISSION;
   else {
     distance = round1(haversineMeters({ lat, lng }, { lat: row.latitude, lng: row.longitude }));
-    if (distance > row.geofenceRadius) flagReason = FLAG_REASONS.OUTSIDE;
-    else if (accuracy !== undefined && accuracy > env.accuracyFlagMetres) flagReason = FLAG_REASONS.ACCURACY;
+    if (distance > row.geofenceRadius) {
+      // If the GPS error margin could put them inside the room, it's a GPS problem, not "outside"
+      flagReason = accuracy !== undefined && distance - accuracy <= row.geofenceRadius ? FLAG_REASONS.ACCURACY : FLAG_REASONS.OUTSIDE;
+    } else if (accuracy !== undefined && accuracy > env.accuracyFlagMetres) flagReason = FLAG_REASONS.ACCURACY;
   }
+  if (!flagReason && late) flagReason = FLAG_REASONS.NETWORK;
   const ok = !flagReason;
 
   try {
     await prisma.attendance.create({
       data: {
         studentId: student.id, sessionId: row.sessionId, status: ok ? 'Present' : 'Flagged', flagReason, distanceMeters: distance,
-        submittedLat: noLocation ? null : lat, submittedLng: noLocation ? null : lng, accuracy: accuracy ?? null,
+        submittedLat: distance === null ? null : lat, submittedLng: distance === null ? null : lng, accuracy: accuracy ?? null,
       },
     });
   } catch (e) {
@@ -62,15 +74,20 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied }) 
   }
 
   if (!ok) {
-    const why = flagReason === FLAG_REASONS.OUTSIDE ? `${Math.round(distance)} m from the classroom`
-      : flagReason === FLAG_REASONS.ACCURACY ? `with weak GPS accuracy (${Math.round(accuracy)} m)` : 'without sharing location';
+    const why = {
+      [FLAG_REASONS.OUTSIDE]: `${Math.round(distance)} m from the classroom`,
+      [FLAG_REASONS.ACCURACY]: `with weak GPS accuracy (${accuracy === undefined ? '?' : Math.round(accuracy)} m)`,
+      [FLAG_REASONS.PERMISSION]: 'without sharing location',
+      [FLAG_REASONS.LOCATION]: 'but their browser could not get a location',
+      [FLAG_REASONS.NETWORK]: 'after the code expired (poor internet connection)',
+    }[flagReason];
     await notify(sec.tutorId, `${student.name} checked in ${why} (${m.code}). Please verify.`, 'Attendance');
   }
 
   return {
-    status: ok ? 'present' : 'flagged', flagReason, distance,
+    status: ok ? 'present' : 'flagged', flagReason, reason: flagText(flagReason), distance,
     module: { code: m.code, name: m.name },
-    message: ok ? `Present in ${m.name}` : 'Checked in, but your location could not be confirmed. Your tutor will review it.',
+    message: ok ? `Present in ${m.name}` : 'Checked in, but your attendance needs a quick check. Your tutor will review it.',
   };
 }
 

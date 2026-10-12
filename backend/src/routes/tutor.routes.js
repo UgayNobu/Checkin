@@ -1,6 +1,7 @@
 // Mounted at /api/teacher (existing) and /api/tutor (design doc name) — teachers only.
 const { Router } = require('express');
 const c = require('../controllers/tutor.controller');
+const catalog = require('../controllers/catalog.controller');
 const { requireAuth } = require('../middleware/requireAuth');
 const { requireRole } = require('../middleware/requireRole');
 const { validateParams } = require('../middleware/validate');
@@ -14,6 +15,7 @@ router.get('/dashboard', c.dashboard);
 router.get('/modules', c.modules);
 router.get('/modules/export.pdf', c.modulesPdf);
 router.get('/reports', c.reports);
+router.get('/timetable', catalog.teacherTimetable); // own weekly timetable
 // Export routes BEFORE /records/:moduleId/:studentId so "csv"/"pdf" isn't read as a student ID.
 router.get('/records-export/:moduleId/csv', mod, c.recordsCsv);
 router.get('/records-export/:moduleId/pdf', mod, c.recordsPdf);

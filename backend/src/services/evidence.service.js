@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// Relief / evidence requests: a student uploads a medical or official
+// Evidence documents: a student uploads a medical or official
 // leave document for a missed day. When a tutor (for their module),
 // admin or management approves it, every session of that module on
 // that day becomes Present for the student.
@@ -37,7 +37,7 @@ async function submit(student, { module, date, type, reason }, file) {
   const dup = await prisma.evidenceDocument.findFirst({ where: { studentId: student.id, moduleId: module, date: day, status: { in: ['Pending', 'Approved'] } } });
   if (dup) throw Conflict('You already sent a request for that module and date', 'DUPLICATE_REQUEST');
 
-  const stored = file ? await saveFile(file, `relief/${student.id}`) : null;
+  const stored = file ? await saveFile(file, `evidence/${student.id}`) : null;
   const r = await prisma.evidenceDocument.create({
     data: {
       studentId: student.id, moduleId: module, date: day, reason, leaveType: type === 'official' ? 'Official' : 'Medical',
@@ -81,13 +81,13 @@ async function review(user, id, { status, note }) {
   const approved = status === 'approved';
   const ops = [prisma.evidenceDocument.update({ where: { id }, data: { status: cap(status), reviewedBy: user.id, reviewedAt: new Date() } })];
   if (approved) {
-    // Leave relief: every session of this module on that date → Present.
+    // Approved evidence: every session of this module on that date → Present.
     const sessions = await prisma.classSession.findMany({ where: { date: r.date, section: { moduleId: r.moduleId } }, select: { id: true } });
     for (const se of sessions) {
       ops.push(prisma.attendance.upsert({
         where: { studentId_sessionId: { studentId: r.studentId, sessionId: se.id } },
-        update: { status: 'Present', flagReason: 'relief_approved' },
-        create: { studentId: r.studentId, sessionId: se.id, status: 'Present', flagReason: 'relief_approved' },
+        update: { status: 'Present', flagReason: 'evidence_approved' },
+        create: { studentId: r.studentId, sessionId: se.id, status: 'Present', flagReason: 'evidence_approved' },
       }));
     }
   }
@@ -95,7 +95,7 @@ async function review(user, id, { status, note }) {
 
   const day = r.date.toISOString().slice(0, 10);
   await notify(r.studentId, `Your absence request for ${r.module.code} on ${day} was ${status}.${note ? ` Note: ${note}` : ''}`, 'Evidence Documents', { email: `Absence request ${status}` });
-  if (user.role !== 'teacher') await writeAuditLog(user.id, approved ? 'Relief approved' : 'Relief rejected', `${r.student.name} (${r.studentId}) ${r.module.code} ${day}`);
+  if (user.role !== 'teacher') await writeAuditLog(user.id, approved ? 'Evidence approved' : 'Evidence rejected', `${r.student.name} (${r.studentId}) ${r.module.code} ${day}`);
   return { _id: r.id, status };
 }
 

@@ -1,6 +1,8 @@
 // Tutor-side module management: enrolment key and the student list.
 const { prisma } = require('../lib/prisma');
-const { NotFound, Forbidden } = require('../utils/errors');
+const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors');
+const { notify } = require('./notifications.service');
+const { writeAuditLog } = require('./audit.service');
 const { suggestEnrolmentKey, normalizeEnrolmentKey } = require('../utils/enrolment-key');
 
 /** The tutor's section for a module, or a 403. Every tutor route goes through this. */
@@ -10,13 +12,23 @@ async function assertTutorOwnsModule(moduleId, tutorId) {
   return sec;
 }
 
-async function setEnrolmentKey(moduleId, tutorId, key) {
+/**
+ * VLE-style enrolment settings. Body may hold either or both:
+ *   key       – the module's enrolment key (unique, not case-sensitive); '' removes it
+ *   selfEnrol – true/false: whether students may join with the key themselves
+ */
+async function setEnrolmentKey(moduleId, tutorId, { key, selfEnrol }) {
   await assertTutorOwnsModule(moduleId, tutorId);
-  const k = normalizeEnrolmentKey(key);
-  const clash = await prisma.module.findFirst({ where: { enrolmentKey: { equals: k, mode: 'insensitive' }, NOT: { id: moduleId } } });
-  if (clash) throw Forbidden('Another module already uses that key. Pick a different one.', 'KEY_TAKEN');
-  const m = await prisma.module.update({ where: { id: moduleId }, data: { enrolmentKey: k } });
-  return { id: m.id, code: m.code, enrolmentKey: m.enrolmentKey };
+  const data = {};
+  if (key !== undefined) {
+    const k = key ? normalizeEnrolmentKey(key) : null;
+    if (k && await prisma.module.findFirst({ where: { enrolmentKey: { equals: k, mode: 'insensitive' }, NOT: { id: moduleId } } }))
+      throw Conflict('This key is already used by another module. Please choose a different one.', 'KEY_TAKEN');
+    data.enrolmentKey = k;
+  }
+  if (selfEnrol !== undefined) data.selfEnrol = selfEnrol;
+  const m = await prisma.module.update({ where: { id: moduleId }, data });
+  return { id: m.id, code: m.code, enrolmentKey: m.enrolmentKey, selfEnrol: m.selfEnrol };
 }
 
 async function suggestKey(moduleId, tutorId) {
@@ -41,10 +53,16 @@ async function addStudent(moduleId, tutorId, userId) {
   return { message: 'Student added' };
 }
 
-async function removeStudent(moduleId, tutorId, studentId) {
-  await assertTutorOwnsModule(moduleId, tutorId);
-  await prisma.enrollment.deleteMany({ where: { moduleId, studentId } });
-  return { message: 'Student removed' };
+/** Unenrol a student: the module's tutor, or an admin. The student is notified. */
+async function removeStudent(moduleId, user, studentId) {
+  if (user.role === 'teacher') await assertTutorOwnsModule(moduleId, user.id);
+  const m = await prisma.module.findUnique({ where: { id: moduleId } });
+  if (!m) throw NotFound('Module not found');
+  const r = await prisma.enrollment.deleteMany({ where: { moduleId, studentId } });
+  if (!r.count) throw BadRequest('That student is not enrolled in this module', 'NOT_ENROLLED');
+  await notify(studentId, `You were removed from ${m.code} - ${m.name}.`, 'System');
+  if (user.role === 'admin') await writeAuditLog(user.id, 'Student Unenrolled', `${studentId} from ${m.code}`);
+  return { message: 'Student removed from the module' };
 }
 
 module.exports = { assertTutorOwnsModule, setEnrolmentKey, suggestKey, listStudents, addStudent, removeStudent };

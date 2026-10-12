@@ -6,7 +6,7 @@ const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { ATTENDED, SESSION_STATUS } = require('../config/constants');
 const { generateCheckInCode } = require('../utils/code');
-const { apiStatus, sessionStart } = require('../utils/format');
+const { apiStatus, sessionStart, flagText } = require('../utils/format');
 const { NotFound, Conflict, BadRequest } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
 const { notify } = require('./notifications.service');
@@ -20,11 +20,11 @@ async function ownedSession(id, tutorId) {
   return se;
 }
 
-/** A code no other session is currently using. */
+/** A code that has never been used before, so an old code can never open a new session. */
 async function uniqueCode() {
   for (let i = 0; i < 10; i++) {
     const code = generateCheckInCode();
-    const clash = await prisma.attendanceCode.findFirst({ where: { code, expiryTimestamp: { gt: new Date() } } });
+    const clash = await prisma.attendanceCode.findFirst({ where: { code } });
     if (!clash) return code;
   }
   throw new Error('Could not generate a unique code, try again');
@@ -65,16 +65,55 @@ async function startSession(tutorId, b) {
   return { _id: se.id, code, expiresAt: expiry, radius, minutes };
 }
 
-/** Small counter the start page polls every few seconds. */
+/**
+ * Ends a session and records every enrolled student who never checked in as Absent.
+ * Safe to call twice: an ended session is left alone.
+ */
+async function finalizeSession(sessionId) {
+  const se = await prisma.classSession.findUnique({ where: { id: sessionId }, include: { section: true } });
+  if (!se || se.status === SESSION_STATUS.ENDED) return;
+  const [enrolled, att] = await Promise.all([
+    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId }, select: { studentId: true } }),
+    prisma.attendance.findMany({ where: { sessionId }, select: { studentId: true } }),
+  ]);
+  const checkedIn = new Set(att.map((a) => a.studentId));
+  const missing = enrolled.filter((e) => !checkedIn.has(e.studentId));
+  await prisma.$transaction([
+    prisma.attendance.createMany({ data: missing.map((e) => ({ studentId: e.studentId, sessionId, status: 'Absent' })), skipDuplicates: true }),
+    prisma.classSession.update({ where: { id: sessionId }, data: { status: SESSION_STATUS.ENDED } }),
+  ]);
+}
+
+/**
+ * Closes every ongoing session whose code (plus the network grace time) has run out.
+ * server.js runs this every minute, so absences are recorded even if the tutor closes the page.
+ */
+async function sweepExpiredSessions() {
+  const cutoff = new Date(Date.now() - env.networkGraceSeconds * 1000);
+  const expired = await prisma.classSession.findMany({
+    where: { status: SESSION_STATUS.ONGOING, codes: { some: {}, every: { expiryTimestamp: { lte: cutoff } } } },
+    select: { id: true },
+  });
+  for (const x of expired) await finalizeSession(x.id);
+  return expired.length;
+}
+
+/** Small counter the start page polls every few seconds. Also closes the session once time is up. */
 async function live(id, tutorId) {
   const se = await ownedSession(id, tutorId), c = se.codes[0];
+  let status = se.status;
+  const graceOver = c && c.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000 <= Date.now();
+  if (status === SESSION_STATUS.ONGOING && graceOver) { await finalizeSession(se.id); status = SESSION_STATUS.ENDED; }
+
   const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId } });
   const list = await prisma.attendance.findMany({ where: { sessionId: se.id }, include: { student: true } });
+  const present = list.filter((a) => ATTENDED.includes(a.status)).length;
+  const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
   return {
-    code: c?.code, expiresAt: c?.expiryTimestamp, status: se.status, total,
-    checkedIn: list.filter((a) => ATTENDED.includes(a.status)).length,
-    absent: total - list.length,
-    flagged: list.filter((a) => apiStatus(a.status) === 'flagged').map((a) => ({ name: a.student.name, attendanceId: a.id, flagReason: a.flagReason })),
+    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total,
+    checkedIn: present,
+    absent: Math.max(0, total - present - flagged.length),
+    flagged: flagged.map((a) => ({ id: a.id, attendanceId: a.id, name: a.student.name, flagReason: a.flagReason, reason: flagText(a.flagReason) })),
   };
 }
 
@@ -90,13 +129,11 @@ async function listMine(tutorId, { limit, status }) {
   }));
 }
 
-/** End now: mark ended AND expire any live code, in one transaction. */
+/** End now: expire any live code, mark the session ended and record the absentees. */
 async function endSession(id, tutorId) {
   const se = await ownedSession(id, tutorId), now = new Date();
-  await prisma.$transaction([
-    prisma.classSession.update({ where: { id: se.id }, data: { status: SESSION_STATUS.ENDED } }),
-    prisma.attendanceCode.updateMany({ where: { sessionId: se.id, expiryTimestamp: { gt: now } }, data: { expiryTimestamp: now } }),
-  ]);
+  await prisma.attendanceCode.updateMany({ where: { sessionId: se.id, expiryTimestamp: { gt: now } }, data: { expiryTimestamp: now } });
+  await finalizeSession(se.id); // also marks everyone who didn't check in as Absent
   return { _id: se.id, status: SESSION_STATUS.ENDED };
 }
 
@@ -112,7 +149,7 @@ async function roster(id, tutorId) {
     const a = byStudent.get(u.id);
     return {
       attendanceId: a?.id ?? null, userId: u.id, name: u.name, status: a ? apiStatus(a.status) : 'absent', time: a?.timestamp ?? null,
-      flagReason: a?.flagReason ?? null, distance: a?.distanceMeters ?? null, accuracy: a?.accuracy ?? null,
+      flagReason: a?.flagReason ?? null, reason: flagText(a?.flagReason), distance: a?.distanceMeters ?? null, accuracy: a?.accuracy ?? null,
     };
   });
   const n = (st) => rows.filter((r) => r.status === st).length;
@@ -151,4 +188,4 @@ async function markManually(id, tutorId, studentId, present) {
   return { userId: studentId, status: present ? 'present' : 'absent' };
 }
 
-module.exports = { ownedSession, startSession, live, listMine, endSession, roster, decideFlagged, markManually };
+module.exports = { ownedSession, startSession, finalizeSession, sweepExpiredSessions, live, listMine, endSession, roster, decideFlagged, markManually };

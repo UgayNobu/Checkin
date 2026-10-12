@@ -23,7 +23,7 @@ export function TeacherSettings() {
   useEffect(() => { api('/me').then(setMe); }, []);
   if (!me) return null; const prefs = me.prefs || {};
   const tog = (k) => { const p = { ...prefs, [k]: !prefs[k] }; setMe({ ...me, prefs: p }); api('/me', { prefs: p }, 'PUT'); };
-  const rows = [['email', 'Email notifications', 'Get emailed when a relief request is approved or declined.'], ['sms', 'SMS alerts', 'Receive a text message when a check-in code is about to expire.'], ['push', 'Push notifications', 'Show alerts on this device for new relief requests.']];
+  const rows = [['email', 'Email notifications', 'Get emailed when an evidence document is approved or declined.'], ['sms', 'SMS alerts', 'Receive a text message when a check-in code is about to expire.'], ['push', 'Push notifications', 'Show alerts on this device for new relief requests.']];
   return (
     <div className="setbox"><div className="tabs"><button className={tab === 'n' ? 'on' : ''} onClick={() => setTab('n')}>Notification Settings</button><button className={tab === 'a' ? 'on' : ''} onClick={() => setTab('a')}>Account</button></div>
       {tab === 'n' ? rows.map(([k, t, s]) => <div className="srow" key={k}><div><b>{t}</b><small>{s}</small></div><button className={'sw ' + (prefs[k] ? 'on' : '')} onClick={() => tog(k)} /></div>) :

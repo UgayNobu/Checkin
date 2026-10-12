@@ -7,6 +7,7 @@ const programParamSchema = z.object({ name: z.string().trim().min(1) });
 const usersQuerySchema = z.object({
   role: z.enum(['student', 'teacher', 'admin', 'management']).default('student'),
   department: optionalText(100),
+  programme: optionalText(100), // programme pages: matches users.programme (or an older department text)
   year: optionalNumber(z.number().int().min(1).max(6)),
 });
 const userIdParamSchema = z.object({ id });

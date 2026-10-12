@@ -44,7 +44,7 @@ export function ModuleView() {
   const { id } = useParams(), nav = useNavigate(), [d, setD] = useState(null); useEffect(() => { api('/management/module/' + id).then(setD); }, [id]);
   if (!d) return null;
   return (
-    <div className="mg"><Back /><div className="stats"><Stat l="Total Students" v={d.totals.students} /><Stat l="Total Absence" v={d.totals.absence} /><Stat l="Total Approve/ Relief Request" v={d.totals.relief} /></div>
+    <div className="mg"><Back /><div className="stats"><Stat l="Total Students" v={d.totals.students} /><Stat l="Total Absence" v={d.totals.absence} /><Stat l="Approved Evidence Documents" v={d.totals.evidence} /></div>
       <div className="tbl" style={{ maxWidth: 720 }}><table><thead><tr><th>NAME</th><th>STUDENT ID</th><th>ABSENT (H)</th><th>ATTENDANCE</th></tr></thead>
         <tbody>{d.rows.map((r) => <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/student/${r.id}/${id}`)}><td><b>{r.name}</b></td><td>{r.userId}</td><td>{r.absentH}hr</td><td>{r.pct}%</td></tr>)}</tbody></table></div></div>);
 }

@@ -7,8 +7,8 @@ const ini = (n = '') => n.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpp
 
 export default function Evidence() {
   const nav = useNavigate(), act = auth.get().user.role === 'management', [l, setL] = useState([]);
-  const load = () => api('/relief').then(setL); useEffect(() => { load(); }, []);
-  const set = (id, status) => api('/relief/' + id, { status }, 'PATCH').then(load);
+  const load = () => api('/evidence').then(setL); useEffect(() => { load(); }, []);
+  const set = (id, status) => api('/evidence/' + id, { status }, 'PATCH').then(load);
   return (
     <div className="evd">
       {l.filter((r) => r.status === 'pending').map((r) => (
@@ -29,7 +29,7 @@ export default function Evidence() {
 
 export function Certificate() {
   const { id } = useParams(), nav = useNavigate(), [r, setR] = useState(null);
-  useEffect(() => { api(auth.get().user.role === 'student' ? '/relief/mine' : '/relief').then((l) => setR(l.find((x) => x._id === id))); }, [id]);
+  useEffect(() => { api(auth.get().user.role === 'student' ? '/evidence/mine' : '/evidence').then((l) => setR(l.find((x) => x._id === id))); }, [id]);
   if (!r) return null; const url = r.fileUrl && FILES + r.fileUrl;
   return (<div className="evd"><button className="back" onClick={() => nav('/evidence')} style={{ background: 'none', border: 0, cursor: 'pointer', marginBottom: 10 }}>&lt;back</button>
     <div className="doc"><div className="meta"><div className="rtop"><span className="av">{ini(r.student?.name)}</span><div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br />{r.module?.name} · Missed {fd(r.date)}</div></div>
