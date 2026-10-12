@@ -214,6 +214,9 @@ export function SemesterModules() {
         {shown.map((x) => (
           <div className="mod" key={x._id} onClick={() => go(x._id)}>
             <b>{x.code} -</b> {x.name}
+            <small style={{ display: 'block', color: x.tutor ? '#16a34a' : '#b45309' }}>
+              {x.tutor ? `Tutor: ${x.tutor.name}` : 'No tutor assigned yet'}
+            </small>
           </div>
         ))}
 
@@ -232,13 +235,16 @@ export function ModuleForm() {
   const nav = useNavigate();
   const [f, setF] = useState({ name: '', code: '', tutorId: '', count: '' });
   const [tutors, setTutors] = useState([]);
+  const [dept, setDept] = useState(''); // department that runs this programme
   const [err, setErr] = useState('');
 
   useEffect(() => {
     api('/admin/users?role=teacher')
-      .then((l) => setTutors(Array.isArray(l) ? l : []))
+      .then((l) => setTutors(Array.isArray(l) ? l.filter((t) => t.active) : []))
       .catch(() => setTutors([]));
-
+    api('/programs')
+      .then((l) => setDept(l.find((p) => p.name === program)?.department?.name || ''))
+      .catch(() => {});
     if (id !== 'new') {
       api(`/admin/modules?department=${E(program)}&year=${year}&semester=${semester}`).then((l) => {
         const x = l.find((y) => y._id === id);
@@ -248,7 +254,12 @@ export function ModuleForm() {
   }, [id]);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const tutorName = tutors.find((x) => x.userId === f.tutorId)?.name || '';
+
+  // Tutors from the programme's own department are listed first.
+  // ("Computing Technologies" and "Computing Technologies Department" count as the same.)
+  const norm = (d) => (d || '').toLowerCase().replace(/&/g, 'and').replace(/\s*department$/, '').trim();
+  const sameDept = (t) => dept && norm(t.department) && (norm(t.department).includes(norm(dept)) || norm(dept).includes(norm(t.department)));
+  const inDept = tutors.filter(sameDept), others = tutors.filter((t) => !sameDept(t));
 
   const save = () => {
     const isNew = id === 'new';
@@ -272,11 +283,21 @@ export function ModuleForm() {
         <label>Module Code</label>
         <input value={f.code} onChange={set('code')} />
 
-        <label>Assign Tutor (Staff ID)</label>
-        <input value={f.tutorId} onChange={set('tutorId')} placeholder="e.g. CST-0142" />
-
-        <label>Teacher Name</label>
-        <input value={tutorName} readOnly />
+        <label>Assign Tutor</label>
+        <select value={f.tutorId} onChange={set('tutorId')}>
+          <option value="">— Not assigned —</option>
+          {inDept.length > 0 && (
+            <optgroup label={`Tutors in ${dept}`}>
+              {inDept.map((t) => <option key={t.userId} value={t.userId}>{t.name} ({t.userId})</option>)}
+            </optgroup>
+          )}
+          {others.length > 0 && (
+            <optgroup label={inDept.length ? 'Tutors in other departments' : 'All tutors'}>
+              {others.map((t) => <option key={t.userId} value={t.userId}>{t.name} ({t.userId}){t.department ? ` · ${t.department}` : ''}</option>)}
+            </optgroup>
+          )}
+        </select>
+        <small style={{ color: '#64748b' }}>The tutor will see this module and can then set its enrolment key.</small>
 
         <label>Number of Modules</label>
         <input value={f.count} onChange={set('count')} />
