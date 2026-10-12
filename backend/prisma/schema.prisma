@@ -1,5 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Loads linked tables (include) in ONE SQL query with joins instead of one query each,
+  // which matters a lot because every query travels to the Supabase server and back.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

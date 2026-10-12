@@ -5,7 +5,7 @@
 const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { WEEK_MS, FLAGGED } = require('../config/constants');
-const { loadMatrix, classRate } = require('./stats.service');
+const { loadMatrix } = require('./stats.service');
 const { sessionStart, round1, apiStatus, flagText } = require('../utils/format');
 const { NotFound } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
@@ -55,12 +55,12 @@ async function dashboard(tutorId) {
 
 /** One row per student: theory %, practical %, total % (null = no sessions yet) and how many check-ins are flagged. */
 async function moduleRecords(moduleId, tutorId) {
-  await assertTutorOwnsModule(moduleId, tutorId);
-  const en = await prisma.enrollment.findMany({ where: { moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } });
-  const m = await loadMatrix([moduleId]);
-  const flags = await prisma.attendance.groupBy({
-    by: ['studentId'], where: { status: { in: FLAGGED }, session: { section: { moduleId } } }, _count: { _all: true },
-  });
+  const [, en, m, flags] = await Promise.all([
+    assertTutorOwnsModule(moduleId, tutorId),
+    prisma.enrollment.findMany({ where: { moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } }),
+    loadMatrix([moduleId]),
+    prisma.attendance.groupBy({ by: ['studentId'], where: { status: { in: FLAGGED }, session: { section: { moduleId } } }, _count: { _all: true } }),
+  ]);
   const flagged = new Map(flags.map((f) => [f.studentId, f._count._all]));
   return {
     sessions: m.sessionsOf(moduleId).length,
@@ -74,12 +74,17 @@ async function moduleRecords(moduleId, tutorId) {
 
 /** One student, one module: a row per day with theory / practical status. */
 async function studentRecord(moduleId, studentId, tutorId) {
-  await assertTutorOwnsModule(moduleId, tutorId);
-  const st = await prisma.user.findUnique({ where: { id: studentId } });
+  const [, st, m, allAtt] = await Promise.all([
+    assertTutorOwnsModule(moduleId, tutorId),
+    prisma.user.findUnique({ where: { id: studentId } }),
+    loadMatrix([moduleId], [studentId]),
+    prisma.attendance.findMany({ where: { studentId, session: { section: { moduleId } } } }),
+  ]);
   if (!st) throw NotFound('Student not found');
-  const m = await loadMatrix([moduleId], [studentId]), rows = {};
+  const rows = {};
   const ses = m.sessionsOf(moduleId);
-  const att = await prisma.attendance.findMany({ where: { studentId, sessionId: { in: ses.map((s) => s.id) } } });
+  const heldIds = new Set(ses.map((s) => s.id));
+  const att = allAtt.filter((a) => heldIds.has(a.sessionId));
   const bySession = new Map(att.map((a) => [a.sessionId, a]));
   const RANK = { absent: 0, flagged: 1, present: 2 }; // best result wins if there are 2 sessions of a type on one day
   for (const s of ses) {
@@ -98,14 +103,15 @@ async function studentRecord(moduleId, studentId, tutorId) {
 /** Last 6 weeks of class attendance per module + overall. */
 async function reports(tutorId) {
   const mods = await myModules(tutorId), m = await loadMatrix(mods.map((x) => x.id)), now = Date.now();
-  return Promise.all(mods.map(async (mod) => {
+  // All the numbers come from the one loadMatrix call (no extra query per week).
+  return mods.map((mod) => {
     const ses = m.sessionsOf(mod.id);
-    const weeks = await Promise.all(Array.from({ length: 6 }, (_, i) => {
+    const weeks = Array.from({ length: 6 }, (_, i) => {
       const a = now - (6 - i) * WEEK_MS, b = a + WEEK_MS; // i = 0 → 6 weeks ago, i = 5 → this week
-      return classRate(ses.filter((s) => sessionStart(s) >= a && sessionStart(s) < b), mod.students);
-    }));
-    return { id: mod.id, code: mod.code, name: mod.name, weeks, overall: await classRate(ses, mod.students) };
-  }));
+      return m.classRate(ses.filter((s) => sessionStart(s) >= a && sessionStart(s) < b), mod.students);
+    });
+    return { id: mod.id, code: mod.code, name: mod.name, weeks, overall: m.classRate(ses, mod.students) };
+  });
 }
 
 const riskLabel = (t) => (t == null ? 'No sessions' : t < env.atRiskPct ? 'At risk' : 'OK');

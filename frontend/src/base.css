@@ -488,3 +488,7 @@ td {
     url(/techer2.jpg) center/cover,
     #0b1f3a;
 }
+/* Loading bar shown at the top while data is loading (see api.js) */
+#loadbar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: #1ea7e8; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+#loadbar.on { opacity: 1; animation: loadbar 1.2s ease-in-out infinite; }
+@keyframes loadbar { 0% { left: 0; width: 0; } 50% { left: 20%; width: 60%; } 100% { left: 100%; width: 0; } }
