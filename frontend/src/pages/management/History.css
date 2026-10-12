@@ -1,0 +1,40 @@
+/* src/pages/management/History.css */
+
+/* Base Layout */
+.mg {
+  max-width: 960px;
+}
+
+.mg h2.ttl {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 4px 0 16px;
+  color: #17223f;
+}
+
+.mg h4 {
+  font-weight: 500;
+  margin: 26px 0 6px;
+}
+
+/* History Filters */
+.hist {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.hist select, 
+.hist input {
+  width: auto;
+  min-width: 130px;
+  font-size: 11px;
+  padding: 6px;
+}
+
+/* History Calendar Grid */
+.hl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
