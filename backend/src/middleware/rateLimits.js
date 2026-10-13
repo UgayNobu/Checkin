@@ -23,4 +23,10 @@ const checkinLimiter = rateLimit({
   message: { error: 'Too many check-in attempts. Please wait a minute.', code: 'RATE_LIMITED' },
 });
 
-module.exports = { apiLimiter, authLimiter, lookupLimiter, checkinLimiter };
+/** Forgot password: stops flooding someone's inbox and guessing codes. */
+const resetLimiter = rateLimit({
+  ...base, windowMs: 15 * 60_000, limit: 10,
+  message: { error: 'Too many password reset attempts. Please wait 15 minutes.', code: 'RATE_LIMITED' },
+});
+
+module.exports = { apiLimiter, authLimiter, lookupLimiter, checkinLimiter, resetLimiter };

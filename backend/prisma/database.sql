@@ -236,6 +236,25 @@ BEGIN
   END IF;
 END $$;
 
+
+-- ===== Part 7: forgot-password codes =====
+-- One row per "forgot password" request. Only a bcrypt hash of the 6-digit code is stored,
+-- never the code itself. A code works once, for 15 minutes, with at most 5 wrong tries.
+CREATE TABLE IF NOT EXISTS password_resets (
+  reset_id   SERIAL PRIMARY KEY,
+  user_id    VARCHAR(10) NOT NULL,
+  code_hash  TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT chk_resets_attempts CHECK (attempts >= 0),
+  CONSTRAINT chk_resets_expiry CHECK (expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets (user_id, created_at DESC);
+ALTER TABLE password_resets ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
 
 

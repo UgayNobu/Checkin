@@ -16,5 +16,7 @@ module.exports = {
   lookupId: asyncHandler(async (req, res) => res.json(await auth.lookupId(req.query.id))),
   studentSignup: asyncHandler(async (req, res) => withSession(res, await auth.signupStudent(req.body))),
   tutorRequest: asyncHandler(async (req, res) => res.json(await auth.requestTutorAccount(req.body))),
+  forgotPassword: asyncHandler(async (req, res) => res.json(await auth.forgotPassword(req.body))),
+  resetPassword: asyncHandler(async (req, res) => res.json(await auth.resetPassword(req.body))),
   changePassword: asyncHandler(async (req, res) => res.json(await auth.changePassword(req.user.id, req.body))),
 };

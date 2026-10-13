@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, auth } from '../../api';
+import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
 const initials = (n = '') =>
@@ -211,14 +212,12 @@ export function ChangePassword() {
   const [f, setF] = useState({ current: '', next: '', again: '' });
   const [msg, setMsg] = useState('');
 
-  const rules = [
-    ['At least 8 characters', f.next.length >= 8],
-    ['One number', /\d/.test(f.next)],
-    ['One symbol', /[^\w\s]/.test(f.next)],
-  ];
+  const rules = passwordChecks(f.next);
 
   const go = () =>
-    f.next !== f.again
+    !passwordOk(f.next)
+      ? setMsg('The new password does not meet all the rules.')
+      : f.next !== f.again
       ? setMsg('New passwords do not match')
       : api('/me/password', f, 'PUT')
           .then(() => nav('/settings'))

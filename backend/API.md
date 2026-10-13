@@ -16,7 +16,13 @@ Paths in brackets are aliases using the design-doc names; both work.
 | GET | `/lookup-id?id=` | public | Roster sign-up step 1: name/email/programme for an ID with no account yet |
 | POST | `/student/signup` | public | Roster sign-up step 2: `{ userId, password }` |
 | POST | `/tutor/request` | public | Roster sign-up for tutors (admins are notified) |
+| POST | `/forgot-password` | public | `{ userId }` → emails a 6-digit code (valid 15 min, works once). Same answer whether or not the ID exists. Without SMTP settings the code is printed in the backend terminal |
+| POST | `/reset-password` | public | `{ userId, code, password }` → sets the new password (max 5 wrong codes) |
 | POST | `/change-password` | any | `{ current, next }` |
+
+Sign-up rules (checked in the form and again here): student ID = 8 digits, staff ID = `CST-…`,
+email must end in `@rub.edu.bt`, name = letters only, password = 8–64 characters with upper and lower case
+letters, a number and a symbol.
 
 ## Profile — `/api/me` [`/api/profile`]
 `GET /` · `PUT /` `{ name, email, phone, prefs }` · `PUT /password` · `POST /avatar` (form field `file`, PNG/JPG/WebP ≤ 2 MB) · `DELETE /avatar`
