@@ -24,6 +24,7 @@ const evidenceRoutes = require('./routes/evidence.routes');
 const adminRoutes = require('./routes/admin.routes');
 const managementRoutes = require('./routes/management.routes');
 const catalogRoutes = require('./routes/catalog.routes');
+const fileRoutes = require('./routes/files.routes');
 
 function createApp() {
   const app = express();
@@ -50,6 +51,7 @@ function createApp() {
   // ── API
   app.use('/api', apiLimiter);
   app.get('/api', (req, res) => res.json({ name: 'CheckIn API', version: '3.0.0' }));
+  app.use('/api/files', fileRoutes);
   app.use('/api/auth', authRoutes);
   app.use(['/api/me', '/api/profile'], profileRoutes);
   app.use('/api/notifications', notificationRoutes);

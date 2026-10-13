@@ -62,6 +62,7 @@ model User {
   auditLogs     AuditLog[]
   slots         TimetableSlot[]
   resets        PasswordReset[]
+  files         StoredFile[]
 
   @@map("users")
 }
@@ -270,4 +271,18 @@ model PasswordReset {
 
   @@index([userId, createdAt(sort: Desc)], map: "idx_resets_user")
   @@map("password_resets")
+}
+
+model StoredFile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @map("file_id") @db.Uuid
+  ownerId      String   @map("owner_id") @db.VarChar(10)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  originalName String?  @map("original_name") @db.VarChar(255)
+  sizeBytes    Int      @map("size_bytes")
+  content      Bytes
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_files_owner")
+
+  @@index([ownerId], map: "idx_files_owner")
+  @@map("stored_files")
 }

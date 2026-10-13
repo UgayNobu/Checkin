@@ -20,7 +20,7 @@ async function updateProfile(userId, { name, email, phone, prefs }) {
 async function setAvatar(userId, file) {
   if (!file) throw BadRequest('Please choose a PNG, JPG or WebP image (max 2 MB)', 'NO_FILE');
   const old = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { avatarUrl: true } });
-  const stored = await saveFile(file, `avatars/${userId}`);
+  const stored = await saveFile(file, `avatars/${userId}`, userId);
   const u = await prisma.user.update({ where: { id: userId }, data: { avatarUrl: stored } });
   await deleteFile(old.avatarUrl);
   return withAvatar(u);

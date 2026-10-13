@@ -4,4 +4,6 @@
 .acts2{display:flex;gap:18px;align-items:center;margin-top:14px}.rej{background:#e5232d;color:#fff;border:0;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer}.app{background:none;border:0;font-weight:700;cursor:pointer}
 .evd h4{margin:22px 0 4px}.evd .tbl{border:1px solid #e3e7f0;border-radius:12px;background:#fff;overflow:hidden}.evd .tbl th{background:#f7f9fd;font-size:10px}.evd .tbl td{font-size:12px}
 .evd .view{color:var(--blue);font-weight:700;cursor:pointer}.doc{border:1px solid var(--ink);border-radius:18px;padding:20px;display:flex;gap:30px;background:#fff;max-width:760px;min-height:340px}.doc .meta{font-size:13px;flex:1}
-.doc iframe,.doc img{flex:1.3;height:380px;border:1px solid var(--ink);border-radius:10px;object-fit:contain}
+.docview{flex:1.3;display:flex;flex-direction:column;gap:8px;min-width:0}
+.doc iframe,.doc img{width:100%;height:380px;border:1px solid var(--ink);border-radius:10px;object-fit:contain}
+.docview .file{align-self:flex-start}

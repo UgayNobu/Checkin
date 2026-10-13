@@ -38,11 +38,20 @@ async function teachesStudent(tutorId, studentId) {
   return !!(await prisma.enrollment.findFirst({ where: { studentId, moduleId: { in: ids } } }));
 }
 
+// 'pdf' | 'image' | null — lets the page pick an <iframe> or an <img>.
+function fileKind(name) {
+  if (!name) return null;
+  if (/\.pdf$/i.test(name)) return 'pdf';
+  if (/\.(png|jpe?g|webp)$/i.test(name)) return 'image';
+  return null;
+}
+
 async function toApi(r) {
   const mods = await studentModules(r.studentId);
   return {
     _id: r.id, type: (r.leaveType || '').toLowerCase(), date: r.date, reason: r.reason,
-    fileUrl: await fileUrl(r.documentUrl), fileName: r.originalFilename, status: r.status.toLowerCase(),
+    fileUrl: await fileUrl(r.documentUrl), fileName: r.originalFilename,
+    fileType: fileKind(r.originalFilename || r.documentUrl), status: r.status.toLowerCase(),
     createdAt: r.createdAt, reviewedAt: r.reviewedAt, reviewer: r.reviewer ? { userId: r.reviewer.id, name: r.reviewer.name } : null,
     student: { userId: r.student.id, name: r.student.name },
     // One request covers all enrolled modules; shown as a list of codes.
@@ -77,7 +86,7 @@ async function submit(student, { date, type, reason }, file) {
   });
   if (dup) throw Conflict('You already sent a request for that date', 'DUPLICATE_REQUEST');
 
-  const stored = file ? await saveFile(file, `evidence/${student.id}`) : null;
+  const stored = file ? await saveFile(file, `evidence/${student.id}`, student.id) : null;
   const r = await prisma.evidenceDocument.create({
     data: {
       studentId: student.id,
