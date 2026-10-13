@@ -15,6 +15,8 @@ import './base.css';
 /* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
 import Register from './pages/public/Register.jsx';
+import Forgot from './pages/public/Forgot.jsx';
+import { validateLogin } from './validation';
 
 /* ---------- Teacher pages ---------- */
 import TDash from './pages/teacher/Dashboard.jsx';
@@ -100,10 +102,20 @@ function Login() {
 
   const [f, setF] = useState({ userId: '', password: '' });
   const [err, setErr] = useState('');
+  const [fe, setFe] = useState({}); // per-field errors
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const change = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setFe({ ...fe, [k]: '' }); setErr(''); };
 
   const go = (e) => {
     e.preventDefault();
-    api('/auth/login', f)
+    const v = validateLogin(f);
+    setFe(v);
+    if (Object.keys(v).length) return;
+    setBusy(true);
+    api('/auth/login', { userId: f.userId.trim(), password: f.password })
+      .finally(() => setBusy(false))
       .then((d) => {
         if (teacher && d.user.role === 'student') {
           return setErr('This is a student account. Use the student login.');
@@ -139,20 +151,33 @@ function Login() {
         <p className="sub">College of Science and Technology</p>
 
         <label>{teacher ? 'Staff ID' : 'Student ID'}</label>
-        <input value={f.userId} onChange={(e) => setF({ ...f, userId: e.target.value })} />
+        <input
+          value={f.userId}
+          onChange={change('userId')}
+          className={fe.userId ? 'bad' : ''}
+          placeholder={teacher ? 'e.g. CST-0142' : 'e.g. 02250368'}
+          autoComplete="username"
+        />
+        {fe.userId && <small className="ferr">{fe.userId}</small>}
 
         <label>Password</label>
         <input
-          type="password"
+          type={show ? 'text' : 'password'}
           value={f.password}
-          onChange={(e) => setF({ ...f, password: e.target.value })}
+          onChange={change('password')}
+          className={fe.password ? 'bad' : ''}
+          autoComplete="current-password"
         />
+        {fe.password && <small className="ferr">{fe.password}</small>}
+        <label className="showpw">
+          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password
+        </label>
 
-        <a className="fgt">Forgot password?</a>
-        <p className="err">{err}</p>
+        <Link className="fgt" to={'/forgot' + (teacher ? '?as=teacher' : '')}>Forgot password?</Link>
+        {err && <p className="err">{err}</p>}
 
-        <button className={'btn ' + (teacher ? '' : 'purple')} style={{ width: '100%' }}>
-          Log in
+        <button className={'btn ' + (teacher ? '' : 'purple')} style={{ width: '100%' }} disabled={busy}>
+          {busy ? 'Logging in…' : 'Log in'}
         </button>
 
         <p className="alt" style={{ textAlign: 'center', fontSize: 11 }}>
@@ -437,6 +462,7 @@ export default function App() {
         <Route path="/welcome" element={<Landing />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot" element={<Forgot />} />
         <Route path="/*" element={<Private />} />
       </Routes>
     </BrowserRouter>

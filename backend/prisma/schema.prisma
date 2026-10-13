@@ -61,6 +61,7 @@ model User {
   notifications Notification[]
   auditLogs     AuditLog[]
   slots         TimetableSlot[]
+  resets        PasswordReset[]
 
   @@map("users")
 }
@@ -254,4 +255,19 @@ model TimetableSlot {
   @@index([programId, year], map: "idx_slots_program_year")
   @@index([tutorId], map: "idx_slots_tutor")
   @@map("timetable_slots")
+}
+
+/// Forgot-password codes (only a bcrypt hash of the 6-digit code is stored)
+model PasswordReset {
+  id        Int       @id @default(autoincrement()) @map("reset_id")
+  userId    String    @map("user_id") @db.VarChar(10)
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  attempts  Int       @default(0)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_resets_user")
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_resets_user")
+  @@map("password_resets")
 }
