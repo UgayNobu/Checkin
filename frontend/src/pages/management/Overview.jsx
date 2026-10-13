@@ -26,7 +26,7 @@ export function Overview() {
   const nav = useNavigate();
   const [stats, setStats] = useState({});
   const [depts, setDepts] = useState(initialDepts);
-  const [below90, setBelow90] = useState(null);
+
 
   useEffect(() => {
     // 1. Fetch the overview totals + department table
@@ -39,21 +39,7 @@ export function Overview() {
       })
       .catch((err) => console.error('Overview API error:', err));
 
-    // 2. Fetch ALL students and count those below 90%
-    api('/admin/users?role=student')
-      .then((students) => {
-        if (!Array.isArray(students)) return setBelow90(0);
-        // Count students whose attendance (pct) is under 90
-        const count = students.filter((s) => (s.pct ?? 0) < 90).length;
-        setBelow90(count);
-      })
-      .catch((err) => {
-        console.error('Students API error:', err);
-        // Fallback to backend value if the students call fails
-        api('/management/overview').then((d) => {
-          setBelow90(d.totals?.below90 ?? d.totals?.below80 ?? null);
-        }).catch(() => {});
-      });
+    // The backend also counts the students below the required % (management can't use admin-only lists)
   }, []);
 
   return (
@@ -73,9 +59,9 @@ export function Overview() {
         />
         <Stat l="Total Modules" v={stats.modules} />
         <Stat
-          l="Below 90%"
-          v={below90}
-          chip={below90 > 0 ? 'Needs review' : null}
+          l={`Below ${stats.requiredPct ?? 90}%`}
+          v={stats.belowRequired}
+          chip={stats.belowRequired > 0 ? 'Needs review' : null}
           cls="o"
         />
       </div>

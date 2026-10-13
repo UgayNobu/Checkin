@@ -1,106 +1,83 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
+import '../teacher/staff.css';
 import './admin.css';
 
-const E = encodeURIComponent, R = ['I', 'II', 'III', 'IV'];
+/* =========================================================
+   Admin pages
+   - Overview          → AdminOverview.jsx (own file)
+   - Programme people  → ProgramView.jsx   (own file)
+   - This file: student list by year, programmes, semesters, modules
+   ========================================================= */
 
-const Back = ({ label = '< Back' }) => {
+/* ---------- Helpers ---------- */
+const E = encodeURIComponent;
+const ROMAN = ['I', 'II', 'III', 'IV'];
+
+function Back({ label = '< Back' }) {
   const nav = useNavigate();
-  return <button className="back" onClick={() => nav(-1)}>{label}</button>;
-};
+  return (
+    <button className="back" onClick={() => nav(-1)}>
+      {label}
+    </button>
+  );
+}
 
 /* =========================================================
-   OVERVIEW
+   Students of one programme + year
+   Route: /students/:program/:year
    ========================================================= */
-export function Overview() {
-  const nav = useNavigate(), [o, setO] = useState({}), [p, setP] = useState([]);
+export function Students() {
+  const { program, year } = useParams();
+  const [users, setUsers] = useState([]);
+
+  const load = () =>
+    api(`/admin/users?role=student&programme=${E(program)}&year=${year}`)
+      .then((l) => setUsers(Array.isArray(l) ? l : []))
+      .catch(() => setUsers([]));
+
   useEffect(() => {
-    api('/admin/overview').then(setO).catch(console.error);
-    api('/admin/programs').then(setP).catch(console.error);
-  }, []);
+    load();
+  }, [program, year]);
 
-  const pick = (base) => (
-    <select className="prog" defaultValue="" onChange={(e) => e.target.value && nav(`/${base}/${E(e.target.value)}`)}>
-      <option value="">PROGRAM</option>
-      {p.map((x) => <option key={x}>{x}</option>)}
-    </select>
-  );
+  const patch = (x, body) => api('/admin/users/' + x._id, body, 'PATCH').then(load);
 
-  return (
-    <div className="adm">
-      <h2 className="ttl">Admin <small>Overview</small></h2>
-      <div className="stats">
-        {[
-          ['Total Students', o.students, `↑ ${o.newStudents || 0} this month`],
-          ['Total Tutors', o.tutors, 'Active faculty'],
-          ['Total Programs', o.programs]
-        ].map(([l, v, c]) => (
-          <div className="stat" key={l}>
-            <small>{l}</small>
-            <b>{(v || 0).toLocaleString()}</b>
-            {c && <span className="pill ok">{c}</span>}
-          </div>
-        ))}
-      </div>
-      <h4>Students view</h4>
-      {pick('students')}
-      <h4 style={{ marginTop: 90 }}>Tutors view</h4>
-      {pick('teachers')}
-    </div>
-  );
-}
-
-/* =========================================================
-   YEARS
-   ========================================================= */
-export function Years() {
-  const { program } = useParams(), nav = useNavigate();
-  return (
-    <div className="adm">
-      <Back />
-      <h2 className="ttl">BE ({program})</h2>
-      <div className="plist">
-        {R.map((r, i) => (
-          <div className="prow" key={r} onClick={() => nav(`/students/${E(program)}/${i + 1}`)}>
-            Year {r}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   PEOPLE
-   ========================================================= */
-function People({ role }) {
-  const { program, year } = useParams(), [u, setU] = useState([]), stu = role === 'student';
-  const load = () => api(`/admin/users?role=${role}&department=${E(program)}${stu ? '&year=' + year : ''}`).then(setU).catch(console.error);
-  useEffect(() => { load(); }, [program, year]);
-  const patch = (x, b) => api('/admin/users/' + x._id, b, 'PATCH').then(load);
+  const rename = (x) => {
+    const n = prompt('Name', x.name);
+    if (n) patch(x, { name: n });
+  };
 
   return (
     <div className="adm">
       <Back />
-      <h2 className="ttl">{stu ? `BE (${program})` : 'Admin'} <small>{stu ? `Year ${R[year - 1]}` : 'Teacher'}</small></h2>
+      <h2 className="ttl">
+        {program} <small>Year {ROMAN[year - 1]}</small>
+      </h2>
+
       <div className="tbl">
         <table>
           <thead>
             <tr>
-              <th>NAME</th><th>ID</th><th>PROGRAM</th>{stu && <th>ATTENDANCE</th>}<th>ACTIONS</th>
+              <th>NAME</th>
+              <th>ID</th>
+              <th>PROGRAM</th>
+              <th>ATTENDANCE</th>
+              <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
-            {u.map((x) => (
-              <tr key={x._id} style={{ opacity: x.active ? 1 : .5 }}>
+            {users.map((x) => (
+              <tr key={x._id} style={{ opacity: x.active ? 1 : 0.5 }}>
                 <td><b>{x.name}</b></td>
                 <td>{x.userId}</td>
-                <td>{x.department}</td>
-                {stu && <td>{x.pct}%</td>}
+                <td>{x.programme || x.department}</td>
+                <td>{x.pct ?? 0}%</td>
                 <td>
-                  <button className="eb" onClick={() => { const n = window.prompt('Name', x.name); if (n) patch(x, { name: n }); }}>Edit</button>
-                  <button className="ab" onClick={() => patch(x, { active: !x.active })}>{x.active ? 'Deactivate' : 'Activate'}</button>
+                  <button className="eb" onClick={() => rename(x)}>Edit</button>
+                  <button className="ab" onClick={() => patch(x, { active: !x.active })}>
+                    {x.active ? 'Deactivate' : 'Activate'}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -110,11 +87,10 @@ function People({ role }) {
     </div>
   );
 }
-export const Students = () => <People role="student" />;
-export const Teachers = () => <People role="teacher" />;
 
 /* =========================================================
-   PROGRAMS (Add / Rename / Delete — all without popup)
+   Programmes list (add / rename inline, no popups)
+   Route: /programs
    ========================================================= */
 export function Programs() {
   const nav = useNavigate();
@@ -142,14 +118,12 @@ export function Programs() {
 
   useEffect(() => { load(); }, []);
 
-  // Reload the whole SPA so every other interface picks up the change
+  // Show the message and re-load the list (other pages load fresh data when opened)
   const refreshAll = (msg) => {
     setSuccess(msg);
     setEditProg({ old: '', new: '' });
     load();
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   const addProgram = () => {
@@ -183,17 +157,6 @@ export function Programs() {
         refreshAll(`Renamed to "${editProg.new.trim()}"`);
       })
       .catch((err) => setError(err.message || 'Failed to rename program.'));
-  };
-
-  // --- DELETE (deletes immediately, no popup) ---
-  const deleteProgram = (name) => {
-    setError('');
-    setSuccess('');
-    api('/admin/programs', { name }, 'DELETE')
-      .then(() => {
-        refreshAll(`"${name}" deleted.`);
-      })
-      .catch((err) => setError(err.message || 'Failed to delete program.'));
   };
 
   return (
@@ -238,7 +201,6 @@ export function Programs() {
                       autoFocus
                     />
                     <button className="eb save" onClick={saveEdit}>Save</button>
-                    <button className="eb delete" onClick={() => deleteProgram(x)}>Delete</button>
                     <button className="eb" onClick={() => setEditProg({ old: '', new: '' })}>Cancel</button>
                   </div>
                 ) : (
@@ -257,162 +219,172 @@ export function Programs() {
 }
 
 /* =========================================================
-   PROGRAM YEARS
+   Years → semesters of one programme
+   Route: /programs/:program
    ========================================================= */
 export function ProgramYears() {
-  const { program } = useParams(), nav = useNavigate(), [open, setOpen] = useState(0);
+  const { program } = useParams();
+  const nav = useNavigate();
+  const [open, setOpen] = useState(0);
+
   return (
     <div className="adm">
       <Back />
-      <h2 className="ttl">BE ({program})</h2>
+      <h2 className="ttl">{program}</h2>
+
       <div className="plist">
-        {R.map((r, i) => (
-          <div key={r} className="year-group">
-            <div className="prow" onClick={() => setOpen(open === i + 1 ? 0 : i + 1)}>Year {r}</div>
-            {open === i + 1 && (
-              <div className="sem-list">
-                {[1, 2].map((s) => (
+        {ROMAN.map((r, i) => {
+          const year = i + 1;
+          return (
+            <div key={r}>
+              <div className="prow" onClick={() => setOpen(open === year ? 0 : year)}>
+                Year {r}
+              </div>
+
+              {open === year &&
+                [1, 2].map((s) => (
                   <div className="sem" key={s}>
-                    <span>Semester {R[s - 1]}</span>
-                    <button className="eb" onClick={() => nav(`/programs/${E(program)}/${i + 1}/${s}`)}>Manage Modules</button>
+                    Semester {ROMAN[s - 1]}
+                    <button className="eb" onClick={() => nav(`/programs/${E(program)}/${year}/${s}`)}>
+                      Edit
+                    </button>
                   </div>
                 ))}
-              </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 /* =========================================================
-   SEMESTER MODULES
+   Modules of one semester
+   Route: /programs/:program/:year/:semester
    ========================================================= */
 export function SemesterModules() {
-  const { program, year, semester } = useParams(), nav = useNavigate();
-  const [m, setM] = useState([]);
+  const { program, year, semester } = useParams();
+  const nav = useNavigate();
+  const [modules, setModules] = useState([]);
   const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  const load = () => {
-    setLoading(true);
+  useEffect(() => {
     api(`/admin/modules?department=${E(program)}&year=${year}&semester=${semester}`)
-      .then((data) => {
-        setM(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError('Failed to load modules.');
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => { load(); }, [program, year, semester]);
+      .then((l) => setModules(Array.isArray(l) ? l : []))
+      .catch(() => setModules([]));
+  }, [program, year, semester]);
 
   const go = (id) => nav(`/programs/${E(program)}/${year}/${semester}/module/${id}`);
-  const filtered = m.filter((x) => (x.code + x.name).toLowerCase().includes(q.toLowerCase()));
+  const shown = modules.filter((x) => (x.code + x.name).toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="adm">
       <button className="topbtn" onClick={() => nav(-1)}>Back</button>
+
       <div className="search">
-        <input placeholder="🔍 Search modules..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Search modules" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <div className="tabx">Year {R[year - 1]} : Semester {R[semester - 1]}</div>
 
-      <div className="pbox">
-        <h4 className="pbox-title">📘 Modules</h4>
-        {error && <p className="err" style={{ textAlign: 'left', marginBottom: 12 }}>⚠️ {error}</p>}
+      <span className="tabx">
+        Year {ROMAN[year - 1]}: Semester {ROMAN[semester - 1]}
+      </span>
 
-        {loading ? (
-          <p className="mut">Loading modules...</p>
-        ) : filtered.length === 0 ? (
-          <p className="mut">No modules yet. Click below to add one.</p>
-        ) : (
-          filtered.map((x) => (
-            <div className="mod" key={x._id} onClick={() => go(x._id)}>
-              <b>{x.code}</b> - {x.name}
-            </div>
-          ))
-        )}
-        <button className="btn-add" onClick={() => go('new')}>+ Add New Module</button>
+      <div className="pbox" style={{ maxWidth: 300, borderRadius: '0 12px 12px 12px' }}>
+        <h4 style={{ margin: '0 0 6px' }}>📘 Modules</h4>
+
+        {shown.map((x) => (
+          <div className="mod" key={x._id} onClick={() => go(x._id)}>
+            <b>{x.code} -</b> {x.name}
+            <small style={{ display: 'block', color: x.tutor ? '#16a34a' : '#b45309' }}>
+              {x.tutor ? `Tutor: ${x.tutor.name}` : 'No tutor assigned yet'}
+            </small>
+          </div>
+        ))}
+
+        <button className="dash" onClick={() => go('new')}>+ Add New Module</button>
       </div>
     </div>
   );
 }
 
 /* =========================================================
-   MODULE FORM
+   Create / edit a module and assign its tutor
+   Route: /programs/:program/:year/:semester/module/:id   (id = 'new' to create)
    ========================================================= */
 export function ModuleForm() {
-  const { program, year, semester, id } = useParams(), nav = useNavigate();
+  const { program, year, semester, id } = useParams();
+  const nav = useNavigate();
   const [f, setF] = useState({ name: '', code: '', tutorId: '', count: '' });
-  const [t, setT] = useState([]);
+  const [tutors, setTutors] = useState([]);
+  const [dept, setDept] = useState(''); // department that runs this programme
   const [err, setErr] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api('/admin/users?role=teacher').then((data) => setT(Array.isArray(data) ? data : [])).catch(() => {});
+    api('/admin/users?role=teacher')
+      .then((l) => setTutors(Array.isArray(l) ? l.filter((t) => t.active) : []))
+      .catch(() => setTutors([]));
+    api('/programs')
+      .then((l) => setDept(l.find((p) => p.name === program)?.department?.name || ''))
+      .catch(() => {});
     if (id !== 'new') {
-      api(`/admin/modules?department=${E(program)}&year=${year}&semester=${semester}`)
-        .then((l) => {
-          const x = l.find((y) => y._id === id);
-          if (x) setF({ name: x.name, code: x.code, tutorId: x.tutor?.userId || '', count: x.count || '' });
-        })
-        .catch((err) => console.error(err));
+      api(`/admin/modules?department=${E(program)}&year=${year}&semester=${semester}`).then((l) => {
+        const x = l.find((y) => y._id === id);
+        if (x) setF({ name: x.name, code: x.code, tutorId: x.tutor?.userId || '', count: x.count || '' });
+      });
     }
-  }, [id, program, year, semester]);
+  }, [id]);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const tn = t.find((x) => x.userId === f.tutorId)?.name || '';
+
+  // Tutors from the programme's own department are listed first.
+  // ("Computing Technologies" and "Computing Technologies Department" count as the same.)
+  const norm = (d) => (d || '').toLowerCase().replace(/&/g, 'and').replace(/\s*department$/, '').trim();
+  const sameDept = (t) => dept && norm(t.department) && (norm(t.department).includes(norm(dept)) || norm(dept).includes(norm(t.department)));
+  const inDept = tutors.filter(sameDept), others = tutors.filter((t) => !sameDept(t));
 
   const save = () => {
-    if (!f.name.trim() || !f.code.trim()) return setErr('Name and Code are required');
-    setSaving(true);
-    setErr('');
-
+    const isNew = id === 'new';
     api(
-      id === 'new' ? '/admin/modules' : '/admin/modules/' + id,
+      isNew ? '/admin/modules' : '/admin/modules/' + id,
       { ...f, department: program, year, semester },
-      id === 'new' ? 'POST' : 'PUT'
+      isNew ? 'POST' : 'PUT'
     )
       .then(() => nav(-1))
-      .catch((e) => {
-        console.error('Save error:', e);
-        setErr(e.message || 'Failed to save.');
-        setSaving(false);
-      });
+      .catch((e) => setErr(e.message));
   };
-
-  const inp = (l, k, ro) => (
-    <div className="form-group">
-      <label>{l}</label>
-      <input
-        value={ro ? tn : f[k]}
-        readOnly={!!ro}
-        onChange={ro ? undefined : set(k)}
-        placeholder={ro ? '' : `Enter ${l.toLowerCase()}...`}
-      />
-    </div>
-  );
 
   return (
     <div className="adm">
       <button className="topbtn" onClick={() => nav(-1)}>Back</button>
+
       <div className="mform">
-        <h3>{id === 'new' ? '+ Add New Module' : 'Edit Module'}</h3>
-        {inp('Module Name', 'name')}
-        {inp('Module Code', 'code')}
-        {inp('Assign Tutor (Staff ID)', 'tutorId')}
-        {inp('Teacher Name', 'x', true)}
-        {inp('Credits / Count', 'count')}
-        {err && <p className="err" style={{ marginTop: 12 }}>⚠️ {err}</p>}
-        <button className="save-btn" onClick={save} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Module'}
-        </button>
+        <label>Module Name</label>
+        <input value={f.name} onChange={set('name')} />
+
+        <label>Module Code</label>
+        <input value={f.code} onChange={set('code')} />
+
+        <label>Assign Tutor</label>
+        <select value={f.tutorId} onChange={set('tutorId')}>
+          <option value="">— Not assigned —</option>
+          {inDept.length > 0 && (
+            <optgroup label={`Tutors in ${dept}`}>
+              {inDept.map((t) => <option key={t.userId} value={t.userId}>{t.name} ({t.userId})</option>)}
+            </optgroup>
+          )}
+          {others.length > 0 && (
+            <optgroup label={inDept.length ? 'Tutors in other departments' : 'All tutors'}>
+              {others.map((t) => <option key={t.userId} value={t.userId}>{t.name} ({t.userId}){t.department ? ` · ${t.department}` : ''}</option>)}
+            </optgroup>
+          )}
+        </select>
+        <small style={{ color: '#64748b' }}>The tutor will see this module and can then set its enrolment key.</small>
+
+        <label>Number of Modules</label>
+        <input value={f.count} onChange={set('count')} />
+
+        <p className="err">{err}</p>
+        <button className="save" onClick={save}>Save</button>
       </div>
     </div>
   );

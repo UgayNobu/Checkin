@@ -47,7 +47,7 @@ async function moduleRecords(studentId, moduleId) {
 async function browseModules(studentId) {
   const [rows, mine] = await Promise.all([
     prisma.programModule.findMany({
-      include: { program: true, module: { include: { sections: { take: 1 }, _count: { select: { enrollments: true } } } } },
+      include: { program: true, module: { include: { sections: { take: 1, include: { tutor: { select: { name: true } } } }, _count: { select: { enrollments: true } } } } },
       orderBy: { module: { code: 'asc' } },
     }),
     enrolledModuleIds(studentId),
@@ -55,6 +55,8 @@ async function browseModules(studentId) {
   return rows.map(({ module: m, program, year, semester }) => ({
     id: m.id, name: m.name, code: m.code, year, semester, department: program.name,
     section: m.sections[0]?.name, students: m._count.enrollments, selfEnrol: m.selfEnrol, enrolled: mine.includes(m.id),
+    tutor: m.sections[0]?.tutor?.name || null, // null = admin hasn't assigned a tutor yet
+    hasKey: Boolean(m.enrolmentKey),           // the key itself is never sent
   }));
 }
 

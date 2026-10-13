@@ -32,16 +32,21 @@ const matrixWithCounts = (moduleIds) => loadMatrix(moduleIds);
 
 async function overview() {
   // Everything that doesn't depend on something else is fetched at the same time.
-  const [programs, perDept, students, newStudents, tutors, modules] = await Promise.all([
+  const [programs, perDept, students, newStudents, tutors, modules, studentIds] = await Promise.all([
     prisma.program.findMany({ orderBy: { name: 'asc' }, include: { modules: true } }),
     prisma.user.groupBy({ by: ['department'], where: { role: 'student' }, _count: { _all: true } }), // students per programme in 1 query
     prisma.user.count({ where: { role: 'student' } }),
     prisma.user.count({ where: { role: 'student', createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
     prisma.module.count(),
+    prisma.user.findMany({ where: { role: 'student' }, select: { id: true } }),
   ]);
   const allMods = programs.flatMap((p) => p.modules);
-  const [m, size] = await Promise.all([matrixWithCounts(allMods.map((x) => x.id)), sizes(allMods.map((x) => x.id))]);
+  const [m, size, pcts] = await Promise.all([
+    matrixWithCounts(allMods.map((x) => x.id)), sizes(allMods.map((x) => x.id)), overallFor(studentIds.map((u) => u.id)),
+  ]);
+  // Students whose overall attendance is under the required % (90 by default)
+  const belowRequired = [...pcts.values()].filter((pct) => pct < env.requiredPct).length;
   const studentsIn = new Map(perDept.map((g) => [g.department, g._count._all]));
   const departments = programs.map((p) => ({
     department: p.name,
@@ -49,7 +54,14 @@ async function overview() {
     modules: p.modules.length,
     attendance: rateOf(m, p.modules, size),
   }));
-  return { totals: { students, newStudents, tutors, modules, below80: departments.filter((d) => d.attendance < env.atRiskPct).length }, departments };
+  return {
+    totals: {
+      students, newStudents, tutors, modules,
+      below80: departments.filter((d) => d.attendance < env.atRiskPct).length, // departments under the at-risk %
+      belowRequired, requiredPct: env.requiredPct,                             // students under the required %
+    },
+    departments,
+  };
 }
 
 async function department(name) {
