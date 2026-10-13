@@ -89,49 +89,130 @@ export function Students() {
 }
 
 /* =========================================================
-   Programmes list
+   Programmes list (add / rename inline, no popups)
    Route: /programs
    ========================================================= */
 export function Programs() {
   const nav = useNavigate();
-  const [programs, setPrograms] = useState([]);
+  const [p, setP] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newProg, setNewProg] = useState('');
+  const [editProg, setEditProg] = useState({ old: '', new: '' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
 
-  const load = () =>
+  const load = () => {
+    setLoading(true);
     api('/admin/programs')
-      .then((l) => setPrograms(Array.isArray(l) ? l : []))
-      .catch(() => setPrograms([]));
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const rename = (x) => {
-    const n = prompt('Rename program', x);
-    if (n) api('/admin/programs', { from: x, to: n }, 'PUT').then(load);
+      .then((data) => {
+        setP(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Load error:', err);
+        setError('Failed to load programs.');
+        setLoading(false);
+      });
   };
 
-  const add = () => {
-    const n = prompt('Program name');
-    if (n) api('/admin/programs', { name: n }).then(load);
+  useEffect(() => { load(); }, []);
+
+  // Show the message and re-load the list (other pages load fresh data when opened)
+  const refreshAll = (msg) => {
+    setSuccess(msg);
+    setEditProg({ old: '', new: '' });
+    load();
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const addProgram = () => {
+    if (!newProg.trim()) return;
+    setIsAdding(true);
+    setError('');
+    setSuccess('');
+
+    api('/admin/programs', { name: newProg.trim() }, 'POST')
+      .then(() => {
+        setNewProg('');
+        refreshAll(`"${newProg}" added successfully!`);
+      })
+      .catch((err) => {
+        console.error('Add error:', err);
+        setError(err.message || 'Failed to add program.');
+      })
+      .finally(() => setIsAdding(false));
+  };
+
+  // --- RENAME (saves immediately, no popup) ---
+  const saveEdit = () => {
+    if (!editProg.new.trim() || editProg.new === editProg.old) {
+      setEditProg({ old: '', new: '' });
+      return;
+    }
+    setError('');
+    setSuccess('');
+    api('/admin/programs', { from: editProg.old, to: editProg.new.trim() }, 'PUT')
+      .then(() => {
+        refreshAll(`Renamed to "${editProg.new.trim()}"`);
+      })
+      .catch((err) => setError(err.message || 'Failed to rename program.'));
   };
 
   return (
     <div className="adm">
-      <h2 className="ttl">
-        Programs & Modules <small>Structure</small>
-      </h2>
+      <h2 className="ttl">Programs & Modules <small>Structure</small></h2>
 
       <div className="pbox">
-        <h4 style={{ margin: '0 0 6px' }}>📘 Programs</h4>
+        <h4 className="pbox-title">📘 Programs</h4>
 
-        {programs.map((x) => (
-          <div className="prow2" key={x}>
-            <b onClick={() => nav('/programs/' + E(x))}>{x}</b>
-            <button className="eb" onClick={() => rename(x)}>Edit</button>
+        {/* Add New Program Bar */}
+        <div className="add-row">
+          <input
+            placeholder="Enter new program name..."
+            value={newProg}
+            onChange={(e) => setNewProg(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addProgram()}
+            disabled={isAdding}
+          />
+          <button className="btn-add" onClick={addProgram} disabled={isAdding}>
+            {isAdding ? 'Adding...' : '+ Add New Program'}
+          </button>
+        </div>
+
+        {error && <p className="err" style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#fef2f2', borderRadius: 6 }}>⚠️ {error}</p>}
+        {success && <p style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#d1fae5', color: '#047857', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>✓ {success}</p>}
+
+        {/* Program List */}
+        {loading ? (
+          <p className="mut" style={{ marginTop: 16 }}>Loading programs...</p>
+        ) : p.length === 0 ? (
+          <p className="mut" style={{ marginTop: 16 }}>No programs yet. Add one above.</p>
+        ) : (
+          <div style={{ marginTop: 16 }}>
+            {p.map((x) => (
+              <div className="prow2" key={x}>
+                {editProg.old === x ? (
+                  <div className="edit-row">
+                    <input
+                      value={editProg.new}
+                      onChange={(e) => setEditProg({ ...editProg, new: e.target.value })}
+                      onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                      autoFocus
+                    />
+                    <button className="eb save" onClick={saveEdit}>Save</button>
+                    <button className="eb" onClick={() => setEditProg({ old: '', new: '' })}>Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <b onClick={() => nav('/programs/' + E(x))}>{x}</b>
+                    <button className="eb" onClick={() => setEditProg({ old: x, new: x })}>Edit</button>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-
-        <button className="dash" onClick={add}>+ Add New Program</button>
+        )}
       </div>
     </div>
   );
