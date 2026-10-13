@@ -10,54 +10,78 @@ const TYPES = [
 const STATUS = { approved: 'Approved', pending: 'Pending', rejected: 'Rejected' };
 const fmt = (d) => new Date(d).toLocaleDateString('en', { month: 'short', day: '2-digit', year: 'numeric' });
 
+// Today's date as YYYY-MM-DD in the student's own time zone
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function Evidence() {
   const nav = useNavigate();
   const pick = useRef();
 
   const [type, setType] = useState(null);       // which leave form is open
-  const [module, setModule] = useState('');     // which module the absence was for
-  const [mods, setMods] = useState([]);         // the student's enrolled modules
   const [formMsg, setFormMsg] = useState('');   // errors shown inside the pop-up
   const [busy, setBusy] = useState(false);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(today());    // starts as today
   const [reason, setReason] = useState('');
   const [file, setFile] = useState(null);
   const [list, setList] = useState([]);
   const [sum, setSum] = useState({ rate: 0, absences: 0 });
   const [msg, setMsg] = useState('');
+  const [updates, setUpdates] = useState([]);   // unread decision messages from management
 
   const load = () => {
-    api('/evidence/mine').then(setList);
-    api('/student/summary').then(setSum);
+    api('/evidence/mine').then(setList).catch(() => setList([]));
+    api('/student/summary').then(setSum).catch(() => {});
+    api('/notifications')
+      .then((l) => setUpdates((Array.isArray(l) ? l : []).filter((n) => n.category === 'Evidence Documents' && !n.isRead)))
+      .catch(() => setUpdates([]));
   };
   useEffect(load, []);
-  useEffect(() => { api('/student/dashboard').then(setMods).catch(() => {}); }, []); // enrolled modules for the dropdown
 
-  const closeForm = () => { setType(null); setModule(''); setDate(''); setReason(''); setFile(null); setFormMsg(''); };
+  const dismiss = (id) => api(`/notifications/${id}/read`, {}, 'PUT').then(load).catch(() => {});
+
+  const openForm = (key) => { setMsg(''); setDate(today()); setType(key); };
+  const closeForm = () => { setType(null); setDate(today()); setReason(''); setFile(null); setFormMsg(''); };
 
   const submit = () => {
-    if (!module) return setFormMsg('Please choose the module you missed.');
-    if (!date) return setFormMsg('Please choose the date you missed.');
+    if (!date) return setFormMsg('Please choose the date.');
+    if (!reason.trim()) return setFormMsg('Please write the reason for your absence.');
     if (file && file.size > 10 * 1024 * 1024) return setFormMsg('The file is too big (max 10 MB).');
+
     const fd = new FormData();
-    fd.append('module', module);
     fd.append('type', type);
     fd.append('date', date);
     fd.append('reason', reason);
     if (file) fd.append('file', file);
+
     setBusy(true);
     api('/evidence', fd)
-      .then(() => { setMsg('Request submitted. Management will review it.'); closeForm(); load(); })
+      .then(() => { setMsg('Request submitted. Your tutors can see it and management will review it.'); closeForm(); load(); })
       .catch((e) => setFormMsg(e.message)) // keep the form open and show why
       .finally(() => setBusy(false));
   };
 
   return (
     <div className="ev">
+      {/* 0. Decision messages from management */}
+      {updates.length > 0 && (
+        <div className="ev-updates">
+          <h4>🔔 Updates</h4>
+          {updates.map((n) => (
+            <div className={'ev-update ' + (/approved/i.test(n.message) ? 'approved' : /rejected/i.test(n.message) ? 'rejected' : '')} key={n.id}>
+              <span>{n.message}</span>
+              <button onClick={() => dismiss(n.id)}>Got it</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 1. Leave buttons - same line */}
       <div className="ev-types">
         {TYPES.map((t) => (
-          <button key={t.key} className={'ev-type' + (type === t.key ? ' on' : '')} onClick={() => { setMsg(''); setType(t.key); }}>
+          <button key={t.key} className={'ev-type' + (type === t.key ? ' on' : '')} onClick={() => openForm(t.key)}>
             <span className="ev-ic">{t.icon}</span>{t.label}
           </button>
         ))}
@@ -88,8 +112,15 @@ export default function Evidence() {
             <span className="ev-ico">{r.type === 'official' ? '📋' : '🩺'}</span>
             <div className="ev-main">
               <b>{r.type === 'official' ? 'Official Leave' : 'Medical Leave'}</b>
-              <small>{r.module?.code ? `${r.module.code} · ` : ''}Missed {fmt(r.date)}</small>
+              <small>{r.module?.code ? `${r.module.code} · ` : ''}{fmt(r.date)}</small>
               {r.reason && <small className="ev-reason">{r.reason}</small>}
+              {r.status !== 'pending' && (
+                <small className={'ev-decision ' + r.status}>
+                  {STATUS[r.status] || r.status}
+                  {r.reviewer?.name ? ` by ${r.reviewer.name}` : ''}
+                  {r.reviewedAt ? ` · ${fmt(r.reviewedAt)}` : ''}
+                </small>
+              )}
             </div>
             <span className={'ev-badge ' + r.status}>{STATUS[r.status] || r.status}</span>
             <button className="ev-view" onClick={() => nav('/evidence/' + r._id)}>View</button>
@@ -104,18 +135,16 @@ export default function Evidence() {
             <h3>{type === 'medical' ? 'Medical Leave' : 'Official Leave'}</h3>
             <small>Please fill in the date and reasons with valid supporting documents.</small>
 
-            <label>Module</label>
-            <select value={module} onChange={(e) => { setModule(e.target.value); setFormMsg(''); }}>
-              <option value="">Select the module you missed</option>
-              {mods.map((m) => <option key={m.id} value={m.id}>{m.code} – {m.name}</option>)}
-            </select>
-            {mods.length === 0 && <small>You are not enrolled in any module yet. Enrol first in Settings.</small>}
-
-            <label>Date missed</label>
-            <input type="date" value={date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => { setDate(e.target.value); setFormMsg(''); }} />
+            <label>Date</label>
+            <input
+              type="date"
+              value={date}
+              max={today()}
+              onChange={(e) => { setDate(e.target.value); setFormMsg(''); }}
+            />
 
             <label>Reason for Absence</label>
-            <textarea rows="4" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <textarea rows="4" value={reason} onChange={(e) => { setReason(e.target.value); setFormMsg(''); }} />
 
             <label>Supporting Document</label>
             <div className="drop" onClick={() => pick.current.click()}>
