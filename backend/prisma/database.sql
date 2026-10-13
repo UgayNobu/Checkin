@@ -255,6 +255,25 @@ CREATE TABLE IF NOT EXISTS password_resets (
 CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets (user_id, created_at DESC);
 ALTER TABLE password_resets ENABLE ROW LEVEL SECURITY;
 
+-- ===== Part 8: uploaded files kept in the database =====
+-- Evidence documents and profile photos. Stored here (not on one laptop's disk) so every
+-- teammate's backend and the deployed server can open the same file. The id is a random UUID,
+-- and it is only handed to people allowed to see the file.
+CREATE TABLE IF NOT EXISTS stored_files (
+  file_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id      VARCHAR(10) NOT NULL,
+  mime_type     VARCHAR(100) NOT NULL,
+  original_name VARCHAR(255),
+  size_bytes    INTEGER NOT NULL,
+  content       BYTEA NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_files_owner FOREIGN KEY (owner_id) REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT chk_files_size CHECK (size_bytes > 0 AND size_bytes <= 10485760),
+  CONSTRAINT chk_files_mime CHECK (mime_type IN ('application/pdf', 'image/png', 'image/jpeg', 'image/webp'))
+);
+CREATE INDEX IF NOT EXISTS idx_files_owner ON stored_files (owner_id);
+ALTER TABLE stored_files ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
 
 

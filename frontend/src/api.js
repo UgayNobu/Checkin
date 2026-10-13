@@ -1,5 +1,7 @@
 const BASE = import.meta.env.VITE_API || 'http://localhost:5000/api';
-export const FILES = BASE.replace('/api', '');
+export const FILES = BASE.replace(/\/api$/, '');
+/** Link for a file the API returned: full URLs (Supabase) as-is, server paths on the backend. */
+export const fileHref = (u) => (!u ? null : /^https?:\/\//.test(u) ? u : FILES + u);
 
 export const auth = {
   get: () => JSON.parse(localStorage.getItem('checkin') || 'null'),

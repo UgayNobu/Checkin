@@ -70,8 +70,12 @@ Sessions — `/api/sessions`:
 ## Evidence documents — `/api/evidence`
 `POST /` (student, multipart: `module, date, type, reason, file`) · `GET /mine` (student) ·
 `GET /?status=pending` (teacher: own modules; admin/management: all) · `GET /:id` ·
-`PATCH /:id` [`POST /:id/review`] `{ status: approved|rejected, note? }` — approving marks every session of
-that module on that day Present.
+`PATCH /:id` [`POST /:id/review`] `{ status: approved|rejected, note? }` — management only; approving marks every session of
+the student's enrolled modules on that day Present. Each request includes `fileUrl`, `fileName` and `fileType` (`pdf` | `image`).
+
+## Files — `/api/files`
+`GET /:id` — serves an uploaded evidence document or profile photo saved in the `stored_files` table.
+No login needed (so `<img>` / `<iframe>` work); the id is a random UUID that the API only gives to people allowed to see the file.
 
 ## Admin — `/api/admin` (changes: admin; reports: admin + management)
 `GET /overview` · `GET|POST|PUT /programs` · `GET /programmes/:name/report` · `GET /programmes/:name/export.csv` ·
