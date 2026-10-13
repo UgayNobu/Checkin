@@ -25,7 +25,7 @@ import Reports from './pages/teacher/Reports.jsx';
 import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
 
 /* ---------- Admin pages ---------- */
-import AdminOverview from './pages/admin/AdminOverview.jsx';
+// CHANGED: Now using A.Overview from Admin.jsx (removed the AdminOverview import)
 import { ProgramStudents, ProgramTeachers } from './pages/admin/ProgramView.jsx';
 import * as A from './pages/admin/Admin.jsx';
 
@@ -91,7 +91,7 @@ const FOOT = {
 };
 
 /* =========================================================
-   Login page (student + teacher)
+   Login page
    ========================================================= */
 function Login() {
   const nav = useNavigate();
@@ -119,7 +119,6 @@ function Login() {
 
   return (
     <div className="login">
-      {/* Left side */}
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
@@ -132,7 +131,6 @@ function Login() {
         <small>College of Science and Technology</small>
       </div>
 
-      {/* Form card */}
       <form className="lcard" onSubmit={go}>
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{teacher ? 'Teacher login' : 'CheckIn'}</h2>
@@ -168,7 +166,7 @@ function Login() {
 }
 
 /* =========================================================
-   Notification bell (student dashboard)
+   Notification bell
    ========================================================= */
 function Bell() {
   const [open, setOpen] = useState(false);
@@ -217,7 +215,7 @@ function Bell() {
 }
 
 /* =========================================================
-   Shell: sidebar + top bar + page area
+   Shell
    ========================================================= */
 const SUB = {
   student: (u) => 'ID: ' + u.userId,
@@ -235,7 +233,6 @@ function Shell({ user, children, title, sub }) {
     .slice(0, 2)
     .toUpperCase();
 
-  // Pending evidence badge for teachers
   useEffect(() => {
     if (user.role === 'teacher') {
       api('/evidence?status=pending')
@@ -244,7 +241,6 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
-  // Clicking the name/avatar in the top bar opens that user's profile page
   const handleProfileClick = () => {
     if (user.role === 'student') nav('/settings/profile');
     else if (user.role === 'teacher') nav('/profile');
@@ -253,7 +249,6 @@ function Shell({ user, children, title, sub }) {
 
   return (
     <div className={'shell ' + user.role}>
-      {/* Sidebar */}
       <aside className="side">
         <div className="brand">
           <img className="logo" src="/logo.jpg" alt="" /> CheckIn
@@ -284,7 +279,6 @@ function Shell({ user, children, title, sub }) {
         <small>{FOOT[user.role]}</small>
       </aside>
 
-      {/* Main area */}
       <div className="main">
         {user.role !== 'admin' && title && (
           <header className="top">
@@ -329,7 +323,7 @@ function Shell({ user, children, title, sub }) {
 }
 
 /* =========================================================
-   Routes per role: path -> [Component, title, subtitle]
+   Routes per role
    ========================================================= */
 const Soon = () => <p>This screen is next in the build.</p>;
 
@@ -376,7 +370,8 @@ const PAGES = {
   },
 
   admin: {
-    '/': [AdminOverview, '', ''],
+    // CHANGED: Now using A.Overview instead of AdminOverview
+    '/': [A.Overview, '', ''],
     '/students/:program': [ProgramStudents, '', ''],
     '/students/:program/:year': [A.Students, '', ''],
     '/teachers/:program': [ProgramTeachers, '', ''],
@@ -388,7 +383,7 @@ const PAGES = {
 };
 
 /* =========================================================
-   Private routes (after login)
+   Private routes
    ========================================================= */
 function Private() {
   const u = auth.get()?.user;
@@ -403,13 +398,11 @@ function Private() {
   return (
     <Routes>
       {paths.map((path) => {
-        // Fallback component if a page is missing
         const [C, t, s] = PAGES[u.role][path] || [
           Soon,
           NAV[u.role].find((n) => n[0] === path)?.[1],
           '',
         ];
-        // Safety check: if a component is undefined, show Soon instead of crashing
         const Component = C || Soon;
         return (
           <Route
