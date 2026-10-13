@@ -10,10 +10,10 @@ const v = require('../validators/evidence.validators');
 const router = Router();
 router.use(requireAuth);
 const staff = requireRole('teacher', 'admin', 'management');
-const deciders = requireRole('admin', 'management'); // tutors can view, only management/admin approve or reject
+const deciders = requireRole('management'); // tutors and admin can view; only management approves or rejects
 const id = validateParams(v.evidenceIdParamSchema);
 
-// Student — multer runs first so the form fields exist before validation.
+// Student: multer runs first so the form fields exist before validation.
 router.post('/', requireRole('student'), evidenceUpload, validateBody(v.submitEvidenceSchema), c.submit);
 router.get('/mine', requireRole('student'), c.mine);
 
