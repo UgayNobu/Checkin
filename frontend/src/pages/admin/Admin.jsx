@@ -314,7 +314,7 @@ export function SemesterModules() {
 export function ModuleForm() {
   const { program, year, semester, id } = useParams();
   const nav = useNavigate();
-  const [f, setF] = useState({ name: '', code: '', tutorId: '', count: '' });
+  const [f, setF] = useState({ name: '', code: '', tutorId: '' });
   const [tutors, setTutors] = useState([]);
   const [dept, setDept] = useState(''); // department that runs this programme
   const [err, setErr] = useState('');
@@ -329,7 +329,7 @@ export function ModuleForm() {
     if (id !== 'new') {
       api(`/admin/modules?department=${E(program)}&year=${year}&semester=${semester}`).then((l) => {
         const x = l.find((y) => y._id === id);
-        if (x) setF({ name: x.name, code: x.code, tutorId: x.tutor?.userId || '', count: x.count || '' });
+        if (x) setF({ name: x.name, code: x.code, tutorId: x.tutor?.userId || '' });
       });
     }
   }, [id]);
@@ -379,9 +379,6 @@ export function ModuleForm() {
           )}
         </select>
         <small style={{ color: '#64748b' }}>The tutor will see this module and can then set its enrolment key.</small>
-
-        <label>Number of Modules</label>
-        <input value={f.count} onChange={set('count')} />
 
         <p className="err">{err}</p>
         <button className="save" onClick={save}>Save</button>
