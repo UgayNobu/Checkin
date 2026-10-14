@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
+import SemesterPicker, { useSemester } from '../shared/SemesterPicker';
 import './records.css';
 
 /* ---------- Helpers ---------- */
@@ -127,23 +128,24 @@ function AttendanceGraph({ rows }) {
 export function RecordStudents() {
   const { id } = useParams();
   const nav = useNavigate();
+  const { qs } = useSemester(); // ?session=AS2026 when looking at an old semester
   const [rows, setRows] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    api('/teacher/records/' + id)
+    api('/teacher/records/' + id + qs)
       .then((r) => setRows(Array.isArray(r) ? r : []))
       .catch(() => setErr('Could not load attendance records.'))
       .finally(() => setLoaded(true));
-  }, [id]);
+  }, [id, qs]);
 
   if (!loaded) return null;
 
   return (
     <div className="recs">
       <div className="rowb">
-        <button className="back" onClick={() => nav('/records')}>&lt;back</button>
+        <button className="back" onClick={() => nav('/records' + qs)}>&lt;back</button>
         <button className="dl" onClick={() => downloadModuleCsv(rows)} disabled={rows.length === 0}>
           Download
         </button>
@@ -194,7 +196,7 @@ export function RecordStudents() {
                     )}
                   </td>
                   <td>
-                    <button className="view" onClick={() => nav(`/records/${id}/${x.id}`)}>view</button>
+                    <button className="view" onClick={() => nav(`/records/${id}/${x.id}${qs}`)}>view</button>
                   </td>
                 </tr>
               ))
@@ -210,19 +212,20 @@ export function RecordStudents() {
 export function RecordStudent() {
   const { id, sid } = useParams();
   const nav = useNavigate();
+  const { qs } = useSemester();
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    api(`/teacher/records/${id}/${sid}`)
+    api(`/teacher/records/${id}/${sid}${qs}`)
       .then(setData)
       .catch(() => setErr('Could not load this student.'));
-  }, [id, sid]);
+  }, [id, sid, qs]);
 
   if (err) {
     return (
       <div className="recs">
-        <button className="back" onClick={() => nav('/records/' + id)}>&lt;back</button>
+        <button className="back" onClick={() => nav('/records/' + id + qs)}>&lt;back</button>
         <p className="err">{err}</p>
       </div>
     );
@@ -234,7 +237,7 @@ export function RecordStudent() {
   return (
     <div className="recs">
       <div className="rowb">
-        <button className="back" onClick={() => nav('/records/' + id)}>&lt;back</button>
+        <button className="back" onClick={() => nav('/records/' + id + qs)}>&lt;back</button>
         <button className="dl" onClick={() => downloadStudentCsv(data)} disabled={rows.length === 0}>
           Download
         </button>
@@ -281,21 +284,23 @@ export function RecordStudent() {
 /* ---------- Page 0: teacher's modules ---------- */
 export function RecordModules() {
   const nav = useNavigate();
+  const { session, setSession, qs } = useSemester();
   const [mods, setMods] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    api('/teacher/modules')
+    api('/teacher/modules' + qs)
       .then((r) => setMods(Array.isArray(r) ? r : []))
       .catch(() => setErr('Could not load your modules.'))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [qs]);
 
   if (!loaded) return null;
 
   return (
     <div className="recs">
+      <SemesterPicker session={session} setSession={setSession} />
       {err && <p className="err">{err}</p>}
 
       {mods.length === 0 ? (
@@ -306,7 +311,7 @@ export function RecordModules() {
       ) : (
         <div className="modgrid">
           {mods.map((m) => (
-            <button className="modcard" key={m.id} onClick={() => nav('/records/' + m.id)}>
+            <button className="modcard" key={m.id} onClick={() => nav('/records/' + m.id + qs)}>
               <b>{m.code}</b>
               <span>{m.name}</span>
               <small>View attendance →</small>

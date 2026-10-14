@@ -30,6 +30,7 @@ import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
 import AdminOverview from './pages/admin/AdminOverview.jsx';
 import { ProgramStudents, ProgramTeachers } from './pages/admin/ProgramView.jsx';
 import * as A from './pages/admin/Admin.jsx';
+import Semesters from './pages/admin/Semesters.jsx';
 
 /* ---------- Management pages ---------- */
 import { Overview as MOverview } from './pages/management/Overview.jsx';
@@ -78,6 +79,7 @@ const NAV = {
   admin: [
     ['/', 'Admin'],
     ['/programs', 'Program / Module'],
+    ['/semesters', 'Semesters'],
   ],
   management: [
     ['/', 'Management'],
@@ -408,6 +410,7 @@ const PAGES = {
     '/students/:program/:year': [A.Students, '', ''],
     '/teachers/:program': [ProgramTeachers, '', ''],
     '/programs': [A.Programs, '', ''],
+    '/semesters': [Semesters, '', ''],
     '/programs/:program': [A.ProgramYears, '', ''],
     '/programs/:program/:year/:semester': [A.SemesterModules, '', ''],
     '/programs/:program/:year/:semester/module/:id': [A.ModuleForm, '', ''],

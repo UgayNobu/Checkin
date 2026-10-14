@@ -85,7 +85,8 @@ async function finalizeSession(sessionId) {
   const se = await prisma.classSession.findUnique({ where: { id: sessionId }, include: { section: true } });
   if (!se || se.status === SESSION_STATUS.ENDED) return;
   const [enrolled, att] = await Promise.all([
-    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId }, select: { studentId: true } }),
+    // students enrolled in this module in the session's own semester
+    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession }, select: { studentId: true } }),
     prisma.attendance.findMany({ where: { sessionId }, select: { studentId: true } }),
   ]);
   const checkedIn = new Set(att.map((a) => a.studentId));
@@ -117,7 +118,7 @@ async function live(id, tutorId) {
   const graceOver = c && c.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000 <= Date.now();
   if (status === SESSION_STATUS.ONGOING && graceOver) { await finalizeSession(se.id); status = SESSION_STATUS.ENDED; }
 
-  const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId } });
+  const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession } });
   const list = await prisma.attendance.findMany({ where: { sessionId: se.id }, include: { student: true } });
   const present = list.filter((a) => ATTENDED.includes(a.status)).length;
   const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
@@ -153,7 +154,7 @@ async function endSession(id, tutorId) {
 async function roster(id, tutorId) {
   const se = await ownedSession(id, tutorId), c = se.codes[0];
   const [en, att] = await Promise.all([
-    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId }, include: { student: true }, orderBy: { studentId: 'asc' } }),
+    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession }, include: { student: true }, orderBy: { studentId: 'asc' } }),
     prisma.attendance.findMany({ where: { sessionId: se.id } }),
   ]);
   const byStudent = new Map(att.map((a) => [a.studentId, a]));
@@ -190,7 +191,9 @@ async function decideFlagged(id, attendanceId, tutorId, accept, note) {
 /** Manually mark a student (e.g. phone died): creates or overwrites their record. */
 async function markManually(id, tutorId, studentId, present) {
   const se = await ownedSession(id, tutorId);
-  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId, moduleId: se.section.moduleId } } });
+  const enrolled = await prisma.enrollment.findUnique({
+    where: { studentId_moduleId_academicSession: { studentId, moduleId: se.section.moduleId, academicSession: se.section.academicSession } },
+  });
   if (!enrolled) throw BadRequest('That student is not enrolled in this module', 'NOT_ENROLLED');
   const status = present ? 'Present' : 'Absent', flagReason = 'marked_by_tutor';
   await prisma.attendance.upsert({

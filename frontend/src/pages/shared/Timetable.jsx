@@ -29,6 +29,11 @@ export default function Timetable() {
   const [list, setList] = useState(null);
   const [err, setErr] = useState('');
   const [now, setNow] = useState(nowHHMM());
+  const [term, setTerm] = useState(null); // current semester, e.g. Autumn Semester 2026
+
+  useEffect(() => {
+    api('/academic-sessions/current').then(setTerm).catch(() => {});
+  }, []);
 
   useEffect(() => {
     api(teacher ? '/teacher/timetable' : '/student/timetable')
@@ -51,7 +56,7 @@ export default function Timetable() {
 
   return (
     <div className="tt">
-      <p className="tt-date">{dateLabel()}</p>
+      <p className="tt-date">{dateLabel()}{term ? ` · ${term.name}` : ''}</p>
 
       <div className="tt-days" role="tablist">
         {DAYS.map((d, i) => (
