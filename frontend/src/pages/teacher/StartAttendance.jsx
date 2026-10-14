@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 
 const WINDOW_MIN = 5; // check-in window in minutes
@@ -15,6 +16,8 @@ export default function StartAttendance() {
   const [left, setLeft] = useState(0);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [params] = useSearchParams();
+  const [slot, setSlot] = useState(null); // timetable class this session was started from
 
   // Only modules the admin assigned to this teacher
   useEffect(() => {
@@ -23,6 +26,22 @@ export default function StartAttendance() {
       .catch(() => setMods([]))
       .finally(() => setLoaded(true));
   }, []);
+
+  // Opened from the Timetable ("Start attendance"): fill the form from that class
+  useEffect(() => {
+    const id = params.get('slot');
+    if (!id) return;
+    api('/teacher/timetable')
+      .then((list) => {
+        const x = (Array.isArray(list) ? list : []).find((s) => s.id === id);
+        if (!x || !x.teaches) return;
+        const [sh, sm] = x.start.split(':').map(Number), [eh, em] = x.end.split(':').map(Number);
+        const hours = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+        setSlot(x);
+        setF({ module: x.module.id, room: x.room?.name || '', type: x.type === 'practical' ? 'practical' : 'theory', hours });
+      })
+      .catch(() => {});
+  }, [params]);
 
   // Countdown
   useEffect(() => {
@@ -59,6 +78,7 @@ export default function StartAttendance() {
       (p) =>
         api('/sessions', {
           ...f,
+          ...(slot && f.module === slot.module.id && { slot: slot.id }),
           lat: p.coords.latitude,
           lng: p.coords.longitude,
           accuracy: p.coords.accuracy,
@@ -99,6 +119,11 @@ export default function StartAttendance() {
       {/* Session details */}
       <div className="panel" style={{ flex: 1, marginTop: 0 }}>
         <h3>Session details</h3>
+        {slot && (
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#2f6df0' }}>
+            From your timetable: {slot.day} {slot.start}–{slot.end}{slot.group ? ` · Group ${slot.group}` : ''}
+          </p>
+        )}
 
         <label>Module</label>
         <select value={f.module} onChange={set('module')} disabled={open || noMods}>

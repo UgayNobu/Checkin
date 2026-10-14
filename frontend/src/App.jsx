@@ -39,6 +39,7 @@ import { History, HistoryCalendar } from './pages/management/History.jsx';
 
 /* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
+import Timetable from './pages/shared/Timetable.jsx';
 
 /* ---------- Student pages ---------- */
 import StudentDash from './pages/student/Dashboard.jsx';
@@ -58,12 +59,14 @@ import Settings, {
 const NAV = {
   student: [
     ['/', 'Dashboard'],
+    ['/timetable', 'Timetable'],
     ['/attendance', 'Attendance'],
     ['/evidence', 'Evidence Document'],
     ['/settings', 'Settings'],
   ],
   teacher: [
     ['/', 'Dashboard'],
+    ['/timetable', 'Timetable'],
     ['/modules', 'My Modules'],
     ['/start', 'Start Attendance'],
     ['/records', 'Attendance Records'],
@@ -358,6 +361,7 @@ const Soon = () => <p>This screen is next in the build.</p>;
 const PAGES = {
   student: {
     '/': [StudentDash, 'Dashboard', 'Track classes, attendance parameters and record'],
+    '/timetable': [Timetable, 'Timetable', "Today's classes and your weekly timetable"],
     '/attendance': [StudentAttendance, 'Attendance', 'Track classes, attendance parameters and record'],
     '/evidence': [Evidence, 'Evidence Document', 'Submit and track official absence requests for academic modules'],
     '/evidence/:id': [Certificate, 'Medical Report', ''],
@@ -371,6 +375,7 @@ const PAGES = {
 
   teacher: {
     '/': [TDash, 'Dashboard', 'Overview of your day'],
+    '/timetable': [Timetable, 'Timetable', "Today's classes. Start attendance straight from your class"],
     '/modules': [TModules, 'My Modules', 'Modules you teach this semester'],
     '/modules/:id': [ModuleKey, 'My Modules', 'Modules you teach this semester'],
     '/start': [StartAttendance, 'Start Attendance', 'Generate a check-in code for your class'],

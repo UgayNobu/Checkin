@@ -33,6 +33,7 @@ async function uniqueCode() {
 /**
  * Start attendance. Either:
  *  • { module, type, hours, room } → creates today's session now, or
+ *  • { slot, ... } → same, starting from a timetable slot (module and room come from the slot), or
  *  • { sessionId } → re-opens an existing (scheduled/ongoing) session with a fresh code.
  * The tutor's current GPS becomes the classroom centre for the geofence.
  */
@@ -54,12 +55,23 @@ async function startSession(tutorId, b) {
     return { _id: se.id, code, expiresAt: expiry };
   }
 
+  // Started from the timetable: the slot gives the module (and room) and links the session to it.
+  let slotId = null;
+  if (b.slot) {
+    const slot = await prisma.timetableSlot.findUnique({ where: { id: b.slot }, include: { room: true } });
+    if (!slot || !slot.moduleId) throw NotFound('Timetable slot not found', 'SLOT_NOT_FOUND');
+    if (!b.module || b.module === slot.moduleId) {
+      b = { ...b, module: slot.moduleId, room: b.room || slot.room?.name };
+      slotId = slot.id;
+    }
+  }
+
   const sec = await assertTutorOwnsModule(b.module, tutorId);
   if (b.room && b.room !== sec.room) await prisma.section.update({ where: { id: sec.id }, data: { room: b.room } });
   const se = await prisma.classSession.create({
     data: {
       sectionId: sec.id, date: now, startTime: now, duration: Math.round(b.hours * 60), sessionType: b.type,
-      status: SESSION_STATUS.ONGOING, codes: { create: codeData },
+      status: SESSION_STATUS.ONGOING, slotId, codes: { create: codeData },
     },
   });
   return { _id: se.id, code, expiresAt: expiry, radius, minutes };
