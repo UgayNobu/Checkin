@@ -21,40 +21,53 @@ export default function Dashboard() {
 
   const lowModule = modules.find((m) => m.pct < 90);
 
-  /* ---------- One module: theory / practical tables ---------- */
+  /* ---------- One module: theory + practical, title on top, table below ---------- */
   if (selected) {
     return (
       <div className="dash">
         <button className="back" onClick={close}>← Back</button>
 
-        {records && ['theory', 'practical'].filter((t) => records[t].rows.length).map((t) => (
-          <section key={t} className="mod">
-            <div className="mhead">
-              <div>
-                <h3>{selected.name}</h3>
-                <div className="total">Total percentage {records[t].pct}%</div>
+        {records && ['theory', 'practical'].map((t) => {
+          const part = records[t] || { rows: [], pct: 0 };
+          return (
+            <section key={t} className="sdm">
+              <div className="sdm-head">
+                <div>
+                  <h3>{selected.name}</h3>
+                  <span className="sdm-kind">{t === 'theory' ? 'Theory class' : 'Practical class'}</span>
+                </div>
+                <div className={'sdm-pct' + (part.pct < 90 ? ' low' : '')}>
+                  Total percentage <b>{part.pct}%</b>
+                </div>
               </div>
-              <b className="kind">{t === 'theory' ? 'Theory class' : 'Practical class'}</b>
-            </div>
 
-            <div className="tbl">
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Hour</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  {records[t].rows.map((r, i) => (
-                    <tr key={i}>
-                      <td>{fmt(r.date)}</td>
-                      <td>{r.hours} hr</td>
-                      <td><span className={'badge ' + r.status}>{r.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ))}
+              <div className="sdm-tbl">
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Hour</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {part.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="sdm-empty">
+                          No {t} classes recorded yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      part.rows.map((r, i) => (
+                        <tr key={i}>
+                          <td>{fmt(r.date)}</td>
+                          <td>{r.hours} hr</td>
+                          <td><span className={'badge ' + r.status}>{r.status}</span></td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })}
       </div>
     );
   }
@@ -81,17 +94,31 @@ export default function Dashboard() {
         <h3>Attendance by Module</h3>
         <small>Attendance %</small>
 
-        <div className="chart">
-          <div className="axis">
+        <div className="sdc">
+          <div className="sdc-axis">
             {AXIS.map((n) => <span key={n}>{n}</span>)}
           </div>
-          <div className="plot">
-            {modules.map((m) => (
-              <div key={m.id} className="col">
-                <div className="bar" style={{ height: cap(m.pct) * 2 }}>{Math.round(cap(m.pct))}%</div>
-                <small>{m.name}</small>
-              </div>
-            ))}
+          <div className="sdc-main">
+            <div className="sdc-plot">
+              {modules.map((m) => (
+                <div key={m.id} className="sdc-col">
+                  <span className="sdc-val">{Math.round(cap(m.pct))}%</span>
+                  <div
+                    className={'sdc-bar' + (m.pct < 90 ? ' low' : '')}
+                    style={{ height: cap(m.pct) * 2 }}
+                    title={`${m.name}: ${Math.round(cap(m.pct))}%`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="sdc-labels">
+              {modules.map((m) => (
+                <span key={m.id} title={m.name}>
+                  {m.code}
+                  <small>{m.name}</small>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
