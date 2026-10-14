@@ -83,7 +83,9 @@ No login needed (so `<img>` / `<iframe>` work); the id is a random UUID that the
 `GET /modules?department=&year=&semester=` (filters through `program_modules`) · `POST /modules` · `PUT /modules/:id` (also links the module to the programme's year and semester) ·
 `GET /tutors/pending` · `POST /tutors/:id/approve` · `POST /tutors/:id/reject` ·
 `GET /audit-logs?action=&from=&to=&q=&limit=` · `GET /audit-actions` ·
-`GET /reports/at-risk?below=&department=` · `GET /reports/at-risk/export.csv` · `POST /jobs/low-attendance`
+`GET /reports/at-risk?below=&department=` · `GET /reports/at-risk/export.csv` · `POST /jobs/low-attendance` ·
+`GET /academic-sessions` (admin + management) · `POST /academic-sessions` `{ code: 'SS2027', startDate, endDate, name? }` ·
+`POST /academic-sessions/:code/make-current` `{ promoteYears }` — "Start new semester" (admin)
 
 ## College structure, rooms and timetable — `/api`
 | Method | Path | Who | What |
@@ -91,11 +93,21 @@ No login needed (so `<img>` / `<iframe>` work); the id is a random UUID that the
 | GET | `/departments` | public | The 6 CST departments with their programmes (sign-up form) |
 | GET | `/programs?level=Bachelor` | public | All programmes with level, duration and department |
 | GET | `/rooms` | any | Classrooms and labs |
-| GET | `/timetable?program=&year=` | any | The fixed weekly timetable for one programme and year |
+| GET | `/timetable?program=&year=` | any | The fixed weekly timetable for one programme and year (current semester) |
+| GET | `/academic-sessions` | any | Every semester, newest first (for the semester picker) |
+| GET | `/academic-sessions/current` | any | The current semester, e.g. `{ code: 'AS2026', name: 'Autumn Semester 2026', … }` |
 
 ## Management — `/api/management`
 `GET /overview` · `GET /department/:name` · `GET /module/:id` · `GET /student/:id?module=` · `GET /teachers` ·
 `GET /history?q=&year=&semester=&department=` · `GET /calendar?student=&module=&month=`
+All of these except `/calendar` take `?session=AS2026` to show an old semester (default: the current one).
+
+## Semesters (academic sessions)
+Tutor assignments (`sections`) and enrolments belong to a semester (`academic_session`, e.g. AS2026 = Autumn 2026,
+SS2027 = Spring 2027). Exactly one semester is current. Everything live — My Modules, enrolment, check-in, timetable,
+dashboards, attendance % — uses the current semester, so a new semester starts clean. Past semesters are never changed:
+a class session keeps its section, so its attendance stays with the semester it happened in. View them with
+`?session=AS2026` on the teacher records routes (`/teacher/modules`, `/teacher/records/...`, exports) and the management routes.
 
 ## Check-in rules
 - A code is 6 characters, never reused, and valid for `CHECKIN_WINDOW_MINUTES` (default 5).

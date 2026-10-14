@@ -8,9 +8,13 @@ const { WEEK_MS } = require('../config/constants');
 const { loadMatrix, overallFor, monthDays } = require('./stats.service');
 const { sessionStart, round1 } = require('../utils/format');
 const { NotFound } = require('../utils/errors');
+const { sessionOrCurrent } = require('../lib/academicSession');
 
-async function sizes(moduleIds) {
-  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds } }, _count: { _all: true } });
+// Every view shows ONE semester: the current one, or { term: 'AS2026' } to look back.
+
+/** Class size per module in a semester. */
+async function sizes(moduleIds, term) {
+  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds }, academicSession: term }, _count: { _all: true } });
   return new Map(g.map((x) => [x.moduleId, x._count._all]));
 }
 
@@ -28,9 +32,10 @@ function rateOf(m, mods, size, from = 0, to = Infinity) {
 
 /** loadMatrix + "how many students attended session X". */
 // loadMatrix already counts how many students attended each session (m.studentsWho).
-const matrixWithCounts = (moduleIds) => loadMatrix(moduleIds);
+const matrixWithCounts = (moduleIds, term) => loadMatrix(moduleIds, undefined, { term });
 
-async function overview() {
+async function overview({ term } = {}) {
+  term = await sessionOrCurrent(term);
   // Everything that doesn't depend on something else is fetched at the same time.
   const [programs, perDept, students, newStudents, tutors, modules, studentIds] = await Promise.all([
     prisma.program.findMany({ orderBy: { name: 'asc' }, include: { modules: true } }),
@@ -43,7 +48,7 @@ async function overview() {
   ]);
   const allMods = programs.flatMap((p) => p.modules);
   const [m, size, pcts] = await Promise.all([
-    matrixWithCounts(allMods.map((x) => x.id)), sizes(allMods.map((x) => x.id)), overallFor(studentIds.map((u) => u.id)),
+    matrixWithCounts(allMods.map((x) => x.id), term), sizes(allMods.map((x) => x.id), term), overallFor(studentIds.map((u) => u.id), { term }),
   ]);
   // Students whose overall attendance is under the required % (90 by default)
   const belowRequired = [...pcts.values()].filter((pct) => pct < env.requiredPct).length;
@@ -55,6 +60,7 @@ async function overview() {
     attendance: rateOf(m, p.modules, size),
   }));
   return {
+    academicSession: term,
     totals: {
       students, newStudents, tutors, modules,
       below80: departments.filter((d) => d.attendance < env.atRiskPct).length, // departments under the at-risk %
@@ -64,12 +70,15 @@ async function overview() {
   };
 }
 
-async function department(name) {
+async function department(name, { term } = {}) {
+  term = await sessionOrCurrent(term);
   const [mods, studs] = await Promise.all([
     prisma.module.findMany({ where: { program: { name } }, orderBy: { code: 'asc' } }),
     prisma.user.findMany({ where: { role: 'student', department: name }, select: { id: true } }),
   ]);
-  const [m, size, pctMap] = await Promise.all([matrixWithCounts(mods.map((x) => x.id)), sizes(mods.map((x) => x.id)), overallFor(studs.map((u) => u.id))]);
+  const [m, size, pctMap] = await Promise.all([
+    matrixWithCounts(mods.map((x) => x.id), term), sizes(mods.map((x) => x.id), term), overallFor(studs.map((u) => u.id), { term }),
+  ]);
   const pcts = [...pctMap.values()];
   const now = Date.now();
   const trend = Array.from({ length: 6 }, (_, i) => { const a = now - (6 - i) * WEEK_MS; return rateOf(m, mods, size, a, a + WEEK_MS); });
@@ -82,11 +91,12 @@ async function department(name) {
   };
 }
 
-async function moduleView(id) {
+async function moduleView(id, { term } = {}) {
+  term = await sessionOrCurrent(term);
   const [mod, en, m, evidence] = await Promise.all([
     prisma.module.findUnique({ where: { id } }),
-    prisma.enrollment.findMany({ where: { moduleId: id }, include: { student: true } }),
-    loadMatrix([id]),
+    prisma.enrollment.findMany({ where: { moduleId: id, academicSession: term }, include: { student: true } }),
+    loadMatrix([id], undefined, { term }),
     prisma.evidenceDocument.count({ where: { moduleId: id, status: 'Approved' } }),
   ]);
   if (!mod) throw NotFound('Module not found');
@@ -97,17 +107,18 @@ async function moduleView(id) {
   return { module: { name: mod.name, code: mod.code }, totals: { students: rows.length, absence: rows.reduce((a, r) => a + r.absences, 0), evidence }, rows };
 }
 
-async function studentView(studentId, moduleId) {
-  const [st, m] = await Promise.all([prisma.user.findUnique({ where: { id: studentId } }), loadMatrix([moduleId], [studentId])]);
+async function studentView(studentId, moduleId, { term } = {}) {
+  const [st, m] = await Promise.all([prisma.user.findUnique({ where: { id: studentId } }), loadMatrix([moduleId], [studentId], { term })]);
   if (!st) throw NotFound('Student not found');
   const history = m.sessionsOf(moduleId).map((s) => ({ date: sessionStart(s), type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }));
   const present = history.filter((h) => h.status === 'present').length;
   return { student: { userId: st.id, name: st.name }, present, absent: history.length - present, total: history.length, pct: m.pct(studentId, moduleId) ?? 0, history };
 }
 
-async function teachers() {
+async function teachers({ term } = {}) {
+  term = await sessionOrCurrent(term);
   const [secs, total] = await Promise.all([
-    prisma.section.findMany({ include: { module: true, tutor: true, sessions: { select: { duration: true } } }, orderBy: { module: { code: 'asc' } } }),
+    prisma.section.findMany({ where: { academicSession: term }, include: { module: true, tutor: true, sessions: { select: { duration: true } } }, orderBy: { module: { code: 'asc' } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
   ]);
   return {
@@ -117,12 +128,16 @@ async function teachers() {
 }
 
 /** Searchable student × module list. */
-async function history({ q, year, semester, department: dept }) {
+async function history({ q, year, semester, department: dept, session }) {
+  const term = await sessionOrCurrent(session); // ?session=AS2026 → that semester's students and records
   const mods = await prisma.module.findMany({
     where: { ...(year && { year }), ...(semester && { semester }), ...(dept && { program: { name: dept } }) },
-    include: { enrollments: { include: { student: true } }, sections: { include: { tutor: true }, take: 1 } },
+    include: {
+      enrollments: { where: { academicSession: term }, include: { student: true } },
+      sections: { where: { academicSession: term }, include: { tutor: true }, take: 1 },
+    },
   });
-  const m = await loadMatrix(mods.map((x) => x.id)), rows = [];
+  const m = await loadMatrix(mods.map((x) => x.id), undefined, { term }), rows = [];
   for (const mod of mods) {
     for (const { student: u } of mod.enrollments) {
       if (q && !`${u.name || ''} ${u.id}`.toLowerCase().includes(q.toLowerCase())) continue;

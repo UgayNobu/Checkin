@@ -1,0 +1,53 @@
+/* Admin → Semesters */
+.semesters { max-width: 980px; display: block; }
+.sem-title { margin: 0 0 6px; font-size: 22px; }
+.sem-note { color: var(--muted); font-size: 12px; margin: 0 0 16px; max-width: 760px; line-height: 1.5; }
+.sem-h { margin: 24px 0 10px; font-size: 15px; }
+
+.sem-current {
+  display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; margin-bottom: 14px;
+  border: 1px solid #c9d6f3; border-left: 4px solid var(--blue); border-radius: 12px; background: #fff;
+}
+.sem-current small { color: var(--muted); font-size: 11px; }
+.sem-current > b { font-size: 18px; }
+.sem-current > b span { font-size: 12px; color: var(--blue); margin-left: 6px; }
+.sem-counts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: #475569; }
+.sem-counts b { color: var(--ink); }
+
+.sem-ok { color: #0a8f5b; font-size: 13px; margin: 0 0 12px; }
+
+.sem-confirm {
+  border: 1px solid #f3d38c; background: #fffaf0; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; font-size: 13px;
+}
+.sem-confirm ul { margin: 8px 0 12px; padding-left: 18px; color: #475569; line-height: 1.6; }
+.sem-check { display: flex; gap: 8px; align-items: flex-start; justify-content: flex-start; font-size: 12px; margin-bottom: 12px; font-weight: 500; }
+.sem-check input { width: auto; flex: 0 0 auto; margin: 2px 0 0; }
+.sem-check span { flex: 1; }
+.sem-actions { display: flex; gap: 10px; }
+
+.sem-btn {
+  background: var(--blue); color: #fff; border: 0; border-radius: 8px; padding: 9px 16px;
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.sem-btn:disabled { opacity: 0.6; cursor: default; }
+.sem-btn.ghost { background: #fff; color: var(--ink); border: 1px solid #d6dbe6; }
+.sem-link { background: none; border: 0; color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+.sem-tbl { border: 1px solid #e3e7f0; border-radius: 12px; background: #fff; overflow-x: auto; }
+.sem-tbl table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sem-tbl th { background: #f7f9fd; font-size: 10px; text-align: left; padding: 10px 12px; color: #475569; }
+.sem-tbl td { padding: 10px 12px; border-top: 1px solid #eef1f6; vertical-align: middle; }
+.sem-tbl td small { color: var(--muted); }
+
+.sem-pill { display: inline-block; width: auto; min-height: 0; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.sem-pill.cur { background: #e6efff; color: var(--blue); }
+.sem-pill.up { background: #fdf0d8; color: #c77d0a; }
+.sem-pill.past { background: #eef1f6; color: #64748b; }
+
+.sem-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.sem-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: #475569; }
+.sem-form input, .sem-form select {
+  padding: 8px 10px; border: 1px solid #d6dbe6; border-radius: 8px; font: inherit; font-size: 13px; background: #fff;
+}
+.sem-form input[inputmode] { width: 80px; }
+.sem-ferr { width: 100%; margin: 0; }

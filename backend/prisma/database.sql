@@ -274,6 +274,72 @@ CREATE TABLE IF NOT EXISTS stored_files (
 CREATE INDEX IF NOT EXISTS idx_files_owner ON stored_files (owner_id);
 ALTER TABLE stored_files ENABLE ROW LEVEL SECURITY;
 
+-- ===== Part 9: academic sessions (semesters) =====
+-- The college runs two semesters a year: Autumn (AS) and Spring (SS). Exactly one is "current".
+-- Tutor assignments (sections) and enrolments belong to a semester, so a new semester starts
+-- clean while every past class, attendance mark and evidence request stays in the database.
+CREATE TABLE IF NOT EXISTS academic_sessions (
+  session_code VARCHAR(10) PRIMARY KEY,             -- e.g. AS2026, SS2027
+  name         VARCHAR(60) NOT NULL,                -- e.g. Autumn Semester 2026
+  term         VARCHAR(10) NOT NULL,                -- autumn | spring
+  start_date   DATE NOT NULL,
+  end_date     DATE NOT NULL,
+  is_current   BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_acs_term  CHECK (term IN ('autumn', 'spring')),
+  CONSTRAINT chk_acs_dates CHECK (end_date > start_date),
+  CONSTRAINT chk_acs_code  CHECK (session_code ~ '^(AS|SS)[0-9]{4}$')
+);
+-- At most one current semester
+CREATE UNIQUE INDEX IF NOT EXISTS uq_acs_one_current ON academic_sessions (is_current) WHERE is_current;
+ALTER TABLE academic_sessions ENABLE ROW LEVEL SECURITY;
+
+-- This semester (dates from the IDE201 capstone schedule)
+INSERT INTO academic_sessions (session_code, name, term, start_date, end_date, is_current)
+SELECT 'AS2026', 'Autumn Semester 2026', 'autumn', DATE '2026-07-27', DATE '2026-12-06', true
+WHERE NOT EXISTS (SELECT 1 FROM academic_sessions);
+
+-- The current semester's code, used as the default for new rows below
+CREATE OR REPLACE FUNCTION current_academic_session() RETURNS VARCHAR
+LANGUAGE sql STABLE AS $fn$ SELECT session_code FROM academic_sessions WHERE is_current LIMIT 1 $fn$;
+
+-- Tutor assignments and enrolments now belong to a semester. Existing rows become AS2026.
+ALTER TABLE sections    ADD COLUMN IF NOT EXISTS academic_session VARCHAR(10) NOT NULL DEFAULT current_academic_session();
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS academic_session VARCHAR(10) NOT NULL DEFAULT current_academic_session();
+CREATE INDEX IF NOT EXISTS idx_sections_term    ON sections (academic_session, tutor_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_term ON enrollments (academic_session, module_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sections_term') THEN
+    ALTER TABLE sections ADD CONSTRAINT fk_sections_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_enrollments_term') THEN
+    ALTER TABLE enrollments ADD CONSTRAINT fk_enrollments_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  -- The timetable already has academic_session; link it to the semesters table too
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_slots_term') THEN
+    INSERT INTO academic_sessions (session_code, name, term, start_date, end_date)
+      SELECT DISTINCT t.academic_session, t.academic_session, CASE WHEN t.academic_session LIKE 'SS%' THEN 'spring' ELSE 'autumn' END,
+             make_date(substr(t.academic_session, 3)::int, 1, 1), make_date(substr(t.academic_session, 3)::int, 12, 31)
+      FROM timetable_slots t
+      WHERE t.academic_session ~ '^(AS|SS)[0-9]{4}$'
+        AND NOT EXISTS (SELECT 1 FROM academic_sessions a WHERE a.session_code = t.academic_session);
+    ALTER TABLE timetable_slots ADD CONSTRAINT fk_slots_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  -- A student can take the same module again in a later semester: the key now includes it
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+    WHERE i.indrelid = 'enrollments'::regclass AND i.indisprimary AND a.attname = 'academic_session'
+  ) THEN
+    ALTER TABLE enrollments DROP CONSTRAINT enrollments_pkey;
+    ALTER TABLE enrollments ADD CONSTRAINT enrollments_pkey PRIMARY KEY (student_id, module_id, academic_session);
+  END IF;
+END $$;
+
 COMMIT;
 
 

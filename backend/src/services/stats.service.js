@@ -11,18 +11,24 @@
 //
 // A session counts once its start time has passed. A student with
 // no record for a held session is absent.
+//
+// Semesters: everything here counts ONE academic session (semester) —
+// the current one unless { term: 'AS2026' } is passed — so a module
+// taught again next year starts from zero and old records stay intact.
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { ATTENDED } = require('../config/constants');
 const { sessionStart, round1, apiStatus } = require('../utils/format');
+const { sessionOrCurrent } = require('../lib/academicSession');
 
 const hoursOf = (s) => (s.duration || 60) / 60;
 const isHeld = (s, now = Date.now()) => sessionStart(s).getTime() <= now;
 
-/** Held sessions of one module, oldest first. */
-async function heldSessions(moduleId) {
+/** Held sessions of one module in a semester (current by default), oldest first. */
+async function heldSessions(moduleId, { term } = {}) {
+  const academicSession = await sessionOrCurrent(term);
   const all = await prisma.classSession.findMany({
-    where: { section: { moduleId } }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    where: { section: { moduleId, academicSession } }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
   return all.filter((s) => isHeld(s));
 }
@@ -31,16 +37,17 @@ async function heldSessions(moduleId) {
  * Loads sessions + attended records for many modules in 2 queries, then
  * answers % questions from memory. Use this for lists and reports.
  */
-async function loadMatrix(moduleIds, studentIds) {
+async function loadMatrix(moduleIds, studentIds, { term } = {}) {
+  const academicSession = await sessionOrCurrent(term);
   // Both queries run at the same time (one round trip to the database instead of two).
   const [allSessions, allAtt] = await Promise.all([
     prisma.classSession.findMany({
-      where: { section: { moduleId: { in: moduleIds } } },
+      where: { section: { moduleId: { in: moduleIds }, academicSession } },
       select: { id: true, date: true, startTime: true, duration: true, sessionType: true, section: { select: { moduleId: true } } },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     }),
     prisma.attendance.findMany({
-      where: { session: { section: { moduleId: { in: moduleIds } } }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
+      where: { session: { section: { moduleId: { in: moduleIds }, academicSession } }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
       select: { studentId: true, sessionId: true },
     }),
   ]);
@@ -87,8 +94,9 @@ async function loadMatrix(moduleIds, studentIds) {
   };
 }
 
-const enrolledModuleIds = async (studentId) =>
-  (await prisma.enrollment.findMany({ where: { studentId }, select: { moduleId: true } })).map((e) => e.moduleId);
+/** Modules a student is enrolled in this semester (or the semester given). */
+const enrolledModuleIds = async (studentId, { term } = {}) =>
+  (await prisma.enrollment.findMany({ where: { studentId, academicSession: await sessionOrCurrent(term) }, select: { moduleId: true } })).map((e) => e.moduleId);
 
 /** One student's % in one module (0 when nothing held yet — matches the old API). */
 async function modulePct(studentId, moduleId) {
@@ -102,11 +110,12 @@ async function overallPct(studentId) {
 }
 
 /** Overall % for many students at once: Map(studentId → %). */
-async function overallFor(studentIds) {
+async function overallFor(studentIds, { term } = {}) {
   if (!studentIds.length) return new Map();
-  const en = await prisma.enrollment.findMany({ where: { studentId: { in: studentIds } }, select: { studentId: true, moduleId: true } });
+  const academicSession = await sessionOrCurrent(term);
+  const en = await prisma.enrollment.findMany({ where: { studentId: { in: studentIds }, academicSession }, select: { studentId: true, moduleId: true } });
   const mods = [...new Set(en.map((e) => e.moduleId))];
-  const m = await loadMatrix(mods, studentIds);
+  const m = await loadMatrix(mods, studentIds, { term: academicSession });
   const byStudent = new Map(studentIds.map((id) => [id, []]));
   en.forEach((e) => byStudent.get(e.studentId).push(e.moduleId));
   return new Map(studentIds.map((id) => [id, m.overall(id, byStudent.get(id)) ?? 0]));

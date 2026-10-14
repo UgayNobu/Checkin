@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
+import SemesterPicker, { useSemester } from '../shared/SemesterPicker';
 import '../teacher/staff.css';
 import '../student/attendance.css';
 import './History.css';
@@ -14,18 +15,20 @@ const Back = ({ label = '← Back' }) => {
 
 export function History() {
   const nav = useNavigate(), [f, setF] = useState({ q: '', year: '', semester: '', department: '' }), [rows, setRows] = useState([]), [p, setP] = useState([]);
+  const { session, setSession } = useSemester(); // '' = current semester, or e.g. AS2026
   
   useEffect(() => { api('/admin/programs').then(setP); }, []);
   
   useEffect(() => { 
-    api('/management/history?' + new URLSearchParams(Object.entries(f).filter(([, v]) => v))).then(setRows); 
-  }, [f]);
+    api('/management/history?' + new URLSearchParams(Object.entries({ ...f, session }).filter(([, v]) => v))).then(setRows); 
+  }, [f, session]);
   
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   
   return (
     <div className="mg">
       <h2 className="ttl" style={{ fontWeight: 400 }}>Attendance records -all student</h2>
+      <SemesterPicker session={session} setSession={setSession} />
       <div className="hist">
         <input placeholder="Student ID/ Name" value={f.q} onChange={set('q')} style={{ borderRadius: 20, background: '#ece6f1', border: 0, width: 230 }} />
         <select value={f.year} onChange={set('year')}>

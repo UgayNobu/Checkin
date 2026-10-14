@@ -11,6 +11,7 @@ const { BadRequest, NotFound, Conflict } = require('../utils/errors');
 const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
 const { notify } = require('./notifications.service');
+const { currentAcademicSession } = require('../lib/academicSession');
 
 // ── Overview ──────────────────────────────────────────────────
 async function overview() {
@@ -72,9 +73,14 @@ async function patchUser(adminId, id, { active, name }) {
 /** Filters through program_modules, so a module shared by several programmes shows under each of them. */
 async function listModules({ department, year, semester }) {
   const cur = { ...(department && { program: { name: department } }), ...(year && { year }), ...(semester && { semester }) };
+  const academicSession = await currentAcademicSession(); // tutor and class size for this semester
   const rows = await prisma.module.findMany({
     where: Object.keys(cur).length ? { curriculum: { some: cur } } : {},
-    include: { sections: { include: { tutor: true }, take: 1 }, _count: { select: { enrollments: true } } }, orderBy: { code: 'asc' },
+    include: {
+      sections: { where: { academicSession }, include: { tutor: true }, take: 1 },
+      _count: { select: { enrollments: { where: { academicSession } } } },
+    },
+    orderBy: { code: 'asc' },
   });
   return rows.map((m) => ({
     _id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, count: m.moduleCount, students: m._count.enrollments,
@@ -103,9 +109,11 @@ async function saveModule(adminId, id, b) {
       });
     }
     if (tutor) {
-      const sec = await tx.section.findFirst({ where: { moduleId: mod.id } });
+      // Only this semester's assignment changes; past semesters keep the tutor who taught them.
+      const academicSession = await currentAcademicSession();
+      const sec = await tx.section.findFirst({ where: { moduleId: mod.id, academicSession } });
       if (sec) await tx.section.update({ where: { id: sec.id }, data: { tutorId: tutor.id } });
-      else await tx.section.create({ data: { moduleId: mod.id, tutorId: tutor.id, name: 'A' } });
+      else await tx.section.create({ data: { moduleId: mod.id, tutorId: tutor.id, name: 'A', academicSession } });
     }
     return mod;
   });
@@ -141,7 +149,7 @@ async function rejectTutor(adminId, id) {
 /** Student × module pairs below the threshold, worst first. Per module, so a weak module isn't hidden by a good average. */
 async function atRisk({ below = env.atRiskPct, department }) {
   const en = await prisma.enrollment.findMany({
-    where: { student: { role: 'student', ...(department && { department }) } }, include: { student: true, module: true },
+    where: { academicSession: await currentAcademicSession(), student: { role: 'student', ...(department && { department }) } }, include: { student: true, module: true },
   });
   const m = await loadMatrix([...new Set(en.map((e) => e.moduleId))]);
   const rows = [];
@@ -177,7 +185,7 @@ async function programmeReport(name) {
  */
 async function runLowAttendanceJob(adminId) {
   const cutoff = new Date(Date.now() - env.realertDays * DAY_MS), res = { scanned: 0, alerts: 0, skipped: 0 };
-  const en = await prisma.enrollment.findMany({ where: { student: { role: 'student', isActive: true } }, include: { module: true } });
+  const en = await prisma.enrollment.findMany({ where: { academicSession: await currentAcademicSession(), student: { role: 'student', isActive: true } }, include: { module: true } });
   const m = await loadMatrix([...new Set(en.map((e) => e.moduleId))]);
   for (const e of en) {
     const p = m.pct(e.studentId, e.moduleId);

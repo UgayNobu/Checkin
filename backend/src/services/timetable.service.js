@@ -1,10 +1,12 @@
 // ─────────────────────────────────────────────────────────────
-// Rooms and the fixed weekly timetable (AS2026). The timetable data
-// is loaded separately (prisma/timetable_AS2026.sql, kept out of git
-// because it contains staff names).
+// Rooms and the fixed weekly timetable. Each semester's timetable is
+// loaded with its own academic_session (AS2026 = Autumn 2026, …) and only
+// the current semester's is shown. The data is loaded separately
+// (prisma/timetable_AS2026.sql, kept out of git because it has staff names).
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { BadRequest } = require('../utils/errors');
+const { currentAcademicSession } = require('../lib/academicSession');
 
 const DAY = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const hhmm = (t) => t.toISOString().slice(11, 16); // TIME columns come back as 1970-01-01T09:00:00Z
@@ -19,7 +21,9 @@ const slotOut = (x) => ({
 });
 const include = { program: true, module: true, room: true };
 const orderBy = [{ dayOfWeek: 'asc' }, { startTime: 'asc' }];
-const slots = async (where) => (await prisma.timetableSlot.findMany({ where, include, orderBy })).map(slotOut);
+// Only the current semester's timetable (each year's timetable is loaded with its own academic_session)
+const slots = async (where) =>
+  (await prisma.timetableSlot.findMany({ where: { AND: [where, { academicSession: await currentAcademicSession() }] }, include, orderBy })).map(slotOut);
 
 const listRooms = () => prisma.room.findMany({ orderBy: { name: 'asc' } });
 
@@ -70,7 +74,7 @@ async function addToday(list, studentId) {
 async function forStudent(studentId) {
   const [u, en] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { programme: true, year: true } }),
-    prisma.enrollment.findMany({ where: { studentId }, select: { moduleId: true } }),
+    prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
   ]);
   const enrolled = en.map((e) => e.moduleId);
   const or = [];
@@ -88,7 +92,7 @@ async function forStudent(studentId) {
 async function forTutor(tutorId) {
   const [u, secs] = await Promise.all([
     prisma.user.findUnique({ where: { id: tutorId }, select: { id: true, name: true } }),
-    prisma.section.findMany({ where: { tutorId }, select: { moduleId: true } }),
+    prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
   ]);
   const taught = [...new Set(secs.map((x) => x.moduleId))];
   const list = (await slots({

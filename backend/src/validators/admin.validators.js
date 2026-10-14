@@ -1,4 +1,4 @@
-const { z, id, optionalText, optionalNumber } = require('./common');
+const { z, id, optionalText, optionalNumber, isoDate } = require('./common');
 
 const programNameSchema = z.object({ name: z.string().trim().min(2).max(100) });
 const programRenameSchema = z.object({ from: z.string().trim().min(1), to: z.string().trim().min(2).max(100) });
@@ -43,3 +43,14 @@ module.exports = {
   programNameSchema, programRenameSchema, programParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
   modulesQuerySchema, moduleBodySchema, moduleIdParamSchema, atRiskQuerySchema, auditQuerySchema,
 };
+
+// ── Semesters (AS = Autumn, SS = Spring)
+const semesterParamSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^(AS|SS)\d{4}$/, 'must look like AS2027') });
+const semesterBodySchema = z.object({
+  code: z.string().trim().toUpperCase().regex(/^(AS|SS)\d{4}$/, 'must look like AS2027 (Autumn) or SS2027 (Spring)'),
+  name: optionalText(60),
+  startDate: isoDate,
+  endDate: isoDate,
+});
+const makeCurrentSchema = z.object({ promoteYears: z.boolean().default(false) });
+module.exports = { ...module.exports, semesterParamSchema, semesterBodySchema, makeCurrentSchema };

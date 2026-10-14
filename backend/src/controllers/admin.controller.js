@@ -2,8 +2,13 @@ const { asyncHandler } = require('../utils/errors');
 const { sendCsv } = require('../utils/csv');
 const a = require('../services/admin.service');
 const audit = require('../services/audit.service');
+const academic = require('../services/academic.service');
 
 module.exports = {
+  // Semesters
+  semesters: asyncHandler(async (req, res) => res.json(await academic.list())),
+  createSemester: asyncHandler(async (req, res) => res.status(201).json(await academic.create(req.user.id, req.body))),
+  makeCurrentSemester: asyncHandler(async (req, res) => res.json(await academic.makeCurrent(req.user.id, req.params.code, req.body))),
   overview: asyncHandler(async (req, res) => res.json(await a.overview())),
   programs: asyncHandler(async (req, res) => res.json(await a.listPrograms())),
   createProgram: asyncHandler(async (req, res) => res.json(await a.createProgram(req.user.id, req.body.name))),

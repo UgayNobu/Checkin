@@ -4,10 +4,14 @@ const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors')
 const { notify } = require('./notifications.service');
 const { writeAuditLog } = require('./audit.service');
 const { suggestEnrolmentKey, normalizeEnrolmentKey } = require('../utils/enrolment-key');
+const { currentAcademicSession, sessionOrCurrent } = require('../lib/academicSession');
 
-/** The tutor's section for a module, or a 403. Every tutor route goes through this. */
-async function assertTutorOwnsModule(moduleId, tutorId) {
-  const sec = await prisma.section.findFirst({ where: { moduleId, tutorId } });
+/**
+ * The tutor's section for a module, or a 403. Every tutor route goes through this.
+ * Checks the current semester, or the one given ({ term: 'AS2026' }) when viewing old records.
+ */
+async function assertTutorOwnsModule(moduleId, tutorId, { term } = {}) {
+  const sec = await prisma.section.findFirst({ where: { moduleId, tutorId, academicSession: await sessionOrCurrent(term) } });
   if (!sec) throw Forbidden('This is not your module', 'NOT_YOUR_MODULE');
   return sec;
 }
@@ -40,7 +44,7 @@ async function suggestKey(moduleId, tutorId) {
 /** Teachers see their own modules; admin and management see any. */
 async function listStudents(moduleId, user) {
   if (user.role === 'teacher') await assertTutorOwnsModule(moduleId, user.id);
-  const rows = await prisma.enrollment.findMany({ where: { moduleId }, include: { student: true }, orderBy: { enrolledDate: 'asc' } });
+  const rows = await prisma.enrollment.findMany({ where: { moduleId, academicSession: await currentAcademicSession() }, include: { student: true }, orderBy: { enrolledDate: 'asc' } });
   return rows.map((e) => ({ student: { userId: e.student.id, name: e.student.name }, date: e.enrolledDate }));
 }
 
@@ -49,7 +53,12 @@ async function addStudent(moduleId, tutorId, userId) {
   const u = await prisma.user.findFirst({ where: { id: { in: [userId, userId.toUpperCase()] }, role: 'student' } });
   if (!u) throw NotFound('Student not found');
   // upsert with update:{} = "add if missing, do nothing if already there"
-  await prisma.enrollment.upsert({ where: { studentId_moduleId: { studentId: u.id, moduleId } }, update: {}, create: { studentId: u.id, moduleId } });
+  const term = await currentAcademicSession();
+  await prisma.enrollment.upsert({
+    where: { studentId_moduleId_academicSession: { studentId: u.id, moduleId, academicSession: term } },
+    update: {},
+    create: { studentId: u.id, moduleId, academicSession: term },
+  });
   return { message: 'Student added' };
 }
 
@@ -58,7 +67,7 @@ async function removeStudent(moduleId, user, studentId) {
   if (user.role === 'teacher') await assertTutorOwnsModule(moduleId, user.id);
   const m = await prisma.module.findUnique({ where: { id: moduleId } });
   if (!m) throw NotFound('Module not found');
-  const r = await prisma.enrollment.deleteMany({ where: { moduleId, studentId } });
+  const r = await prisma.enrollment.deleteMany({ where: { moduleId, studentId, academicSession: await currentAcademicSession() } });
   if (!r.count) throw BadRequest('That student is not enrolled in this module', 'NOT_ENROLLED');
   await notify(studentId, `You were removed from ${m.code} - ${m.name}.`, 'System');
   if (user.role === 'admin') await writeAuditLog(user.id, 'Student Unenrolled', `${studentId} from ${m.code}`);

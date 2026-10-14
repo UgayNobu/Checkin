@@ -41,7 +41,9 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   const late = row.expiryTimestamp <= now; // only possible when offline = true
 
   const sec = row.session.section, m = sec.module;
-  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId: student.id, moduleId: m.id } } });
+  const enrolled = await prisma.enrollment.findUnique({
+    where: { studentId_moduleId_academicSession: { studentId: student.id, moduleId: m.id, academicSession: sec.academicSession } },
+  });
   if (!enrolled) throw Forbidden('You are not enrolled in this module', 'NOT_ENROLLED');
 
   // ── decide present vs flagged

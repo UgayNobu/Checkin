@@ -33,6 +33,11 @@ router.get('/tutors/pending', both, c.pendingTutors);
 router.post('/tutors/:id/approve', admin, validateParams(v.userIdParamSchema), c.approveTutor);
 router.post('/tutors/:id/reject', admin, validateParams(v.userIdParamSchema), c.rejectTutor);
 
+// Semesters: list (admin + management), add one, start a new semester (admin)
+router.get('/academic-sessions', both, c.semesters);
+router.post('/academic-sessions', admin, validateBody(v.semesterBodySchema), c.createSemester);
+router.post('/academic-sessions/:code/make-current', admin, validateParams(v.semesterParamSchema), validateBody(v.makeCurrentSchema), c.makeCurrentSemester);
+
 // Audit log
 router.get('/audit-logs', both, validateQuery(v.auditQuerySchema), c.auditLogs);
 router.get('/audit-actions', both, c.auditActions);
