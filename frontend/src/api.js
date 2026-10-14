@@ -50,3 +50,17 @@ export async function api(path, body, method) {
     loading(false);
   }
 }
+/**
+ * Log out everywhere: asks the backend to delete the login cookie (checkin_token),
+ * then forgets the saved login in this browser. Clearing only localStorage is not
+ * enough, because the browser would keep sending the cookie.
+ */
+export async function logout() {
+  try {
+    await api('/auth/logout', {});
+  } catch {
+    /* backend unreachable: still log out locally */
+  } finally {
+    auth.clear();
+  }
+}

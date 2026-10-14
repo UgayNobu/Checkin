@@ -9,7 +9,7 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
-import { api, auth } from './api';
+import { api, auth, logout } from './api';
 import './base.css';
 
 /* ---------- Public pages ---------- */
@@ -39,6 +39,7 @@ import { History, HistoryCalendar } from './pages/management/History.jsx';
 
 /* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
+import Timetable from './pages/shared/Timetable.jsx';
 
 /* ---------- Student pages ---------- */
 import StudentDash from './pages/student/Dashboard.jsx';
@@ -58,12 +59,14 @@ import Settings, {
 const NAV = {
   student: [
     ['/', 'Dashboard'],
+    ['/timetable', 'Timetable'],
     ['/attendance', 'Attendance'],
     ['/evidence', 'Evidence Document'],
     ['/settings', 'Settings'],
   ],
   teacher: [
     ['/', 'Dashboard'],
+    ['/timetable', 'Timetable'],
     ['/modules', 'My Modules'],
     ['/start', 'Start Attendance'],
     ['/records', 'Attendance Records'],
@@ -299,10 +302,7 @@ function Shell({ user, children, title, sub }) {
         </nav>
 
         <button
-          onClick={() => {
-            auth.clear();
-            nav('/login');
-          }}
+          onClick={() => logout().then(() => nav('/login'))}
         >
           Log out
         </button>
@@ -361,6 +361,7 @@ const Soon = () => <p>This screen is next in the build.</p>;
 const PAGES = {
   student: {
     '/': [StudentDash, 'Dashboard', 'Track classes, attendance parameters and record'],
+    '/timetable': [Timetable, 'Timetable', "Today's classes and your weekly timetable"],
     '/attendance': [StudentAttendance, 'Attendance', 'Track classes, attendance parameters and record'],
     '/evidence': [Evidence, 'Evidence Document', 'Submit and track official absence requests for academic modules'],
     '/evidence/:id': [Certificate, 'Medical Report', ''],
@@ -374,13 +375,14 @@ const PAGES = {
 
   teacher: {
     '/': [TDash, 'Dashboard', 'Overview of your day'],
+    '/timetable': [Timetable, 'Timetable', "Today's classes. Start attendance straight from your class"],
     '/modules': [TModules, 'My Modules', 'Modules you teach this semester'],
     '/modules/:id': [ModuleKey, 'My Modules', 'Modules you teach this semester'],
     '/start': [StartAttendance, 'Start Attendance', 'Generate a check-in code for your class'],
     '/records': [RecordModules, 'Attendance Records', 'History of past sessions'],
     '/records/:id': [RecordStudents, 'Attendance Records', ''],
     '/records/:id/:sid': [RecordStudent, 'Attendance Records', ''],
-    '/evidence': [SharedEvidence, 'Evidence Document', 'Ask a colleague to cover a session'],
+    '/evidence': [SharedEvidence, 'Evidence Document', 'Absence requests from students in your modules (view only)'],
     '/evidence/:id': [Certificate, 'Medical Leave', ''],
     '/reports': [Reports, 'Reports & Analytics', 'How attendance is trending across your modules'],
     '/profile': [Profile, 'My Profile', 'Manage your personal and contact details'],
@@ -394,7 +396,7 @@ const PAGES = {
     '/module/:id': [ModuleView, '', ''],
     '/student/:id/:mid': [StudentView, '', ''],
     '/teachers': [TeacherList, '', ''],
-    '/evidence': [SharedEvidence, 'Evidence Document', 'Ask a colleague to cover a session'],
+    '/evidence': [SharedEvidence, 'Evidence Document', "Review and approve students' absence requests"],
     '/evidence/:id': [Certificate, 'Medical Report', ''],
     '/history': [History, '', ''],
     '/history/:sid/:mid': [HistoryCalendar, '', ''],

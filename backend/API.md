@@ -39,7 +39,7 @@ letters, a number and a symbol.
 | GET | `/api/modules/browse` [`/api/student/modules`] | Every module in each programme's curriculum, with `selfEnrol` and `enrolled` (no keys) |
 | POST | `/api/modules/enrol` [`/api/student/enrol`] | `{ module, key }` (VLE-style: pick the module, type its key) or `{ key }`. Refused when self-enrolment is closed |
 | POST | `/api/attendance/checkin` [`/api/checkin`] | `{ code, lat, lng, accuracy, permissionDenied, locationError, offline }` → present or flagged with a reason |
-| GET | `/api/student/timetable` | My weekly timetable (from my programme and year) |
+| GET | `/api/student/timetable` | My weekly timetable: my programme and year, plus modules I'm enrolled in (`enrolled`). Today's slots have `isToday` and `session: { id, status, myStatus }` |
 | GET | `/api/attendance/me?month=2026-10` [`/api/student/calendar`] | `{ day: present/flagged/absent }` |
 
 ## Teacher — `/api/teacher` [`/api/tutor`]
@@ -52,14 +52,14 @@ letters, a number and a symbol.
 | GET | `/records/:moduleId/:studentId` | Day-by-day for one student: present / flagged / absent, with the flag reason |
 | GET | `/records-export/:moduleId/csv` · `/pdf` | Downloads |
 | GET | `/reports` | 6-week trend per module |
-| GET | `/timetable` | My weekly timetable (slots linked to me or listing my name) |
+| GET | `/timetable` | My weekly timetable: modules the admin assigned to me (`teaches: true`), plus slots linked to me or listing my name. Today's slots have `isToday` and `session` |
 
 Module management — `/api/modules`: `GET /:id/key/suggest` · `PUT /:id/key` `{ key?, selfEnrol? }` (keys are unique; `''` removes the key) · `GET /:id/students` · `POST /:id/students` `{ userId }` · `DELETE /:id/students/:studentId` (tutor or admin; the student is notified)
 
 Sessions — `/api/sessions`:
 | Method | Path | What |
 |---|---|---|
-| POST | `/` [`/start`] | `{ module, room, type, hours, lat, lng, minutes?, radius? }` or `{ sessionId, lat, lng }` to re-open |
+| POST | `/` [`/start`] | `{ module, room, type, hours, lat, lng, minutes?, radius? }`, or add `slot` (a timetable slot id) to start from the timetable and link the session to it, or `{ sessionId, lat, lng }` to re-open |
 | GET | `/mine?limit=&status=` | My sessions |
 | GET | `/:id/live` | Counter for the start screen, flagged students with their reason; closes the session once the code (plus grace time) has run out |
 | GET | `/:id/roster` | Every enrolled student with status, distance, accuracy, flag reason |
