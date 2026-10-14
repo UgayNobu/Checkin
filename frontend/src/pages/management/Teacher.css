@@ -1,0 +1,50 @@
+/* src/pages/management/Teacher.css */
+
+/* Base Layout */
+.mg {
+  max-width: 960px;
+}
+
+.mg h2.ttl {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 4px 0 16px;
+  color: #17223f;
+}
+
+.mg h4 {
+  font-weight: 500;
+  margin: 26px 0 6px;
+}
+
+.mg .stats {
+  flex-wrap: wrap;
+}
+
+.mg .stat {
+  min-width: 170px;
+}
+
+/* Status Chips */
+.chip {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 9px;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.chip.g {
+  background: #dff5e7;
+  color: #1b8a4c;
+}
+
+.chip.o {
+  background: #fdecc8;
+  color: #b7791f;
+}
+
+.chip.r {
+  background: #fde2e2;
+  color: #c0392b;
+}

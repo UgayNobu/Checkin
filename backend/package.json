@@ -1,24 +1,32 @@
 {
   "name": "checkin-backend",
-  "version": "2.0.0",
-  "main": "server.js",
+  "version": "3.0.0",
+  "private": true,
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "generate": "prisma generate",
-    "seed": "node seed.js"
+    "seed": "node prisma/seed.js",
+    "create-admin": "node scripts/create-admin.js",
+    "import-roster": "node scripts/import-roster.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.45.4",
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "pdfkit": "^0.15.0"
+    "nodemailer": "^10.1.0",
+    "pdfkit": "^0.15.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "prisma": "^5.22.0"

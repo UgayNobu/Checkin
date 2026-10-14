@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
+import { PASSWORD_HINT } from '../../validation';
 import './profile.css';
 const ini = (n = '') => n.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -29,6 +30,7 @@ export function TeacherSettings() {
       {tab === 'n' ? rows.map(([k, t, s]) => <div className="srow" key={k}><div><b>{t}</b><small>{s}</small></div><button className={'sw ' + (prefs[k] ? 'on' : '')} onClick={() => tog(k)} /></div>) :
         <div style={{ maxWidth: 340 }}><label>Current password</label><input type="password" onChange={(e) => setPw({ ...pw, current: e.target.value })} />
           <label>New password</label><input type="password" onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+          <small style={{ color: '#64748b' }}>{PASSWORD_HINT}</small>
           <button className="pbtn" style={{ marginTop: 14 }} onClick={() => api('/me/password', pw, 'PUT').then((r) => setMsg(r.message)).catch((e) => setMsg(e.message))}>Update password</button><p className="ok">{msg}</p></div>}
     </div>);
 }

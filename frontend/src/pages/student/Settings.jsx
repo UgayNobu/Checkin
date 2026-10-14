@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, auth } from '../../api';
+import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
 const initials = (n = '') =>
@@ -138,7 +139,7 @@ export default function Settings() {
                 nav('/login');
               }}
             >
-              ⇥ Log out of EduPortal
+              ⇥ Log out
             </button>
           </div>
         </div>
@@ -211,14 +212,12 @@ export function ChangePassword() {
   const [f, setF] = useState({ current: '', next: '', again: '' });
   const [msg, setMsg] = useState('');
 
-  const rules = [
-    ['At least 8 characters', f.next.length >= 8],
-    ['One number', /\d/.test(f.next)],
-    ['One symbol', /[^\w\s]/.test(f.next)],
-  ];
+  const rules = passwordChecks(f.next);
 
   const go = () =>
-    f.next !== f.again
+    !passwordOk(f.next)
+      ? setMsg('The new password does not meet all the rules.')
+      : f.next !== f.again
       ? setMsg('New passwords do not match')
       : api('/me/password', f, 'PUT')
           .then(() => nav('/settings'))
@@ -318,19 +317,28 @@ export function Enrol() {
   const [all, setAll] = useState([]);
   const [f, setF] = useState({ year: '', department: '', semester: '', module: '' });
   const [key, setKey] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState({ text: '', ok: false });
 
+  const loadModules = () => api('/modules/browse').then(setAll);
   useEffect(() => {
-    api('/modules/browse').then(setAll);
+    loadModules();
+    // Start from the student's own programme and year (they can still change them)
+    api('/me')
+      .then((u) => setF((x) => ({ ...x, year: x.year || String(u.year || 1), department: x.department || u.programme || '' })))
+      .catch(() => {});
   }, []);
 
   // Changing an earlier choice clears the module and the key
   const set = (k) => (e) => {
     setF({ ...f, [k]: e.target.value, module: k === 'module' ? e.target.value : '' });
-    if (k !== 'module') setKey('');
+    setKey('');
+    setMsg({ text: '', ok: false });
   };
 
-  const depts = [...new Set(all.map((m) => m.department))];
+  const depts = [...new Set(all.map((m) => m.department))].sort();
+
+  // Why a module can't be joined yet (shown next to it in the list)
+  const blocked = (m) => (m.enrolled ? 'already enrolled' : !m.tutor ? 'no tutor yet' : !m.hasKey ? 'no key yet' : !m.selfEnrol ? 'closed' : '');
 
   const mods = all.filter(
     (m) =>
@@ -390,12 +398,17 @@ export function Enrol() {
           <select className="en-select" value={f.module} onChange={set('module')}>
             <option value="">Select module</option>
             {mods.map((m) => (
-              <option key={m.id} value={m.id}>
+              <option key={m.id} value={m.id} disabled={Boolean(blocked(m)) && !m.enrolled}>
                 {m.code} – {m.name}
+                {m.tutor ? ` · ${m.tutor}` : ''}
+                {blocked(m) ? ` (${blocked(m)})` : ''}
               </option>
             ))}
           </select>
           {mods.length === 0 && <p className="foot">No modules found for this selection.</p>}
+          {mods.length > 0 && mods.every((m) => blocked(m) && !m.enrolled) && (
+            <p className="foot">None of these modules can be joined yet: the admin assigns a tutor first, then the tutor sets an enrolment key.</p>
+          )}
         </>
       )}
 
@@ -405,12 +418,13 @@ export function Enrol() {
           <p className="en-picked">
             <b>{chosen.name}</b>
             <small>
-              {chosen.code} · Section {chosen.section}
+              {chosen.code}{chosen.tutor ? ` · Tutor: ${chosen.tutor}` : ''}
             </small>
           </p>
 
-          {chosen.enrolled && <p className="foot">You are already enrolled in this module.</p>}
+          {chosen.enrolled && <p className="foot" style={{ color: '#16a34a', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
           {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
+          {!chosen.enrolled && (<>
           <label>Enrolment Key</label>
           <input
             className="grey"
@@ -421,18 +435,20 @@ export function Enrol() {
 
           <button
             className="join"
+            disabled={chosen.enrolled || !key.trim()}
             onClick={() =>
               api('/modules/enrol', { module: f.module, key })
-                .then((r) => setMsg(r.message))
-                .catch((e) => setMsg(e.message))
+                .then((r) => { setMsg({ text: r.message, ok: true }); setKey(''); loadModules(); })
+                .catch((e) => setMsg({ text: e.message, ok: false }))
             }
           >
             Join the module
           </button>
+          </>)}
         </div>
       )}
 
-      <p className="foot">{msg}</p>
+      {msg.text && <p className="foot" style={{ color: msg.ok ? '#16a34a' : '#b42318', fontWeight: 600 }}>{msg.text}</p>}
     </div>
   );
 }

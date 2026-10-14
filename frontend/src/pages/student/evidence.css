@@ -297,3 +297,52 @@
     flex-wrap: wrap;
   }
 }
+/* Error inside the leave form (red, so it isn't mistaken for success) */
+.ev .ev-err {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: #fdecec;
+  border: 1px solid #e5484d;
+  border-radius: 8px;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ----- Decision updates from management ----- */
+.ev-updates{
+  margin-bottom:18px;
+  padding:14px 16px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+}
+.ev-updates h4{margin:0 0 10px;font-size:14px}
+.ev-update{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:10px 12px;
+  margin-top:8px;
+  border-radius:8px;
+  background:#f3f4f6;
+  font-size:13px;
+}
+.ev-update.approved{background:#d1fae5;color:#065f46}
+.ev-update.rejected{background:#fee2e2;color:#991b1b}
+.ev-update button{
+  flex-shrink:0;
+  padding:5px 12px;
+  background:#fff;
+  border:1px solid currentColor;
+  border-radius:6px;
+  color:inherit;
+  font-size:12px;
+  cursor:pointer;
+}
+
+/* ----- "Approved by … · date" line in the list ----- */
+.ev-decision{font-weight:600}
+.ev-decision.approved{color:#047857}
+.ev-decision.rejected{color:#b91c1c}

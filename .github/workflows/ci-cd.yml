@@ -48,7 +48,7 @@ jobs:
         run: npx prisma validate
       - run: npx prisma generate
       - name: Syntax-check JavaScript
-        run: for f in server.js seed.js scripts/*.js; do node --check "$f"; done
+        run: for f in $(find src -name "*.js") prisma/seed.js scripts/*.js; do node --check "$f"; done
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=critical
 

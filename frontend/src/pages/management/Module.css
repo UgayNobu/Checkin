@@ -1,0 +1,227 @@
+/* src/pages/management/Module.css */
+
+.mg {
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --- Department Header (for the drill-down view) --- */
+.dept-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.crumb {
+  font-size: 12px;
+  color: #8898aa;
+  margin-bottom: 6px;
+}
+
+.crumb b {
+  color: #1b2745;
+}
+
+.dept-header .ttl {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1b2745;
+  margin: 0;
+}
+
+.back-dash {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1b2745;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-dash:hover {
+  background: #f8fafc;
+}
+
+/* --- Stats Cards --- */
+.stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.stat small {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.stat b {
+  display: block;
+  font-size: 32px;
+  color: #1b2745;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.chip.g { background: #dff5e7; color: #1b8a4c; }
+.chip.o { background: #fdecc8; color: #b7791f; }
+.chip.r { background: #fde2e2; color: #c0392b; }
+
+/* --- Trend Chart --- */
+.trend-card {
+  background: #fff;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.trend-header b {
+  font-size: 15px;
+  color: #1b2745;
+}
+
+.trend-header small {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.trend-card svg {
+  width: 100%;
+  height: 100px;
+  display: block;
+}
+
+.trend-weeks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 12px;
+  padding: 0 10px;
+}
+
+/* --- Selectors Box --- */
+.selectors-card {
+  background: #fff;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  position: relative;
+}
+
+.year-select {
+  width: 140px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1b2745;
+  outline: none;
+  background: #fff;
+}
+
+.module-select {
+  width: 100%;
+  max-width: 520px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1b2745;
+  outline: none;
+  background: #fff;
+}
+
+.go-btn {
+  align-self: center;
+  background: #8b7be8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 40px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
+}
+
+.go-btn:hover {
+  background: #7263d1;
+}
+
+/* --- Department Cards (This is the missing part for the "Module" tab) --- */
+.dept-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.dept {
+  flex: 1;
+  min-width: 220px;
+  max-width: 280px;
+  border: 1px solid #e3e7f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 24px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1b2745;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dept:hover {
+  border-color: #2f6df0;
+  box-shadow: 0 4px 12px rgba(47, 109, 240, 0.1);
+  transform: translateY(-2px);
+  color: #2f6df0;
+}

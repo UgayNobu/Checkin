@@ -44,14 +44,22 @@ Checkin/
 ├── frontend/                 # React + Vite app
 │   └── src/pages/            # student, teacher, admin, management, shared, public
 ├── backend/
-│   ├── server.js             # Express API (all routes)
-│   ├── seed.js               # npm run seed – loads seed data
-│   ├── API_ADDITIONS.md      # extra API routes (sessions, reports, exports…)
-│   ├── scripts/              # set-test-passwords.js
+│   ├── src/
+│   │   ├── server.js         # starts the API (+ the every-minute session sweep)
+│   │   ├── app.js            # assembles middleware and routers
+│   │   ├── routes/           # URL → guards → controller
+│   │   ├── controllers/      # read the request, call one service, send JSON
+│   │   ├── services/         # all business rules and database work
+│   │   ├── validators/       # zod rules for request bodies, queries and params
+│   │   ├── middleware/       # auth, roles, validation, uploads, rate limits, errors
+│   │   ├── utils/ lib/ config/
+│   ├── API.md                # every API route
+│   ├── scripts/              # create-admin, import-roster, set-test-passwords
 │   ├── uploads/              # uploaded evidence documents and avatars (not in git)
 │   └── prisma/
 │       ├── schema.prisma     # Prisma map of the database tables
-│       └── database.sql      # all database changes + seed data
+│       ├── database.sql      # all database changes + seed data
+│       └── seed.js           # npm run seed – loads the seed data part
 ├── .github/workflows/        # CI/CD pipeline
 ├── docker-compose.yml        # local Docker stack (own Postgres)
 ├── docker-compose.prod.yml   # production (GHCR images + Supabase)

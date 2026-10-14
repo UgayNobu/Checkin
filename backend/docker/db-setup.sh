@@ -22,7 +22,7 @@ elif [ "$has_schema" = 1 ]; then
   npx prisma db execute --file docker/db-legacy.sql --schema prisma/schema.prisma
 
   echo "db-setup: loading seed data"
-  node seed.js
+  node prisma/seed.js
 
   echo "db-setup: setting the test accounts' password (README: Test@1234)"
   node scripts/set-test-passwords.js "${TEST_USER_PASSWORD:-Test@1234}"
@@ -32,7 +32,7 @@ fi
 
 if [ "$has_schema" = 0 ]; then
   echo "db-setup: loading seed data (skips rows that already exist)"
-  node seed.js
+  node prisma/seed.js
 fi
 
 echo "db-setup: done"
