@@ -38,3 +38,57 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
+/* ----- History: empty rows ----- */
+.hx-empty{text-align:center;color:#6b7280;padding:24px}
+
+/* ----- Student summary above the calendar ----- */
+.hx-sum{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:16px;
+  margin-bottom:16px;
+  padding:16px 20px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+}
+.hx-who b{display:block;font-size:18px}
+.hx-who small{color:#6b7280}
+.hx-stats{display:flex;gap:22px}
+.hx-stats div{text-align:center}
+.hx-stats b{display:block;font-size:22px}
+.hx-stats small{font-size:11px;color:#6b7280}
+.hx-stats .g b{color:#059669}
+.hx-stats .r b{color:#dc2626}
+
+/* ----- "All classes" table ----- */
+.hx-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:22px 0 8px;
+}
+.hx-head h3{margin:0}
+.hx-dl{
+  padding:6px 16px;
+  background:#0f1b3d;
+  color:#fff;
+  border:0;
+  border-radius:999px;
+  font-size:12px;
+  cursor:pointer;
+}
+.hx-dl:disabled{background:#9aa3b8;cursor:not-allowed}
+.hx-st{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+}
+.hx-st.present{background:#d1fae5;color:#065f46}
+.hx-st.absent{background:#fee2e2;color:#991b1b}
+.hx-stats .g,
+.hx-stats .r{background:none}
