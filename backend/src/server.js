@@ -2,6 +2,7 @@
 const { createApp } = require('./app');
 const { env } = require('./config/env');
 const { prisma } = require('./lib/prisma');
+const { isSmtpConfigured, verifyMail } = require('./lib/mailer');
 
 const { sweepExpiredSessions } = require('./services/session.service');
 
@@ -9,6 +10,14 @@ const server = createApp().listen(env.port, () => {
   console.log(`CheckIn API ready on http://localhost:${env.port} (PostgreSQL + Prisma)`);
   // Open the database connection now, so the first page doesn't wait for it.
   prisma.$connect().then(runSweep).catch((e) => console.error('Database connection failed:', e.message));
+  // Say straight away whether emails (reset codes, notifications) will work.
+  if (isSmtpConfigured()) {
+    verifyMail().then((r) => (r.ok
+      ? console.log(`Email ready: sending as ${env.smtp.user} via ${env.smtp.host}`)
+      : console.warn(`Email NOT working: ${r.error}`)));
+  } else {
+    console.log('Email not set up (no SMTP_HOST in .env): reset codes are printed here instead.');
+  }
 });
 
 // Every minute: close sessions whose code has run out and mark the students who didn't check in as Absent.

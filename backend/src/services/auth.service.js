@@ -19,7 +19,7 @@ const { BadRequest, Unauthorized, Forbidden, NotFound, Conflict } = require('../
 const { notifyAdmins, notify } = require('./notifications.service');
 const crypto = require('crypto');
 const { env } = require('../config/env');
-const { sendMail, isSmtpConfigured } = require('../lib/mailer');
+const { sendMail, isSmtpConfigured, explain } = require('../lib/mailer');
 
 const authUser = (u) => ({ name: u.name, userId: u.id, role: roleOut(u.role) });
 const departmentFromProgramme = (p) => (p || '').replace(/^(BE|B\.E\.)\s+/i, '') || null;
@@ -132,7 +132,13 @@ async function forgotPassword({ userId }) {
 
   const text = `Hello ${u.name || ''},\n\nYour CheckIn password reset code is ${code}.\nIt expires in ${RESET_MINUTES} minutes. If you didn't ask for this, you can ignore this email.`;
   if (isSmtpConfigured()) {
-    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text }).catch((e) => console.warn('[mailer] reset email failed:', e.message));
+    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text })
+      .then(() => console.log(`[forgot-password] code emailed to ${u.id}`))
+      .catch((e) => {
+        console.warn('[mailer] reset email failed:', explain(e));
+        // During development, still show the code so testing isn't blocked by email problems
+        if (!env.isProd) console.log(`[forgot-password] code for ${u.id}: ${code}  (email failed)`);
+      });
   } else if (!env.isProd) {
     // Email isn't set up yet (no SMTP_HOST in .env): print the code so it can still be tested
     console.log(`[forgot-password] code for ${u.id}: ${code}  (email not configured)`);

@@ -31,7 +31,29 @@ async function sendMail({ to, subject, text }) {
 
 /** Fire-and-forget: never blocks or breaks the request that triggered it. */
 function sendMailInBackground(msg) {
-  sendMail(msg).catch((e) => console.warn('[mailer] failed:', e.message));
+  sendMail(msg).catch((e) => console.warn('[mailer] failed:', explain(e)));
 }
 
-module.exports = { sendMail, sendMailInBackground, isSmtpConfigured };
+/** Turns common SMTP errors into a sentence that says what to fix. */
+function explain(e) {
+  if (e.code === 'EAUTH' || /535|Username and Password not accepted/i.test(e.message)) {
+    return 'Gmail rejected the login. Check SMTP_USER, and use a 16-letter App password as SMTP_PASS (not your normal Gmail password).';
+  }
+  if (['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS'].includes(e.code)) {
+    return `Could not reach ${env.smtp.host}:${env.smtp.port}. Check SMTP_HOST / SMTP_PORT and your internet connection (some networks block port 587).`;
+  }
+  return e.message;
+}
+
+/** Logs in to the SMTP server without sending anything. Returns { ok, error }. */
+async function verifyMail() {
+  if (!isSmtpConfigured()) return { ok: false, error: 'SMTP_HOST is not set in backend/.env' };
+  try {
+    await getTransport().verify();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: explain(e) };
+  }
+}
+
+module.exports = { sendMail, sendMailInBackground, isSmtpConfigured, verifyMail, explain };
