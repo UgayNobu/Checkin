@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, auth } from '../../api';
+import { api, logout } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
@@ -134,10 +134,7 @@ export default function Settings() {
             <hr className="blue" />
             <button
               className="logout"
-              onClick={() => {
-                auth.clear();
-                nav('/login');
-              }}
+              onClick={() => logout().then(() => nav('/login'))}
             >
               ⇥ Log out
             </button>

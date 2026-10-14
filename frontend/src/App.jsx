@@ -9,7 +9,7 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
-import { api, auth } from './api';
+import { api, auth, logout } from './api';
 import './base.css';
 
 /* ---------- Public pages ---------- */
@@ -299,10 +299,7 @@ function Shell({ user, children, title, sub }) {
         </nav>
 
         <button
-          onClick={() => {
-            auth.clear();
-            nav('/login');
-          }}
+          onClick={() => logout().then(() => nav('/login'))}
         >
           Log out
         </button>
