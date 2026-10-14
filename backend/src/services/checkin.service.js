@@ -7,10 +7,14 @@
 //  3. student is enrolled in the module
 //  4. not already checked in
 //  5. location:
+//       clearly outside the geofence      → REFUSED ("not in the classroom area").
+//                                           Nothing is saved; if they don't check in
+//                                           properly before the code expires, the
+//                                           end-of-session sweep marks them Absent.
 //       location permission denied        → Flagged (permission_denied)
 //       browser could not get a location  → Flagged (location_error)
-//       distance > geofence radius        → Flagged (outside_radius), or
-//         (low_accuracy) when the GPS error margin could put them inside
+//       outside, but the GPS error margin
+//         could put them inside           → Flagged (low_accuracy)
 //       GPS accuracy worse than 50 m      → Flagged (low_accuracy)
 //       arrived after expiry (offline)    → Flagged (network_issue)
 //       otherwise                         → Present
@@ -44,7 +48,7 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId: student.id, moduleId: m.id } } });
   if (!enrolled) throw Forbidden('You are not enrolled in this module', 'NOT_ENROLLED');
 
-  // ── decide present vs flagged
+  // ── decide present vs flagged vs refused
   let flagReason = null, distance = null;
   const noLocation = lat === undefined || lng === undefined;
   if (permissionDenied) flagReason = FLAG_REASONS.PERMISSION;
@@ -53,8 +57,16 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   else {
     distance = round1(haversineMeters({ lat, lng }, { lat: row.latitude, lng: row.longitude }));
     if (distance > row.geofenceRadius) {
-      // If the GPS error margin could put them inside the room, it's a GPS problem, not "outside"
-      flagReason = accuracy !== undefined && distance - accuracy <= row.geofenceRadius ? FLAG_REASONS.ACCURACY : FLAG_REASONS.OUTSIDE;
+      const couldBeInside = accuracy !== undefined && distance - accuracy <= row.geofenceRadius;
+      if (!couldBeInside) {
+        // Right code, but clearly not in the classroom: refuse. Nothing is saved, so they can
+        // move into the room and try again; if they don't, the session sweep marks them Absent.
+        throw BadRequest(
+          `You are not in the classroom area (about ${Math.round(distance)} m away). Move into the classroom and try again.`,
+          'OUTSIDE_RADIUS'
+        );
+      }
+      flagReason = FLAG_REASONS.ACCURACY; // GPS problem, not definitely outside
     } else if (accuracy !== undefined && accuracy > env.accuracyFlagMetres) flagReason = FLAG_REASONS.ACCURACY;
   }
   if (!flagReason && late) flagReason = FLAG_REASONS.NETWORK;
@@ -75,7 +87,6 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
 
   if (!ok) {
     const why = {
-      [FLAG_REASONS.OUTSIDE]: `${Math.round(distance)} m from the classroom`,
       [FLAG_REASONS.ACCURACY]: `with weak GPS accuracy (${accuracy === undefined ? '?' : Math.round(accuracy)} m)`,
       [FLAG_REASONS.PERMISSION]: 'without sharing location',
       [FLAG_REASONS.LOCATION]: 'but their browser could not get a location',
@@ -87,7 +98,10 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   return {
     status: ok ? 'present' : 'flagged', flagReason, reason: flagText(flagReason), distance,
     module: { code: m.code, name: m.name },
-    message: ok ? `Present in ${m.name}` : 'Checked in, but your attendance needs a quick check. Your tutor will review it.',
+    // CHANGED: a flagged student is told to tell the teacher before the timer ends
+    message: ok
+      ? `Present in ${m.name}`
+      : 'Your check-in is flagged (your location could not be confirmed). Tell your teacher now so they can mark you present before the timer ends.',
   };
 }
 
