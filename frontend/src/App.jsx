@@ -8,6 +8,7 @@ import {
   Link,
   useNavigate,
   useSearchParams,
+  useLocation,
 } from 'react-router-dom';
 import { api, auth, logout } from './api';
 import './base.css';
@@ -264,7 +265,12 @@ const SUB = {
 
 function Shell({ user, children, title, sub }) {
   const nav = useNavigate();
+  const loc = useLocation();
   const [pend, setPend] = useState(0);
+  const [menu, setMenu] = useState(false); // phone: sidebar drawer open?
+
+  // Phone: close the menu after moving to another page
+  useEffect(() => setMenu(false), [loc.pathname]);
   const ini = user.name
     .split(' ')
     .map((w) => w[0])
@@ -287,7 +293,17 @@ function Shell({ user, children, title, sub }) {
   };
 
   return (
-    <div className={'shell ' + user.role}>
+    <div className={'shell ' + user.role + (menu ? ' menu-open' : '')}>
+      {/* Phone only: top bar with the menu button (the sidebar becomes a drawer) */}
+      <div className="mbar">
+        <button className="mbar-btn" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>
+          <span /><span /><span />
+        </button>
+        <img className="logo" src="/logo.jpg" alt="" />
+        <b>CheckIn</b>
+      </div>
+      <div className="mshade" onClick={() => setMenu(false)} aria-hidden="true" />
+
       <aside className="side">
         <div className="brand">
           <img className="logo" src="/logo.jpg" alt="" /> CheckIn
