@@ -67,6 +67,9 @@ model User {
   slots              TimetableSlot[]
   resets             PasswordReset[]
   files              StoredFile[]
+  coversGiven        ClassChange[]      @relation("ChangeCover")
+  changesMade        ClassChange[]      @relation("ChangeBy")
+  sessionsTaken      ClassSession[]     @relation("SessionTakenBy")
 
   @@map("users")
 }
@@ -87,6 +90,7 @@ model Module {
   evidence     EvidenceDocument[]
   curriculum   ProgramModule[]
   slots        TimetableSlot[]
+  changes      ClassChange[]
 
   @@map("modules")
 }
@@ -132,6 +136,14 @@ model ClassSession {
   status      String           @default("scheduled") @db.VarChar(20)
   slotId      String?          @map("slot_id") @db.VarChar(10)
   slot        TimetableSlot?   @relation(fields: [slotId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_slot")
+  /// the class change (extra / cover) this session came from
+  changeId    String?          @map("change_id") @db.VarChar(10)
+  change      ClassChange?     @relation(fields: [changeId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_change")
+  /// the tutor who actually took the class when it was a cover
+  takenBy     String?          @map("taken_by") @db.VarChar(10)
+  taker       User?            @relation("SessionTakenBy", fields: [takenBy], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_taken_by")
+  /// false = optional extra class: attendance is taken but never counts toward anyone's %
+  counts      Boolean          @default(true)
   section     Section          @relation(fields: [sectionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   codes       AttendanceCode[]
   attendance  Attendance[]
@@ -236,6 +248,7 @@ model Room {
   longitude Float?
   createdAt DateTime        @default(now()) @map("created_at")
   slots     TimetableSlot[]
+  changes   ClassChange[]
 
   @@map("rooms")
 }
@@ -264,6 +277,7 @@ model TimetableSlot {
   room            Room?           @relation(fields: [roomId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_room")
   tutor           User?           @relation(fields: [tutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_tutor")
   sessions        ClassSession[]
+  changes         ClassChange[]
 
   @@index([programId, year], map: "idx_slots_program_year")
   @@index([tutorId], map: "idx_slots_tutor")
@@ -311,6 +325,37 @@ model AcademicSession {
   sections    Section[]
   enrollments Enrollment[]
   slots       TimetableSlot[]
+  changes     ClassChange[]
 
   @@map("academic_sessions")
+}
+
+/// A one-date change to the timetable: a cancelled class, a cover by another tutor, or an extra class
+model ClassChange {
+  id              String          @id @default(dbgenerated("gen_id('CC'::text, 'seq_class_changes'::text)")) @map("change_id") @db.VarChar(10)
+  type            String          @map("change_type") @db.VarChar(10) /// cancelled | cover | extra
+  date            DateTime        @map("class_date") @db.Date
+  slotId          String?         @map("slot_id") @db.VarChar(10)
+  moduleId        String          @map("module_id") @db.VarChar(10)
+  roomId          String?         @map("room_id") @db.VarChar(10)
+  startTime       DateTime        @map("start_time") @db.Time(6)
+  endTime         DateTime        @map("end_time") @db.Time(6)
+  sessionType     String          @default("theory") @map("session_type") @db.VarChar(10)
+  counts          Boolean         @default(true)
+  coverTutorId    String?         @map("cover_tutor_id") @db.VarChar(10)
+  reason          String          @db.VarChar(200)
+  academicSession String          @default(dbgenerated("current_academic_session()")) @map("academic_session") @db.VarChar(10)
+  createdBy       String?         @map("created_by") @db.VarChar(10)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  slot            TimetableSlot?  @relation(fields: [slotId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_cc_slot")
+  module          Module          @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_cc_module")
+  room            Room?           @relation(fields: [roomId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_room")
+  coverTutor      User?           @relation("ChangeCover", fields: [coverTutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_cover")
+  by              User?           @relation("ChangeBy", fields: [createdBy], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_by")
+  term            AcademicSession @relation(fields: [academicSession], references: [code], onUpdate: Cascade, onDelete: Restrict, map: "fk_cc_term")
+  sessions        ClassSession[]
+
+  @@index([academicSession, date], map: "idx_cc_date")
+  @@index([moduleId], map: "idx_cc_module")
+  @@map("class_changes")
 }

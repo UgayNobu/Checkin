@@ -360,6 +360,65 @@ BEGIN
   END IF;
 END $$;
 
+-- ===== Part 11: class changes (cancelled, extra and cover classes) =====
+-- The weekly timetable stays fixed; anything different on one date is a "class change":
+--   cancelled → a timetable class is not held on that date (students are not marked absent)
+--   cover     → another tutor teaches a timetable class on that date (two covers = a swap)
+--   extra     → a class that is not on the timetable (make-up, extra lecture, free revision class).
+--               counts = false makes it optional: attendance is taken but never counts toward anyone's %.
+CREATE SEQUENCE IF NOT EXISTS seq_class_changes;
+CREATE TABLE IF NOT EXISTS class_changes (
+  change_id        VARCHAR(10)  PRIMARY KEY DEFAULT gen_id('CC', 'seq_class_changes'),
+  change_type      VARCHAR(10)  NOT NULL,
+  class_date       DATE         NOT NULL,
+  slot_id          VARCHAR(10),                   -- cancelled / cover: the timetable class
+  module_id        VARCHAR(10)  NOT NULL,
+  room_id          VARCHAR(10),
+  start_time       TIME         NOT NULL,
+  end_time         TIME         NOT NULL,
+  session_type     VARCHAR(10)  NOT NULL DEFAULT 'theory',
+  counts           BOOLEAN      NOT NULL DEFAULT true,
+  cover_tutor_id   VARCHAR(10),
+  reason           VARCHAR(200) NOT NULL,
+  academic_session VARCHAR(10)  NOT NULL DEFAULT current_academic_session(),
+  created_by       VARCHAR(10),
+  created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  CONSTRAINT fk_cc_slot   FOREIGN KEY (slot_id)          REFERENCES timetable_slots(slot_id)        ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_cc_module FOREIGN KEY (module_id)        REFERENCES modules(module_id)              ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_cc_room   FOREIGN KEY (room_id)          REFERENCES rooms(room_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_cover  FOREIGN KEY (cover_tutor_id)   REFERENCES users(user_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_by     FOREIGN KEY (created_by)       REFERENCES users(user_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_term   FOREIGN KEY (academic_session) REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT chk_cc_type  CHECK (change_type IN ('cancelled', 'cover', 'extra')),
+  CONSTRAINT chk_cc_time  CHECK (end_time > start_time),
+  CONSTRAINT chk_cc_stype CHECK (session_type IN ('theory', 'practical', 'tutorial')),
+  CONSTRAINT chk_cc_slot  CHECK ((change_type = 'extra') = (slot_id IS NULL)),
+  CONSTRAINT chk_cc_cover CHECK ((change_type = 'cover') = (cover_tutor_id IS NOT NULL)),
+  CONSTRAINT chk_cc_opt   CHECK (counts OR change_type = 'extra')
+);
+-- A timetable class has at most one change per date (cancelled OR covered)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_slot_date ON class_changes (slot_id, class_date) WHERE slot_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cc_date   ON class_changes (academic_session, class_date);
+CREATE INDEX IF NOT EXISTS idx_cc_module ON class_changes (module_id);
+ALTER TABLE class_changes ENABLE ROW LEVEL SECURITY;
+
+-- Which change a class session came from, who actually took it, and whether it counts toward attendance %
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS change_id VARCHAR(10);
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS taken_by  VARCHAR(10);
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS counts    BOOLEAN NOT NULL DEFAULT true;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_change') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_change FOREIGN KEY (change_id)
+      REFERENCES class_changes(change_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_taken_by') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_taken_by FOREIGN KEY (taken_by)
+      REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_sessions_slot_date ON class_sessions (slot_id, date);
+
 COMMIT;
 
 

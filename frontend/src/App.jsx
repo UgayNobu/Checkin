@@ -42,7 +42,7 @@ import { History, HistoryCalendar } from './pages/management/History.jsx';
 /* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
 import Timetable from './pages/shared/Timetable.jsx';
-
+import ClassChanges from './pages/management/ClassChanges.jsx';
 /* ---------- Student pages ---------- */
 import StudentDash from './pages/student/Dashboard.jsx';
 import StudentAttendance from './pages/student/Attendance.jsx';
@@ -88,6 +88,7 @@ const NAV = {
     ['/teachers', 'Teacher'],
     ['/evidence', 'Evidence Document'],
     ['/history', 'History'],
+    ['/class-changes', 'Class changes'],
   ],
 };
 
@@ -421,6 +422,7 @@ const PAGES = {
     '/evidence/:id': [Certificate, 'Medical Report', ''],
     '/history': [History, '', ''],
     '/history/:sid/:mid': [HistoryCalendar, '', ''],
+    '/class-changes': [ClassChanges, 'Class changes', 'Cancelled, covered and extra classes, and classes nobody took'],
   },
 
   admin: {

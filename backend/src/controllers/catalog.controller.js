@@ -10,6 +10,7 @@ module.exports = {
   currentSemester: asyncHandler(async (req, res) => res.json(await academic.current())),
   rooms: asyncHandler(async (req, res) => res.json(await tt.listRooms())),
   timetable: asyncHandler(async (req, res) => res.json(await tt.forProgramme(req.query))),
-  studentTimetable: asyncHandler(async (req, res) => res.json(await tt.forStudent(req.user.id))),
-  teacherTimetable: asyncHandler(async (req, res) => res.json(await tt.forTutor(req.user.id))),
+  // ?week=2026-10-19 (any day of that week) shows that week; default this week
+  studentTimetable: asyncHandler(async (req, res) => res.json(await tt.forStudent(req.user.id, { week: req.query.week }))),
+  teacherTimetable: asyncHandler(async (req, res) => res.json(await tt.forTutor(req.user.id, { week: req.query.week }))),
 };

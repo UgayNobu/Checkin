@@ -152,6 +152,8 @@ export function RecordStudents() {
                   <td>
                     {niceDate(r.date)}
                     {r.status === 'ongoing' && <span className="rec-live">Live</span>}
+                    {r.extra && <span className="rec-tag">{r.optional ? 'Optional' : 'Extra'}</span>}
+                    {r.coveredBy && <span className="rec-tag">Cover</span>}
                   </td>
                   <td className="rec-cap">{r.type}</td>
                   <td>{r.hours} hr</td>
@@ -238,6 +240,7 @@ export function RecordStudent() {
           <span className="rec-g">{c.present ?? 0} present</span> ·{' '}
           <span className="rec-r">{c.absent ?? 0} absent</span>
           {c.flagged > 0 && <> · <span className="rec-o">{c.flagged} to review</span></>}
+          {data.session?.optional && <> · Optional class: doesn't count toward attendance</>}
         </small>
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 
 const WINDOW_MIN = 2; // check-in window in minutes
@@ -25,7 +25,9 @@ export default function StartAttendance() {
   const endedFor = useRef(null); // session we already closed
   const [params] = useSearchParams();
   const [slot, setSlot] = useState(null); // timetable class this session was started from
-
+  const [chg, setChg] = useState(null); // extra class, or a class this tutor is covering
+  const [notNow, setNotNow] = useState(false); // the server said it isn't class time
+  const nav = useNavigate();
   // Only modules the admin assigned to this teacher
   useEffect(() => {
     api('/teacher/modules')
@@ -68,6 +70,21 @@ export default function StartAttendance() {
       .catch(() => {});
   }, [params]);
 
+  // Opened for an extra class or a cover (?change=CC001): fill the form from that class
+  useEffect(() => {
+    const id = params.get('change');
+    if (!id) return;
+    const day = new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); // today in Bhutan
+    api(`/class-changes?from=${day}&to=${day}`)
+      .then((list) => {
+        const c = (Array.isArray(list) ? list : []).find((x) => x.id === id);
+        if (!c || c.type === 'cancelled') return;
+        const hours = Math.max(1, Math.round(((+c.end.slice(0, 2) * 60 + +c.end.slice(3)) - (+c.start.slice(0, 2) * 60 + +c.start.slice(3))) / 60));
+        setChg(c);
+        setF({ module: c.module.id, room: c.room?.name || '', type: c.sessionType === 'practical' ? 'practical' : 'theory', hours });
+      })
+      .catch(() => {});
+  }, [params]);
   // Countdown
   useEffect(() => {
     if (!ends) return;
@@ -112,6 +129,7 @@ export default function StartAttendance() {
 
   const gen = () => {
     if (!f.module) return setMsg('Please select a module.');
+    setNotNow(false);
     if (!navigator.geolocation) return setMsg('Location is not supported on this browser.');
 
     setBusy(true);
@@ -122,6 +140,7 @@ export default function StartAttendance() {
         api('/sessions', {
           ...f,
           ...(slot && f.module === slot.module.id && { slot: slot.id }),
+          ...(chg && f.module === chg.module.id && { change: chg.id }),
           lat: p.coords.latitude,
           lng: p.coords.longitude,
           accuracy: p.coords.accuracy,
@@ -134,7 +153,7 @@ export default function StartAttendance() {
             setEnds(s.expiresAt ? new Date(s.expiresAt).getTime() : Date.now() + WINDOW_MIN * 60000);
             setMsg('');
           })
-          .catch((x) => setMsg(x.message))
+          .catch((x) => { setMsg(x.message); setNotNow(x.code === 'CLASS_NOT_NOW'); })
           .finally(() => setBusy(false)),
       (e) => {
         setBusy(false);
@@ -157,7 +176,7 @@ export default function StartAttendance() {
     setShowFlags(false);
   };
 
-  const noMods = loaded && mods.length === 0;
+  const noMods = loaded && mods.length === 0 && !chg;
   const flagged = live?.flagged || [];
 
   return (
@@ -168,6 +187,13 @@ export default function StartAttendance() {
         {slot && (
           <p style={{ margin: '0 0 8px', fontSize: 12, color: '#2f6df0' }}>
             From your timetable: {slot.day} {slot.start}–{slot.end}{slot.group ? ` · Group ${slot.group}` : ''}
+          </p>
+        )}
+        {chg && (
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: chg.counts ? '#047857' : '#475569' }}>
+            {chg.type === 'cover'
+              ? `Covering for ${chg.by?.name || 'another tutor'}: ${chg.start}–${chg.end}`
+              : `${chg.counts ? 'Extra class' : 'Optional class (doesn’t count toward attendance)'}: ${chg.start}–${chg.end}`}
           </p>
         )}
 
@@ -186,6 +212,10 @@ export default function StartAttendance() {
                   {m.code} – {m.name}
                 </option>
               ))}
+              {/* a module you are only covering today */}
+              {chg && !mods.some((m) => m.id === chg.module.id) && (
+                <option value={chg.module.id}>{chg.module.code} – {chg.module.name} (cover)</option>
+              )}
             </>
           )}
         </select>
@@ -209,6 +239,15 @@ export default function StartAttendance() {
           </small>
         </p>
         {msg && <p className="err">{msg}</p>}
+        {notNow && (
+          <button
+            type="button"
+            onClick={() => nav(`/timetable?extra=1&module=${encodeURIComponent(f.module)}`)}
+            style={{ background: 'none', border: 0, padding: 0, margin: '0 0 10px', color: '#2f6df0', fontWeight: 700, cursor: 'pointer', font: 'inherit', fontSize: 13 }}
+          >
+            Book an extra class →
+          </button>
+        )}
 
         {closed ? (
           <button className="btn" style={{ width: '100%' }} onClick={reset}>

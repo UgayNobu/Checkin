@@ -5,13 +5,14 @@ const startSessionSchema = z.object({
   module: id.optional(),
   sessionId: id.optional(),
   slot: id.optional(),            // start from a timetable slot (fills module, type, hours and room)
+  change: id.optional(),          // start an extra class, or a class you are covering
   room: optionalText(50),
   type: z.enum(['theory', 'practical']).default('theory'),
   hours: z.coerce.number().min(0.5).max(6).default(1),
   lat, lng,
   minutes: optionalNumber(z.number().int().min(1).max(120)),   // how long the code stays valid
   radius: optionalNumber(z.number().int().min(5).max(500)),    // geofence in metres
-}).refine((b) => b.module || b.sessionId || b.slot, { message: 'Choose a module', path: ['module'] });
+}).refine((b) => b.module || b.sessionId || b.slot || b.change, { message: 'Choose a module', path: ['module'] });
 
 const sessionIdParamSchema = z.object({ id });
 const flaggedParamSchema = z.object({ id, attendanceId: id });
