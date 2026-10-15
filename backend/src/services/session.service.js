@@ -9,6 +9,7 @@ const { generateCheckInCode } = require('../utils/code');
 const { apiStatus, sessionStart, flagText } = require('../utils/format');
 const { NotFound, Conflict, BadRequest } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
+const { sessionOrCurrent } = require('../lib/academicSession');
 const { notify } = require('./notifications.service');
 
 const latestCode = { orderBy: { expiryTimestamp: 'desc' }, take: 1 };
@@ -79,6 +80,7 @@ async function startSession(tutorId, b) {
 
 /**
  * Ends a session and records every enrolled student who never checked in as Absent.
+ * Flagged check-ins the tutor didn't decide in time also become Absent.
  * Safe to call twice: an ended session is left alone.
  */
 async function finalizeSession(sessionId) {
@@ -92,7 +94,13 @@ async function finalizeSession(sessionId) {
   const checkedIn = new Set(att.map((a) => a.studentId));
   const missing = enrolled.filter((e) => !checkedIn.has(e.studentId));
   await prisma.$transaction([
+    // never checked in → Absent
     prisma.attendance.createMany({ data: missing.map((e) => ({ studentId: e.studentId, sessionId, status: 'Absent' })), skipDuplicates: true }),
+    // CHANGED: flagged but the tutor didn't decide before the time ran out → Absent
+    prisma.attendance.updateMany({
+      where: { sessionId, status: { in: ['Flagged', 'Pending review'] } },
+      data: { status: 'Absent', flagReason: 'not_decided_in_time' },
+    }),
     prisma.classSession.update({ where: { id: sessionId }, data: { status: SESSION_STATUS.ENDED } }),
   ]);
 }
@@ -130,9 +138,11 @@ async function live(id, tutorId) {
   };
 }
 
-async function listMine(tutorId, { limit, status }) {
+/** The tutor's class sessions in one semester (current by default, or ?session=AS2026). */
+async function listMine(tutorId, { limit, status, session }) {
+  const academicSession = await sessionOrCurrent(session);
   const rows = await prisma.classSession.findMany({
-    where: { section: { tutorId }, ...(status && { status }) },
+    where: { section: { tutorId, academicSession }, ...(status && { status }) },
     include: { section: { include: { module: true } }, _count: { select: { attendance: true } } },
     orderBy: [{ date: 'desc' }, { startTime: 'desc' }], take: limit,
   });

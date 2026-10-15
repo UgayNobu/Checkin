@@ -83,7 +83,7 @@ const NAV = {
   ],
   management: [
     ['/', 'Management'],
-    ['/module', 'Module'],
+    ['/module', 'Programs'],
     ['/teachers', 'Teacher'],
     ['/evidence', 'Evidence Document'],
     ['/history', 'History'],
@@ -107,7 +107,7 @@ function Login() {
 
   const [f, setF] = useState({ userId: '', password: '' });
   const [err, setErr] = useState('');
-  const [fe, setFe] = useState({}); // per-field errors
+  const [fe, setFe] = useState({});
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -136,7 +136,6 @@ function Login() {
 
   return (
     <div className="login">
-      {/* Left side */}
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
@@ -149,8 +148,16 @@ function Login() {
         <small>College of Science and Technology</small>
       </div>
 
-      {/* Form card */}
       <form className="lcard" onSubmit={go}>
+        {/* ← Back button (goes to landing page) */}
+        <a
+          className="alt"
+          onClick={() => nav('/welcome')}
+          style={{ display: 'block', textAlign: 'left', cursor: 'pointer' }}
+        >
+          ← Back
+        </a>
+
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{teacher ? 'Teacher login' : 'CheckIn'}</h2>
         <p className="sub">College of Science and Technology</p>
@@ -198,7 +205,7 @@ function Login() {
 }
 
 /* =========================================================
-   Notification bell (student dashboard)
+   Notification bell
    ========================================================= */
 function Bell() {
   const [open, setOpen] = useState(false);
@@ -247,7 +254,7 @@ function Bell() {
 }
 
 /* =========================================================
-   Shell: sidebar + top bar + page area
+   Shell
    ========================================================= */
 const SUB = {
   student: (u) => 'ID: ' + u.userId,
@@ -265,7 +272,6 @@ function Shell({ user, children, title, sub }) {
     .slice(0, 2)
     .toUpperCase();
 
-  // Pending evidence badge for teachers
   useEffect(() => {
     if (user.role === 'teacher') {
       api('/evidence?status=pending')
@@ -274,7 +280,6 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
-  // Clicking the name/avatar in the top bar opens that user's profile page
   const handleProfileClick = () => {
     if (user.role === 'student') nav('/settings/profile');
     else if (user.role === 'teacher') nav('/profile');
@@ -283,7 +288,6 @@ function Shell({ user, children, title, sub }) {
 
   return (
     <div className={'shell ' + user.role}>
-      {/* Sidebar */}
       <aside className="side">
         <div className="brand">
           <img className="logo" src="/logo.jpg" alt="" /> CheckIn
@@ -311,7 +315,6 @@ function Shell({ user, children, title, sub }) {
         <small>{FOOT[user.role]}</small>
       </aside>
 
-      {/* Main area */}
       <div className="main">
         {user.role !== 'admin' && title && (
           <header className="top">
@@ -356,7 +359,7 @@ function Shell({ user, children, title, sub }) {
 }
 
 /* =========================================================
-   Routes per role: path -> [Component, title, subtitle]
+   Routes per role
    ========================================================= */
 const Soon = () => <p>This screen is next in the build.</p>;
 
@@ -418,7 +421,7 @@ const PAGES = {
 };
 
 /* =========================================================
-   Private routes (after login)
+   Private routes
    ========================================================= */
 function Private() {
   const u = auth.get()?.user;
@@ -433,13 +436,11 @@ function Private() {
   return (
     <Routes>
       {paths.map((path) => {
-        // Fallback component if a page is missing
         const [C, t, s] = PAGES[u.role][path] || [
           Soon,
           NAV[u.role].find((n) => n[0] === path)?.[1],
           '',
         ];
-        // Safety check: if a component is undefined, show Soon instead of crashing
         const Component = C || Soon;
         return (
           <Route
