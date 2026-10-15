@@ -25,7 +25,7 @@ const adminRoutes = require('./routes/admin.routes');
 const managementRoutes = require('./routes/management.routes');
 const catalogRoutes = require('./routes/catalog.routes');
 const fileRoutes = require('./routes/files.routes');
-
+const classChangeRoutes = require('./routes/classChange.routes');
 function createApp() {
   const app = express();
   app.set('trust proxy', 1); // Render sits behind a proxy; needed for rate limits + secure cookies
@@ -64,6 +64,7 @@ function createApp() {
   app.use('/api/evidence', evidenceRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/management', managementRoutes);
+  app.use('/api/class-changes', classChangeRoutes);
   app.use('/api', catalogRoutes); // /departments, /programs, /rooms, /timetable
 
   // ── 404 + errors (always last)

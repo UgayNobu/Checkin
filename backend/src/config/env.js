@@ -18,6 +18,8 @@ const env = {
 
   // 40 m: measured classroom IT-05 (max 13.2 m tutor→student) + ~25 m indoor GPS error
   geofenceMetres: num(process.env.GEOFENCE_METRES, 40),
+  // A timetable class can be started this many minutes before it begins (until it ends)
+  startEarlyMinutes: num(process.env.START_EARLY_MINUTES, 15),
   accuracyFlagMetres: num(process.env.ACCURACY_FLAG_METRES, 50),
   // how long a check-in code stays valid (CHECKIN_WINDOW_MINUTES is the older name for the same setting)
   codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),

@@ -44,7 +44,7 @@ export async function api(path, body, method) {
       body: form || !body ? body : JSON.stringify(body),
     });
     const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'Something went wrong');
+    if (!r.ok) throw Object.assign(new Error(d.error || 'Something went wrong'), { code: d.code, status: r.status });
     return d;
   } finally {
     loading(false);

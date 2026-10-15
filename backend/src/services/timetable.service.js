@@ -39,31 +39,43 @@ const BHUTAN_OFFSET_MS = 6 * 60 * 60 * 1000;
 const bhutanNow = () => new Date(Date.now() + BHUTAN_OFFSET_MS);
 /** 1 = Monday … 7 = Sunday, in Bhutan. */
 const todayDayOfWeek = () => bhutanNow().getUTCDay() || 7;
-/** class_sessions.date is saved as the day a session starts (a DATE, compared at midnight UTC). */
-const todayDate = () => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); };
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ymd = (d) => d.toISOString().slice(0, 10);
+/** Monday of the week a date falls in (default: this week in Bhutan), as a UTC-midnight Date. */
+function mondayOf(week) {
+  const d = week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? new Date(`${week}T00:00:00Z`) : new Date(`${ymd(bhutanNow())}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return mondayOf();
+  return new Date(d.getTime() - ((d.getUTCDay() || 7) - 1) * DAY_MS);
+}
 
 /**
- * For today's slots: the session started from that slot today (if any) and,
- * for a student, their attendance in it. Adds `today` to each slot of today's weekday.
+ * Gives each slot the date it falls on in the chosen week and, if attendance was taken
+ * from it that day, the session (and for a student, their own status in it).
+ * class_sessions.date is the day a session starts (a DATE, compared at midnight UTC).
  */
-async function addToday(list, studentId) {
-  const dow = todayDayOfWeek();
-  const ids = list.filter((x) => x.dayOfWeek === dow).map((x) => x.id);
-  if (!ids.length) return list;
-  const sessions = await prisma.classSession.findMany({
-    where: { slotId: { in: ids }, date: todayDate() },
+async function addWeek(list, studentId, week) {
+  const monday = mondayOf(week), sunday = new Date(monday.getTime() + 6 * DAY_MS), today = ymd(bhutanNow());
+  const ids = list.map((x) => x.id);
+  const sessions = ids.length ? await prisma.classSession.findMany({
+    where: { slotId: { in: ids }, date: { gte: monday, lte: sunday } },
     orderBy: { startTime: 'desc' },
     select: {
-      id: true, slotId: true, status: true,
+      id: true, slotId: true, status: true, date: true, counts: true, taker: { select: { name: true } },
       ...(studentId && { attendance: { where: { studentId }, select: { status: true } } }),
     },
-  });
-  const bySlot = new Map();
-  for (const se of sessions) if (!bySlot.has(se.slotId)) bySlot.set(se.slotId, se); // newest per slot
+  }) : [];
+  const bySlotDay = new Map();
+  for (const se of sessions) {
+    const k = `${se.slotId}|${ymd(se.date)}`;
+    if (!bySlotDay.has(k)) bySlotDay.set(k, se); // newest per slot and day
+  }
   return list.map((x) => {
-    if (x.dayOfWeek !== dow) return x;
-    const se = bySlot.get(x.id);
-    return { ...x, isToday: true, session: se ? { id: se.id, status: se.status, myStatus: se.attendance?.[0]?.status ?? null } : null };
+    const date = ymd(new Date(monday.getTime() + (x.dayOfWeek - 1) * DAY_MS));
+    const se = bySlotDay.get(`${x.id}|${date}`);
+    return {
+      ...x, date, isToday: date === today,
+      session: se ? { id: se.id, status: se.status, myStatus: se.attendance?.[0]?.status ?? null, takenBy: se.taker?.name ?? null } : null,
+    };
   });
 }
 
@@ -71,7 +83,7 @@ async function addToday(list, studentId) {
  * A student's week: their programme and year's timetable, plus any other module
  * they are enrolled in. `enrolled` marks the classes they joined in the VLE.
  */
-async function forStudent(studentId) {
+async function forStudent(studentId, { week } = {}) {
   const [u, en] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { programme: true, year: true } }),
     prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
@@ -82,14 +94,14 @@ async function forStudent(studentId) {
   if (enrolled.length) or.push({ moduleId: { in: enrolled } });
   if (!or.length) return [];
   const list = (await slots({ OR: or })).map((x) => ({ ...x, enrolled: enrolled.includes(x.module.id) }));
-  return addToday(list, studentId);
+  return addWeek(list, studentId, week);
 }
 
 /**
  * A tutor's week: slots for the modules the admin assigned to them, plus slots
  * linked to their account or listing their name. `teaches` = they can start attendance for it.
  */
-async function forTutor(tutorId) {
+async function forTutor(tutorId, { week } = {}) {
   const [u, secs] = await Promise.all([
     prisma.user.findUnique({ where: { id: tutorId }, select: { id: true, name: true } }),
     prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
@@ -102,7 +114,7 @@ async function forTutor(tutorId) {
       ...(taught.length ? [{ moduleId: { in: taught } }] : []),
     ],
   })).map((x) => ({ ...x, teaches: taught.includes(x.module.id) }));
-  return addToday(list);
+  return addWeek(list, null, week);
 }
 
 /** One slot, for starting attendance from the timetable. */
@@ -111,4 +123,4 @@ async function getSlot(id) {
   return x ? slotOut(x) : null;
 }
 
-module.exports = { listRooms, forProgramme, forStudent, forTutor, getSlot, slotOut, todayDayOfWeek };
+module.exports = { listRooms, forProgramme, forStudent, forTutor, getSlot, slotOut, todayDayOfWeek, mondayOf };

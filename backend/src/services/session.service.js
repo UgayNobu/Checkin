@@ -8,16 +8,16 @@ const { ATTENDED, SESSION_STATUS } = require('../config/constants');
 const { generateCheckInCode } = require('../utils/code');
 const { apiStatus, sessionStart, flagText } = require('../utils/format');
 const { NotFound, Conflict, BadRequest } = require('../utils/errors');
-const { assertTutorOwnsModule } = require('./module.service');
 const { sessionOrCurrent } = require('../lib/academicSession');
 const { notify } = require('./notifications.service');
-
+const { planStart } = require('./classChange.service');
 const latestCode = { orderBy: { expiryTimestamp: 'desc' }, take: 1 };
 
 /** Loads a session and checks this tutor teaches it. "Not found" hides other tutors' sessions. */
 async function ownedSession(id, tutorId) {
   const se = await prisma.classSession.findUnique({ where: { id }, include: { section: { include: { module: true } }, codes: latestCode } });
-  if (!se || se.section.tutorId !== tutorId) throw NotFound('Session not found', 'SESSION_NOT_FOUND');
+  // the module's tutor, or the tutor who covered this class
+  if (!se || (se.section.tutorId !== tutorId && se.takenBy !== tutorId)) throw NotFound('Session not found', 'SESSION_NOT_FOUND');
   return se;
 }
 
@@ -33,9 +33,12 @@ async function uniqueCode() {
 
 /**
  * Start attendance. Either:
- *  • { module, type, hours, room } → creates today's session now, or
- *  • { slot, ... } → same, starting from a timetable slot (module and room come from the slot), or
+ *  • { slot } → a timetable class (from 15 minutes before it starts until it ends), or
+ *  • { change } → an extra class, or a class this tutor was asked to cover, or
+ *  • { module, type, hours, room } → the module's class happening now (a module that isn't on
+ *    the timetable can be started any time), or
  *  • { sessionId } → re-opens an existing (scheduled/ongoing) session with a fresh code.
+ * Outside class time the tutor books an extra class (classChange.service.js).
  * The tutor's current GPS becomes the classroom centre for the geofence.
  */
 async function startSession(tutorId, b) {
@@ -56,26 +59,18 @@ async function startSession(tutorId, b) {
     return { _id: se.id, code, expiresAt: expiry };
   }
 
-  // Started from the timetable: the slot gives the module (and room) and links the session to it.
-  let slotId = null;
-  if (b.slot) {
-    const slot = await prisma.timetableSlot.findUnique({ where: { id: b.slot }, include: { room: true } });
-    if (!slot || !slot.moduleId) throw NotFound('Timetable slot not found', 'SLOT_NOT_FOUND');
-    if (!b.module || b.module === slot.moduleId) {
-      b = { ...b, module: slot.moduleId, room: b.room || slot.room?.name };
-      slotId = slot.id;
-    }
-  }
-
-  const sec = await assertTutorOwnsModule(b.module, tutorId);
-  if (b.room && b.room !== sec.room) await prisma.section.update({ where: { id: sec.id }, data: { room: b.room } });
+  // Which class this is (timetable class, extra class, cover) and whether it's class time
+  const plan = await planStart(tutorId, b);
+  const room = b.room || plan.room;
+  if (room && !plan.takenBy) await prisma.section.updateMany({ where: { id: plan.sectionId, room: { not: room } }, data: { room } });
   const se = await prisma.classSession.create({
     data: {
-      sectionId: sec.id, date: now, startTime: now, duration: Math.round(b.hours * 60), sessionType: b.type,
-      status: SESSION_STATUS.ONGOING, slotId, codes: { create: codeData },
+      sectionId: plan.sectionId, date: now, startTime: now, duration: plan.minutes || Math.round(b.hours * 60), sessionType: plan.type || b.type,
+      status: SESSION_STATUS.ONGOING, slotId: plan.slotId, changeId: plan.changeId, takenBy: plan.takenBy, counts: plan.counts,
+      codes: { create: codeData },
     },
   });
-  return { _id: se.id, code, expiresAt: expiry, radius, minutes };
+  return { _id: se.id, code, expiresAt: expiry, radius, minutes, optional: !plan.counts };
 }
 
 /**
@@ -93,7 +88,8 @@ async function finalizeSession(sessionId) {
     prisma.attendance.findMany({ where: { sessionId }, select: { studentId: true } }),
   ]);
   const checkedIn = new Set(att.map((a) => a.studentId));
-  const missing = enrolled.filter((e) => !checkedIn.has(e.studentId));
+  // An optional class records only who came: nobody is marked absent for skipping it
+  const missing = se.counts === false ? [] : enrolled.filter((e) => !checkedIn.has(e.studentId));
   await prisma.$transaction([
     // never checked in → Absent
     prisma.attendance.createMany({ data: missing.map((e) => ({ studentId: e.studentId, sessionId, status: 'Absent' })), skipDuplicates: true }),
@@ -132,7 +128,7 @@ async function live(id, tutorId) {
   const present = list.filter((a) => ATTENDED.includes(a.status)).length;
   const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
   return {
-    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total,
+    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total, optional: !se.counts,
     checkedIn: present,
     absent: Math.max(0, total - present - flagged.length),
     flagged: flagged.map((a) => ({ id: a.id, attendanceId: a.id, name: a.student.name, flagReason: a.flagReason, reason: flagText(a.flagReason) })),
@@ -143,13 +139,15 @@ async function live(id, tutorId) {
 async function listMine(tutorId, { limit, status, session }) {
   const academicSession = await sessionOrCurrent(session);
   const rows = await prisma.classSession.findMany({
-    where: { section: { tutorId, academicSession }, ...(status && { status }) },
-    include: { section: { include: { module: true } }, _count: { select: { attendance: true } } },
+    // their own modules' sessions, plus classes they covered for another tutor
+    where: { OR: [{ section: { tutorId, academicSession } }, { takenBy: tutorId, section: { academicSession } }], ...(status && { status }) },
+    include: { section: { include: { module: true } }, taker: { select: { name: true } }, _count: { select: { attendance: true } } },
     orderBy: [{ date: 'desc' }, { startTime: 'desc' }], take: limit,
   });
   return rows.map((x) => ({
     _id: x.id, module: { id: x.section.moduleId, code: x.section.module.code, name: x.section.module.name },
     section: x.section.name, room: x.section.room, date: sessionStart(x), hours: x.duration / 60, type: x.sessionType, status: x.status, checkIns: x._count.attendance,
+    optional: !x.counts, extra: !!x.changeId && !x.slotId, coveredBy: x.taker?.name ?? null,
   }));
 }
 
@@ -180,7 +178,7 @@ async function roster(id, tutorId) {
   return {
     session: {
       _id: se.id, module: { code: se.section.module.code, name: se.section.module.name }, date: sessionStart(se), type: se.sessionType,
-      status: se.status, code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, radius: c?.geofenceRadius ?? null,
+      status: se.status, code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, radius: c?.geofenceRadius ?? null, optional: !se.counts,
     },
     counts: { enrolled: rows.length, present: n('present'), flagged: n('flagged'), absent: n('absent') },
     rows,

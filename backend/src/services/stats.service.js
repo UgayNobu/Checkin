@@ -10,7 +10,8 @@
 //                  hours of sessions already held
 //
 // A session counts once its start time has passed. A student with
-// no record for a held session is absent.
+// no record for a held session is absent. Optional extra classes
+// (class_sessions.counts = false) never count.
 //
 // Semesters: everything here counts ONE academic session (semester) —
 // the current one unless { term: 'AS2026' } is passed — so a module
@@ -28,7 +29,7 @@ const isHeld = (s, now = Date.now()) => sessionStart(s).getTime() <= now;
 async function heldSessions(moduleId, { term } = {}) {
   const academicSession = await sessionOrCurrent(term);
   const all = await prisma.classSession.findMany({
-    where: { section: { moduleId, academicSession } }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    where: { section: { moduleId, academicSession }, counts: true }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
   return all.filter((s) => isHeld(s));
 }
@@ -42,12 +43,12 @@ async function loadMatrix(moduleIds, studentIds, { term } = {}) {
   // Both queries run at the same time (one round trip to the database instead of two).
   const [allSessions, allAtt] = await Promise.all([
     prisma.classSession.findMany({
-      where: { section: { moduleId: { in: moduleIds }, academicSession } },
+      where: { section: { moduleId: { in: moduleIds }, academicSession }, counts: true },
       select: { id: true, date: true, startTime: true, duration: true, sessionType: true, section: { select: { moduleId: true } } },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     }),
     prisma.attendance.findMany({
-      where: { session: { section: { moduleId: { in: moduleIds }, academicSession } }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
+      where: { session: { section: { moduleId: { in: moduleIds }, academicSession }, counts: true }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
       select: { studentId: true, sessionId: true },
     }),
   ]);
@@ -127,7 +128,7 @@ async function overallFor(studentIds, { term } = {}) {
  */
 async function monthDays(studentId, moduleIds, month) {
   const [y, mo] = month.split('-').map(Number);
-  const inMonth = { section: { moduleId: { in: moduleIds } }, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
+  const inMonth = { section: { moduleId: { in: moduleIds } }, counts: true, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
   const [all, att] = await Promise.all([
     prisma.classSession.findMany({ where: inMonth }),
     prisma.attendance.findMany({ where: { studentId, session: inMonth } }),

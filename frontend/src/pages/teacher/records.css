@@ -364,4 +364,12 @@
 .rec-empty-box{display:flex;flex-direction:column;gap:6px;text-align:center}
 .rec-empty-box small{color:#6b7280}
 
-.rec-err{margin:0;color:#b91c1c;font-size:13px}
+.rec-err{margin:0;color:#b91c1c;font-size:13px}.rec-tag{
+  margin-left:6px;
+  padding:2px 8px;
+  background:#ecfdf5;
+  color:#047857;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+}
