@@ -89,7 +89,7 @@ async function login({ userId, password }) {
   if (!u || !u.passwordHash || !ok) throw Unauthorized('Wrong ID or password', 'INVALID_CREDENTIALS');
   if (!u.isActive) {
     if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your account is waiting for admin approval.', 'ACCOUNT_PENDING');
-    throw Forbidden('Account is not active. Contact ICT Services.', 'ACCOUNT_NOT_ACTIVE');
+    throw Forbidden('This account has been deactivated. If you have returned to the college, ask the admin to activate it again.', 'ACCOUNT_NOT_ACTIVE');
   }
   return { token: signAuthToken({ id: u.id, role: roleOut(u.role) }), user: authUser(u) };
 }

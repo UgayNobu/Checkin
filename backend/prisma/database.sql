@@ -340,6 +340,26 @@ BEGIN
   END IF;
 END $$;
 
+-- ===== Part 10: deactivated accounts =====
+-- Accounts are never deleted: a student who graduates or leaves, or a tutor who resigns, is
+-- deactivated (users.is_active = false, status = 'inactive') and can be activated again later.
+-- These columns record why, when and by whom, so the admin can see it at a glance.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at      TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivation_reason VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivation_note   VARCHAR(200);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_by      VARCHAR(10);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_deact_reason') THEN
+    ALTER TABLE users ADD CONSTRAINT chk_users_deact_reason CHECK (deactivation_reason IS NULL OR deactivation_reason IN
+      ('graduated', 'dropped_out', 'transferred', 'on_leave', 'resigned', 'retired', 'other'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_users_deact_by') THEN
+    ALTER TABLE users ADD CONSTRAINT fk_users_deact_by FOREIGN KEY (deactivated_by)
+      REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
 COMMIT;
 
 

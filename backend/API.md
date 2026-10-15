@@ -79,7 +79,7 @@ No login needed (so `<img>` / `<iframe>` work); the id is a random UUID that the
 
 ## Admin — `/api/admin` (changes: admin; reports: admin + management)
 `GET /overview` · `GET|POST|PUT /programs` · `GET /programmes/:name/report` · `GET /programmes/:name/export.csv` ·
-`GET /users?role=&department=&programme=&year=` · `PATCH /users/:id` `{ active?, name? }` ·
+`GET /users?role=&department=&programme=&year=` · `PATCH /users/:id` `{ active?, name?, reason?, note? }` ·
 `GET /modules?department=&year=&semester=` (filters through `program_modules`) · `POST /modules` · `PUT /modules/:id` (also links the module to the programme's year and semester) ·
 `GET /tutors/pending` · `POST /tutors/:id/approve` · `POST /tutors/:id/reject` ·
 `GET /audit-logs?action=&from=&to=&q=&limit=` · `GET /audit-actions` ·
@@ -101,6 +101,15 @@ No login needed (so `<img>` / `<iframe>` work); the id is a random UUID that the
 `GET /overview` · `GET /department/:name` · `GET /module/:id` · `GET /student/:id?module=` · `GET /teachers` ·
 `GET /history?q=&year=&semester=&department=` · `GET /calendar?student=&module=&month=`
 All of these except `/calendar` take `?session=AS2026` to show an old semester (default: the current one).
+
+## Deactivating accounts (never deleting)
+`PATCH /api/admin/users/:id` `{ active: false, reason, note? }` deactivates an account; `{ active: true }` activates it again
+(this also approves a tutor waiting for approval). Reasons — student: `graduated`, `dropped_out`, `transferred`, `on_leave`, `other`;
+staff: `resigned`, `retired`, `transferred`, `on_leave`, `other` (`other` needs a `note`).
+A deactivated user can't log in and any open session stops at once. Nothing is deleted: their attendance, enrolments and
+evidence stay. They are left out of new classes (not marked absent), class sizes and current counts. When a tutor is
+deactivated the response lists `modulesToReassign` (this semester's modules they still hold). The admin can't deactivate
+their own account or the last active admin. Each user carries `deactivation: { reason, note, at, by }` or `null`, and `pending`.
 
 ## Semesters (academic sessions)
 Tutor assignments (`sections`) and enrolments belong to a semester (`academic_session`, e.g. AS2026 = Autumn 2026,
