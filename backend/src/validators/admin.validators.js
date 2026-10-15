@@ -11,7 +11,15 @@ const usersQuerySchema = z.object({
   year: optionalNumber(z.number().int().min(1).max(6)),
 });
 const userIdParamSchema = z.object({ id });
-const userPatchSchema = z.object({ active: z.boolean().optional(), name: z.string().trim().min(2).max(100).optional() });
+// Deactivating needs a reason; the allowed reasons depend on the role (checked in admin.service).
+const DEACTIVATION_REASONS = ['graduated', 'dropped_out', 'transferred', 'on_leave', 'resigned', 'retired', 'other'];
+const userPatchSchema = z.object({
+  active: z.boolean().optional(),
+  name: z.string().trim().min(2).max(100).optional(),
+  reason: z.enum(DEACTIVATION_REASONS).optional(),
+  note: optionalText(200),
+}).refine((b) => b.active !== false || b.reason, { message: 'Choose why this account is being deactivated', path: ['reason'] })
+  .refine((b) => b.reason !== 'other' || b.note, { message: 'Write a short note when the reason is "Other"', path: ['note'] });
 
 const modulesQuerySchema = z.object({
   department: optionalText(100),

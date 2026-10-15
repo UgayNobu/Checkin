@@ -14,7 +14,7 @@ const { sessionOrCurrent } = require('../lib/academicSession');
 
 /** Class size per module in a semester. */
 async function sizes(moduleIds, term) {
-  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds }, academicSession: term }, _count: { _all: true } });
+  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds }, academicSession: term, student: { isActive: true } }, _count: { _all: true } });
   return new Map(g.map((x) => [x.moduleId, x._count._all]));
 }
 
@@ -39,12 +39,12 @@ async function overview({ term } = {}) {
   // Everything that doesn't depend on something else is fetched at the same time.
   const [programs, perDept, students, newStudents, tutors, modules, studentIds] = await Promise.all([
     prisma.program.findMany({ orderBy: { name: 'asc' }, include: { modules: true } }),
-    prisma.user.groupBy({ by: ['department'], where: { role: 'student' }, _count: { _all: true } }), // students per programme in 1 query
-    prisma.user.count({ where: { role: 'student' } }),
+    prisma.user.groupBy({ by: ['department'], where: { role: 'student', isActive: true }, _count: { _all: true } }), // students per programme in 1 query
+    prisma.user.count({ where: { role: 'student', isActive: true } }),
     prisma.user.count({ where: { role: 'student', createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
     prisma.module.count(),
-    prisma.user.findMany({ where: { role: 'student' }, select: { id: true } }),
+    prisma.user.findMany({ where: { role: 'student', isActive: true }, select: { id: true } }),
   ]);
   const allMods = programs.flatMap((p) => p.modules);
   const [m, size, pcts] = await Promise.all([
@@ -74,7 +74,7 @@ async function department(name, { term } = {}) {
   term = await sessionOrCurrent(term);
   const [mods, studs] = await Promise.all([
     prisma.module.findMany({ where: { program: { name } }, orderBy: { code: 'asc' } }),
-    prisma.user.findMany({ where: { role: 'student', department: name }, select: { id: true } }),
+    prisma.user.findMany({ where: { role: 'student', isActive: true, department: name }, select: { id: true } }),
   ]);
   const [m, size, pctMap] = await Promise.all([
     matrixWithCounts(mods.map((x) => x.id), term), sizes(mods.map((x) => x.id), term), overallFor(studs.map((u) => u.id), { term }),

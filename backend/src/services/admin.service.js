@@ -6,7 +6,7 @@
 const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { DAY_MS } = require('../config/constants');
-const { roleIn, userOut, monthStart, round1 } = require('../utils/format');
+const { roleIn, roleOut, userOut, monthStart, round1 } = require('../utils/format');
 const { BadRequest, NotFound, Conflict } = require('../utils/errors');
 const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
@@ -15,15 +15,17 @@ const { currentAcademicSession } = require('../lib/academicSession');
 
 // ── Overview ──────────────────────────────────────────────────
 async function overview() {
-  const [students, newStudents, tutors, pendingTutors, programs, modules] = await Promise.all([
-    prisma.user.count({ where: { role: 'student' } }),
+  const [students, newStudents, tutors, pendingTutors, programs, modules, inactiveStudents, inactiveTutors] = await Promise.all([
+    prisma.user.count({ where: { role: 'student', isActive: true } }), // current students only
     prisma.user.count({ where: { role: 'student', createdAt: { gte: monthStart() } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
     prisma.user.count({ where: { role: 'tutor', isActive: false, status: 'active', passwordHash: { not: null } } }),
     prisma.program.count(),
     prisma.module.count(),
+    prisma.user.count({ where: { role: 'student', isActive: false } }),
+    prisma.user.count({ where: { role: 'tutor', status: 'inactive' } }),
   ]);
-  return { students, newStudents, tutors, pendingTutors, programs, modules };
+  return { students, newStudents, tutors, pendingTutors, programs, modules, inactiveStudents, inactiveTutors };
 }
 
 // ── Programmes ────────────────────────────────────────────────
@@ -59,14 +61,60 @@ async function listUsers({ role, department, programme, year }) {
   return users.map((u) => ({ ...userOut(u), pct: pct.get(u.id) }));
 }
 
-async function patchUser(adminId, id, { active, name }) {
-  if (id === adminId && active === false) throw BadRequest('You cannot deactivate your own account');
+// Reasons an admin can give when deactivating, per role. Accounts are never deleted.
+const REASONS = {
+  student: ['graduated', 'dropped_out', 'transferred', 'on_leave', 'other'],
+  tutor: ['resigned', 'retired', 'transferred', 'on_leave', 'other'],
+  management: ['resigned', 'retired', 'transferred', 'on_leave', 'other'],
+  admin: ['resigned', 'retired', 'transferred', 'on_leave', 'other'],
+};
+const REASON_TEXT = {
+  graduated: 'Graduated', dropped_out: 'Dropped out', transferred: 'Transferred', on_leave: 'On leave / break',
+  resigned: 'Resigned', retired: 'Retired', other: 'Other',
+};
+
+/**
+ * Rename, deactivate or activate an account. Nothing is deleted: a deactivated user can't
+ * log in (any open session stops working at once) and is left out of new classes, but all
+ * their attendance, enrolments and evidence stay, and the admin can activate them again.
+ */
+async function patchUser(adminId, id, { active, name, reason, note }) {
+  const u0 = await prisma.user.findUnique({ where: { id } });
+  if (!u0) throw NotFound('User not found');
   const data = {};
-  if (active !== undefined) { data.isActive = active; data.status = active ? 'active' : 'inactive'; }
   if (name) data.name = name;
+
+  if (active === false) {
+    if (id === adminId) throw BadRequest('You cannot deactivate your own account', 'SELF_DEACTIVATE');
+    if (!(REASONS[u0.role] || REASONS.tutor).includes(reason)) {
+      throw BadRequest(`"${REASON_TEXT[reason] || reason}" is not a reason for a ${roleOut(u0.role)}`, 'BAD_REASON');
+    }
+    if (u0.role === 'admin' && (await prisma.user.count({ where: { role: 'admin', isActive: true } })) <= 1) {
+      throw BadRequest('This is the only active admin account, so it cannot be deactivated', 'LAST_ADMIN');
+    }
+    Object.assign(data, {
+      isActive: false, status: 'inactive', deactivatedAt: new Date(), deactivatedBy: adminId,
+      deactivationReason: reason, deactivationNote: note || null,
+    });
+  } else if (active === true) {
+    // Also approves a tutor who was waiting for approval
+    Object.assign(data, { isActive: true, status: 'active', deactivatedAt: null, deactivatedBy: null, deactivationReason: null, deactivationNote: null });
+  }
+
   const u = await prisma.user.update({ where: { id }, data });
-  await writeAuditLog(adminId, active === undefined ? 'Edited user' : active ? 'Activated user' : 'Deactivated user', `${u.name} (${u.id})`);
-  return userOut(u);
+  const label = active === undefined ? 'Edited user' : active ? 'Activated user' : 'Deactivated user';
+  await writeAuditLog(adminId, label, `${u.name} (${u.id})${active === false ? ` – ${REASON_TEXT[reason]}${note ? `: ${note}` : ''}` : ''}`);
+
+  const out = userOut(u);
+  // A tutor who leaves still holds this semester's modules: tell the admin which ones to reassign
+  if (active === false && u.role === 'tutor') {
+    const secs = await prisma.section.findMany({
+      where: { tutorId: u.id, academicSession: await currentAcademicSession() },
+      include: { module: { select: { id: true, code: true, name: true } } },
+    });
+    out.modulesToReassign = secs.map((x) => x.module);
+  }
+  return out;
 }
 
 // ── Modules ───────────────────────────────────────────────────
@@ -78,13 +126,14 @@ async function listModules({ department, year, semester }) {
     where: Object.keys(cur).length ? { curriculum: { some: cur } } : {},
     include: {
       sections: { where: { academicSession }, include: { tutor: true }, take: 1 },
-      _count: { select: { enrollments: { where: { academicSession } } } },
+      _count: { select: { enrollments: { where: { academicSession, student: { isActive: true } } } } },
     },
     orderBy: { code: 'asc' },
   });
   return rows.map((m) => ({
     _id: m.id, name: m.name, code: m.code, year: m.year, semester: m.semester, count: m.moduleCount, students: m._count.enrollments,
-    tutor: m.sections[0] ? { userId: m.sections[0].tutor.id, name: m.sections[0].tutor.name } : null,
+    // active: false → the tutor has left; the admin should assign someone else
+    tutor: m.sections[0] ? { userId: m.sections[0].tutor.id, name: m.sections[0].tutor.name, active: m.sections[0].tutor.isActive } : null,
   }));
 }
 
@@ -149,7 +198,7 @@ async function rejectTutor(adminId, id) {
 /** Student × module pairs below the threshold, worst first. Per module, so a weak module isn't hidden by a good average. */
 async function atRisk({ below = env.atRiskPct, department }) {
   const en = await prisma.enrollment.findMany({
-    where: { academicSession: await currentAcademicSession(), student: { role: 'student', ...(department && { department }) } }, include: { student: true, module: true },
+    where: { academicSession: await currentAcademicSession(), student: { role: 'student', isActive: true, ...(department && { department }) } }, include: { student: true, module: true },
   });
   const m = await loadMatrix([...new Set(en.map((e) => e.moduleId))]);
   const rows = [];

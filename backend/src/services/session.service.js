@@ -88,7 +88,8 @@ async function finalizeSession(sessionId) {
   if (!se || se.status === SESSION_STATUS.ENDED) return;
   const [enrolled, att] = await Promise.all([
     // students enrolled in this module in the session's own semester
-    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession }, select: { studentId: true } }),
+    // active students only: someone who graduated or left is not marked absent in new classes
+    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession, student: { isActive: true } }, select: { studentId: true } }),
     prisma.attendance.findMany({ where: { sessionId }, select: { studentId: true } }),
   ]);
   const checkedIn = new Set(att.map((a) => a.studentId));
@@ -126,7 +127,7 @@ async function live(id, tutorId) {
   const graceOver = c && c.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000 <= Date.now();
   if (status === SESSION_STATUS.ONGOING && graceOver) { await finalizeSession(se.id); status = SESSION_STATUS.ENDED; }
 
-  const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession } });
+  const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession, student: { isActive: true } } });
   const list = await prisma.attendance.findMany({ where: { sessionId: se.id }, include: { student: true } });
   const present = list.filter((a) => ATTENDED.includes(a.status)).length;
   const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
@@ -164,7 +165,7 @@ async function endSession(id, tutorId) {
 async function roster(id, tutorId) {
   const se = await ownedSession(id, tutorId), c = se.codes[0];
   const [en, att] = await Promise.all([
-    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession }, include: { student: true }, orderBy: { studentId: 'asc' } }),
+    prisma.enrollment.findMany({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession, student: { isActive: true } }, include: { student: true }, orderBy: { studentId: 'asc' } }),
     prisma.attendance.findMany({ where: { sessionId: se.id } }),
   ]);
   const byStudent = new Map(att.map((a) => [a.studentId, a]));

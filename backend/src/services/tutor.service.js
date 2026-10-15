@@ -20,7 +20,7 @@ async function tutorSections(tutorId, { term } = {}) {
 }
 
 async function enrolCounts(moduleIds, { term } = {}) {
-  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds }, academicSession: await sessionOrCurrent(term) }, _count: { _all: true } });
+  const g = await prisma.enrollment.groupBy({ by: ['moduleId'], where: { moduleId: { in: moduleIds }, academicSession: await sessionOrCurrent(term), student: { isActive: true } }, _count: { _all: true } });
   return new Map(g.map((x) => [x.moduleId, x._count._all]));
 }
 
@@ -39,7 +39,7 @@ async function dashboard(tutorId) {
   const ids = mods.map((m) => m.id);
   const today = new Date(new Date().toISOString().slice(0, 10)); // UTC midnight, matches @db.Date
   const [students, todays, flagged, pendingEvidence] = await Promise.all([
-    prisma.enrollment.findMany({ where: { moduleId: { in: ids }, academicSession: term }, distinct: ['studentId'], select: { studentId: true } }),
+    prisma.enrollment.findMany({ where: { moduleId: { in: ids }, academicSession: term, student: { isActive: true } }, distinct: ['studentId'], select: { studentId: true } }),
     prisma.classSession.findMany({ where: { section: { tutorId }, date: today }, include: { section: { include: { module: true } }, _count: { select: { attendance: true } } }, orderBy: { startTime: 'asc' } }),
     prisma.attendance.count({ where: { status: { in: ['Flagged', 'Pending review'] }, session: { section: { tutorId, academicSession: term } } } }),
     prisma.evidenceDocument.count({ where: { status: 'Pending', module: { sections: { some: { tutorId, academicSession: term } } } } }),

@@ -37,32 +37,36 @@ model Program {
 }
 
 model User {
-  id            String             @id @map("user_id")
-  name          String?
-  email         String             @unique
-  passwordHash  String?            @map("password_hash")
-  role          String
-  phone         String?
-  department    String?
-  designation   String?
-  programme     String?
-  year          Int?
-  isActive      Boolean            @default(true) @map("is_active")
-  status        String             @default("active") @db.VarChar(10)
-  avatarUrl     String?            @map("avatar_url") @db.VarChar(255)
-  updatedAt     DateTime           @default(now()) @updatedAt @map("updated_at")
-  prefs         Json               @default("{}") @map("notification_prefs")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  sections      Section[]
-  attendance    Attendance[]
-  enrollments   Enrollment[]
-  evidence      EvidenceDocument[] @relation("EvidenceStudent")
-  reviewed      EvidenceDocument[] @relation("EvidenceReviewer")
-  notifications Notification[]
-  auditLogs     AuditLog[]
-  slots         TimetableSlot[]
-  resets        PasswordReset[]
-  files         StoredFile[]
+  id                 String             @id @map("user_id")
+  name               String?
+  email              String             @unique
+  passwordHash       String?            @map("password_hash")
+  role               String
+  phone              String?
+  department         String?
+  designation        String?
+  programme          String?
+  year               Int?
+  isActive           Boolean            @default(true) @map("is_active")
+  status             String             @default("active") @db.VarChar(10)
+  avatarUrl          String?            @map("avatar_url") @db.VarChar(255)
+  deactivatedAt      DateTime?          @map("deactivated_at") @db.Timestamptz(6)
+  deactivationReason String?            @map("deactivation_reason") @db.VarChar(20)
+  deactivationNote   String?            @map("deactivation_note") @db.VarChar(200)
+  deactivatedBy      String?            @map("deactivated_by") @db.VarChar(10)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+  prefs              Json               @default("{}") @map("notification_prefs")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  sections           Section[]
+  attendance         Attendance[]
+  enrollments        Enrollment[]
+  evidence           EvidenceDocument[] @relation("EvidenceStudent")
+  reviewed           EvidenceDocument[] @relation("EvidenceReviewer")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  slots              TimetableSlot[]
+  resets             PasswordReset[]
+  files              StoredFile[]
 
   @@map("users")
 }

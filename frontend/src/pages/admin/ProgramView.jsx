@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
+import { StatusPill, StatusButton } from './AccountStatus';
 import './programview.css';
 
 const E = encodeURIComponent;
@@ -56,20 +57,6 @@ export default function ProgramView({ focus = 'students' }) {
 
   useEffect(() => { load(); }, [program]);
   useEffect(() => { setTab(focus); }, [focus]);
-
-  // Deactivate / Activate
-  const toggleActive = (x, role) => {
-    const verb = x.active ? 'Deactivate' : 'Activate';
-    const msg = `${verb} the ${role} "${x.name}" (${x.userId})?`;
-    if (!window.confirm(msg)) return;
-
-    api('/admin/users/' + x._id, { active: !x.active }, 'PATCH')
-      .then(() => load())
-      .catch((err) => {
-        console.error('Update error:', err);
-        alert(`Failed to ${verb.toLowerCase()} user: ` + (err.message || 'Unknown error'));
-      });
-  };
 
   const list = (tab === 'students' ? stu : tut).filter((x) =>
     ((x.name || '') + x.userId).toLowerCase().includes(q.toLowerCase())
@@ -175,19 +162,11 @@ export default function ProgramView({ focus = 'students' }) {
                   </>
                 )}
                 <td>
-                  <span className={'pv-st ' + (x.active ? 'act' : 'inact')}>
-                    {x.active ? 'Active' : 'Inactive'}
-                  </span>
+                  <StatusPill user={x} />
                 </td>
                 <td>
-                  <button
-                    className={x.active ? 'pv-deact' : 'pv-actv'}
-                    onClick={() =>
-                      toggleActive(x, tab === 'students' ? 'student' : 'teacher')
-                    }
-                  >
-                    {x.active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  {/* Deactivate asks for a reason; nothing is deleted and it can be undone */}
+                  <StatusButton user={x} role={tab === 'students' ? 'student' : 'teacher'} onDone={load} />
                 </td>
               </tr>
             ))}

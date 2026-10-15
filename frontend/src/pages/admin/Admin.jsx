@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
+import { StatusPill, StatusButton } from './AccountStatus';
 import '../teacher/staff.css';
 import './admin.css';
 
@@ -63,21 +64,21 @@ export function Students() {
               <th>ID</th>
               <th>PROGRAM</th>
               <th>ATTENDANCE</th>
+              <th>STATUS</th>
               <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {users.map((x) => (
-              <tr key={x._id} style={{ opacity: x.active ? 1 : 0.5 }}>
+              <tr key={x._id}>
                 <td><b>{x.name}</b></td>
                 <td>{x.userId}</td>
                 <td>{x.programme || x.department}</td>
                 <td>{x.pct ?? 0}%</td>
+                <td><StatusPill user={x} /></td>
                 <td>
                   <button className="eb" onClick={() => rename(x)}>Edit</button>
-                  <button className="ab" onClick={() => patch(x, { active: !x.active })}>
-                    {x.active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  <StatusButton user={x} role="student" onDone={load} />
                 </td>
               </tr>
             ))}
@@ -296,7 +297,7 @@ export function SemesterModules() {
           <div className="mod" key={x._id} onClick={() => go(x._id)}>
             <b>{x.code} -</b> {x.name}
             <small style={{ display: 'block', color: x.tutor ? '#16a34a' : '#b45309' }}>
-              {x.tutor ? `Tutor: ${x.tutor.name}` : 'No tutor assigned yet'}
+              {x.tutor ? `Tutor: ${x.tutor.name}${x.tutor.active === false ? " (deactivated, assign a new tutor)" : ""}` : 'No tutor assigned yet'}
             </small>
           </div>
         ))}
