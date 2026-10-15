@@ -235,8 +235,9 @@ export function Department() {
         <Stat
           l="Average Attendance"
           v={d?.avg != null ? `${d.avg}%` : null}
-          chip="Target Exceeded"
-          cls="g"
+          // College rule: 90% attendance. Under 80% = at risk.
+          chip={d?.avg == null ? 'No classes yet' : d.avg >= 90 ? 'Meets the 90% rule' : d.avg >= 80 ? 'Below the 90% rule' : 'Below 80%: at risk'}
+          cls={d?.avg == null ? 'o' : d.avg >= 90 ? 'g' : d.avg >= 80 ? 'o' : 'r'}
         />
         <Stat
           l="Students At Risk"
@@ -254,7 +255,7 @@ export function Department() {
           </div>
           <div className="trend-goal">
             <span className="goal-dot" />
-            Goal: 85%
+            Goal: 90%
           </div>
         </div>
 
@@ -324,28 +325,28 @@ export function Department() {
               <line
                 x1={PAD.left}
                 x2={W - PAD.right}
-                y1={yOf(85)}
-                y2={yOf(85)}
+                y1={yOf(90)}
+                y2={yOf(90)}
                 stroke="#f59e0b"
                 strokeWidth="1.5"
                 strokeDasharray="6 4"
               />
               <text
                 x={W - PAD.right}
-                y={yOf(85) - 6}
+                y={yOf(90) - 6}
                 textAnchor="end"
                 fontSize="10"
                 fill="#d97706"
                 fontWeight="600"
               >
-                Goal 85%
+                Goal 90%
               </text>
 
               {trend.map((val, i) => {
                 const x = PAD.left + i * (barW + gap);
                 const y = yOf(val);
                 const h = Math.max(PAD.top + innerH - y, 0);
-                const below = val < 85;
+                const below = val < 90;
                 const isHover = hoveredBar === i;
                 return (
                   <g
