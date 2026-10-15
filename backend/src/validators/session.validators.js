@@ -1,4 +1,4 @@
-const { z, id, optionalText, optionalNumber, lat, lng } = require('./common');
+const { z, id, optionalText, optionalNumber, lat, lng, academicSession } = require('./common');
 
 // Either start a new session for a module, or re-open one that already exists (sessionId).
 const startSessionSchema = z.object({
@@ -19,6 +19,7 @@ const flaggedBodySchema = z.object({ note: optionalText(60) }).default({});
 const listMySessionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   status: z.enum(['scheduled', 'ongoing', 'ended']).optional(),
+  session: academicSession, // semester, default current
 });
 
 module.exports = { startSessionSchema, sessionIdParamSchema, flaggedParamSchema, flaggedBodySchema, listMySessionsQuerySchema };

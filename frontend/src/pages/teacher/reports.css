@@ -1,164 +1,141 @@
 /* =========================================================
-   Reports & Analytics
+   Attendance Records (scoped under .recs, own class names)
    ========================================================= */
+.recs{display:flex;flex-direction:column;gap:16px;width:100%}
 
-/* ----- Layout ----- */
-.rep{
-  display:flex;
-  flex-direction:column;
-  gap:20px;
-  max-width:980px;
+/* ----- Top row ----- */
+.rec-top{display:flex;justify-content:space-between;align-items:center}
+.rec-back{padding:0;background:none;border:0;font-size:13px;font-weight:700;cursor:pointer}
+.rec-back:hover{text-decoration:underline}
+.rec-dl{
+  padding:6px 18px;
+  background:#0f1b3d;
+  color:#fff;
+  border:0;
+  border-radius:999px;
+  font-size:12px;
+  cursor:pointer;
 }
-.rtop2{
-  display:flex;
-  flex-wrap:wrap;
-  gap:20px;
-}
+.rec-dl:disabled{background:#9aa3b8;cursor:not-allowed}
 
-/* ----- Cards ----- */
-.rbox{
-  flex:2;
-  min-width:300px;
-  padding:18px;
+/* ----- Title ----- */
+.rec-title h2{margin:0 0 4px;font-size:20px}
+.rec-title small{color:#6b7280;font-size:13px}
+
+/* ----- Search bar ----- */
+.rec-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rec-bar label{margin:0;font-size:13px;font-weight:600}
+.rec-bar input{width:240px;padding:9px 12px;border:1px solid #d6dbe6;border-radius:8px}
+.rec-clear{padding:7px 12px;background:#fff;border:1px solid #d6dbe6;border-radius:8px;cursor:pointer}
+
+/* ----- Table (full width) ----- */
+.rec-tbl{
+  width:100%;
+  overflow-x:auto;
   background:#fff;
   border:1px solid #e3e7f0;
   border-radius:12px;
 }
-.rbox.sm{
-  flex:1;
-  min-width:240px;
-}
-.rbox h4{margin:0 0 12px}
-.rnote{
-  margin:12px 0 0;
-  color:var(--muted);
+.rec-tbl table{width:100%;min-width:640px;border-collapse:collapse}
+.rec-tbl th{
+  padding:13px 16px;
+  background:#f6f8fc;
+  text-align:left;
   font-size:12px;
+  color:#4b5563;
+  white-space:nowrap;
+  border-bottom:1px solid #e3e7f0;
 }
+.rec-tbl td{
+  padding:13px 16px;
+  font-size:13px;
+  border-top:0;
+  border-bottom:1px solid #eef1f6;
+}
+.rec-tbl tbody tr:last-child td{border-bottom:none}
+.rec-tbl tbody tr:hover{background:#fafbfe}
+.rec-empty{text-align:center;color:#6b7280;padding:30px !important}
 
-/* ----- Legend ----- */
-.leg{
-  display:flex;
-  flex-wrap:wrap;
-  gap:18px;
-  font-size:10px;
-}
-.leg i{
-  display:inline-block;
-  width:8px;
-  height:8px;
-  margin-right:5px;
-  border-radius:50%;
-}
-
-/* ----- Weekly bar graph (scale 0 - 100%) ----- */
-.wchart{
-  display:flex;
-  gap:8px;
-  margin-top:16px;
-}
-.waxis{
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  width:26px;
-  height:160px;
-  margin-top:-6px;
-  font-size:10px;
-  text-align:right;
-}
-.wmain{
-  flex:1;
-  min-width:0;
-  overflow-x:auto;          /* scrolls sideways when the weeks keep growing */
-}
-.wcanvas{
-  min-width:calc(var(--wk) * 72px);
-}
-.wplot{
-  display:flex;
-  align-items:flex-end;
-  height:160px;
-  border-bottom:1px solid #999;
-  background:repeating-linear-gradient(to bottom,#e6e9f0 0 1px,transparent 1px 32px);
-}
-.wg{
-  flex:1;
-  min-width:72px;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  gap:4px;
-}
-.b{
-  width:14px;
-  min-height:2px;
-  border-radius:3px 3px 0 0;
-}
-.b.stub{
-  height:6px;
-  background:#e3e7f0;
-}
-.b.none{
-  min-height:0;
-  background:transparent;   /* no class that week */
-}
-.wlabels{
-  display:flex;
-  margin-top:6px;
-}
-.wlabels span{
-  flex:1;
-  min-width:72px;
-  text-align:center;
-  font-size:10px;
-}
-
-/* ----- Overall attendance rings ----- */
-.rings{
-  display:flex;
-  flex-wrap:wrap;
-  gap:14px;
-}
-.rings>div{
-  text-align:center;
-  font-size:9px;
-}
-.ring{
-  display:grid;
-  place-items:center;
-  width:58px;
-  height:58px;
-  margin:0 auto 4px;
-  border-radius:50%;
-  background:conic-gradient(var(--c) calc(var(--p)*1%),#e5e7eb 0);
-}
-.ring b{
-  display:grid;
-  place-items:center;
-  width:44px;
-  height:44px;
-  background:#fff;
-  border-radius:50%;
-  font-size:11px;
-}
-
-/* ----- Module performance bars ----- */
-.perf{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  margin:14px 0;
+/* ----- Cells ----- */
+.rec-cap{text-transform:capitalize}
+.rec-g{color:#059669;font-weight:600}
+.rec-r{color:#dc2626;font-weight:600}
+.rec-o{color:#b45309;font-weight:600}
+.rec-flagnote{color:#b45309;font-weight:500}
+.rec-live{
+  margin-left:8px;
+  padding:2px 8px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  border-radius:999px;
   font-size:11px;
   font-weight:600;
 }
-.perf span{width:170px}
-.track{
-  flex:1;
-  height:8px;
-  background:#eceef3;
-  border-radius:6px;
+.rec-pct{
+  display:inline-block;
+  padding:3px 10px;
+  background:#d1fae5;
+  color:#065f46;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
 }
-.track div{
-  height:100%;
+.rec-pct.low{background:#fee2e2;color:#991b1b}
+.rec-view{
+  padding:5px 14px;
+  background:#fff;
+  color:#2f6df0;
+  border:1px solid #2f6df0;
   border-radius:6px;
+  font-size:12px;
+  cursor:pointer;
 }
+.rec-view:hover{background:#2f6df0;color:#fff}
+
+/* ----- Status badges ----- */
+.rec-st{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+}
+.rec-st.present{background:#d1fae5;color:#065f46}
+.rec-st.absent{background:#fee2e2;color:#991b1b}
+.rec-st.flagged{background:#fef3c7;color:#b45309;cursor:help}
+
+/* ----- Teacher decides a flagged check-in ----- */
+.rec-decide{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-yes,
+.rec-no{
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.rec-yes{background:#059669;color:#fff;border:1px solid #059669}
+.rec-no{background:#fff;color:#dc2626;border:1px solid #dc2626}
+
+/* ----- Module list (/records) ----- */
+.rec-modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.rec-modcard{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:18px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.rec-modcard:hover{border-color:#2f6df0;box-shadow:0 2px 8px rgba(47,109,240,.12)}
+.rec-modcard b{font-size:15px;color:#0f1b3d}
+.rec-modcard span{font-size:13px;color:#374151}
+.rec-modcard small{margin-top:6px;font-size:11px;color:#2f6df0}
+.rec-box{padding:40px;background:#fff;border:1px solid #e3e7f0;border-radius:12px}
+.rec-empty-box{display:flex;flex-direction:column;gap:6px;text-align:center}
+.rec-empty-box small{color:#6b7280}
+
+.rec-err{margin:0;color:#b91c1c;font-size:13px}
