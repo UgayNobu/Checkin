@@ -8,66 +8,123 @@ const E = encodeURIComponent;
 export default function ProgramView({ focus = 'students' }) {
   const { program } = useParams();
   const nav = useNavigate();
+
   const [stu, setStu] = useState([]);
   const [tut, setTut] = useState([]);
+  const [mods, setMods] = useState([]);
   const [tab, setTab] = useState(focus);
   const [q, setQ] = useState('');
   const [loaded, setLoaded] = useState(false);
 
-  const load = () =>
+  const load = () => {
+    setLoaded(false);
+
     Promise.all([
-      api(`/admin/users?role=student&programme=${E(program)}`),
-      api(`/admin/users?role=teacher&programme=${E(program)}`),
+      // 1. Students in this programme
+      api(`/admin/users?role=student&programme=${E(program)}`).catch(() => []),
+      // 2. All teachers
+      api(`/admin/users?role=teacher`).catch(() => []),
+      // 3. Modules of this programme (each carries its assigned tutor)
+      api(`/admin/modules?department=${E(program)}`).catch(() => []),
     ])
-      .then(([s, t]) => {
-        // CHANGED: keep only people whose programme (or older department value) is this programme
-        const inProgramme = (x) => x.programme === program || x.department === program;
+      .then(([s, t, m]) => {
+        // ---- Students ----
+        const inProgramme = (x) =>
+          x.programme === program || x.department === program;
         setStu((Array.isArray(s) ? s : []).filter(inProgramme));
-        setTut((Array.isArray(t) ? t : []).filter(inProgramme));
+
+        // ---- Modules ----
+        const moduleList = Array.isArray(m) ? m : [];
+        setMods(moduleList);
+
+        // ---- Teachers ----
+        // Collect the userId of every tutor assigned to a module
+        // of this programme. This is the ONLY list of tutors that
+        // belongs to this programme.
+        const assignedTutorIds = new Set();
+        moduleList.forEach((mod) => {
+          const tid = mod.tutor?.userId;
+          if (tid) assignedTutorIds.add(tid);
+        });
+
+        // Strict filter: show only those tutors
+        const allTeachers = Array.isArray(t) ? t : [];
+        setTut(allTeachers.filter((x) => assignedTutorIds.has(x.userId)));
       })
-      .catch(() => {})
       .finally(() => setLoaded(true));
+  };
 
   useEffect(() => { load(); }, [program]);
   useEffect(() => { setTab(focus); }, [focus]);
 
-  const toggle = (x) => {
+  // Deactivate / Activate
+  const toggleActive = (x, role) => {
     const verb = x.active ? 'Deactivate' : 'Activate';
-    if (!window.confirm(`${verb} ${x.name}?`)) return;
-    api('/admin/users/' + x._id, { active: !x.active }, 'PATCH').then(load);
+    const msg = `${verb} the ${role} "${x.name}" (${x.userId})?`;
+    if (!window.confirm(msg)) return;
+
+    api('/admin/users/' + x._id, { active: !x.active }, 'PATCH')
+      .then(() => load())
+      .catch((err) => {
+        console.error('Update error:', err);
+        alert(`Failed to ${verb.toLowerCase()} user: ` + (err.message || 'Unknown error'));
+      });
   };
 
   const list = (tab === 'students' ? stu : tut).filter((x) =>
     ((x.name || '') + x.userId).toLowerCase().includes(q.toLowerCase())
   );
-  const active = (l) => l.filter((x) => x.active).length;
 
   return (
     <div className="pv">
       <button className="pv-back" onClick={() => nav(-1)}>&lt; Back</button>
       <h2 className="pv-title">{program}</h2>
 
-      {/* Totals */}
+      {/* 3 stat cards */}
       <div className="pv-stats">
-        <div className={'pv-stat' + (tab === 'students' ? ' on' : '')} onClick={() => setTab('students')}>
+        <div
+          className={'pv-stat' + (tab === 'students' ? ' on' : '')}
+          onClick={() => setTab('students')}
+        >
           <small>Total Students</small>
-          <b>{stu.length}</b>
-          <span>{active(stu)} active</span>
+          <b>{loaded ? stu.length : '—'}</b>
         </div>
-        <div className={'pv-stat' + (tab === 'teachers' ? ' on' : '')} onClick={() => setTab('teachers')}>
+
+        <div
+          className={'pv-stat' + (tab === 'teachers' ? ' on' : '')}
+          onClick={() => setTab('teachers')}
+        >
           <small>Total Teachers</small>
-          <b>{tut.length}</b>
-          <span>{active(tut)} active</span>
+          <b>{loaded ? tut.length : '—'}</b>
+        </div>
+
+        <div className="pv-stat pv-stat-info">
+          <small>Total Modules</small>
+          <b>{loaded ? mods.length : '—'}</b>
         </div>
       </div>
 
       {/* Tabs + search */}
       <div className="pv-bar">
         <div className="pv-tabs">
-          <button className={tab === 'students' ? 'on' : ''} onClick={() => setTab('students')}>Students</button>
-          <button className={tab === 'teachers' ? 'on' : ''} onClick={() => setTab('teachers')}>Teachers</button>
+          <button
+            className={tab === 'students' ? 'on' : ''}
+            onClick={() => setTab('students')}
+          >
+            Students
+          </button>
+          <button
+            className={tab === 'teachers' ? 'on' : ''}
+            onClick={() => setTab('teachers')}
+          >
+            Teachers
+          </button>
         </div>
-        <input placeholder="Search name or ID" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input
+          placeholder="Search name or ID"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
       </div>
 
       {/* Table */}
@@ -75,14 +132,32 @@ export default function ProgramView({ focus = 'students' }) {
         <table>
           <thead>
             {tab === 'students' ? (
-              <tr><th>NAME</th><th>STUDENT ID</th><th>ATTENDANCE</th><th>STATUS</th><th>ACTION</th></tr>
+              <tr>
+                <th>NAME</th>
+                <th>STUDENT ID</th>
+                <th>ATTENDANCE</th>
+                <th>STATUS</th>
+                <th>ACTION</th>
+              </tr>
             ) : (
-              <tr><th>STAFF ID</th><th>NAME</th><th>DEPARTMENT</th><th>STATUS</th><th>ACTION</th></tr>
+              <tr>
+                <th>STAFF ID</th>
+                <th>NAME</th>
+                <th>DEPARTMENT</th>
+                <th>STATUS</th>
+                <th>ACTION</th>
+              </tr>
             )}
           </thead>
           <tbody>
             {loaded && list.length === 0 && (
-              <tr><td colSpan={5} className="pv-empty">No {tab} found in this programme.</td></tr>
+              <tr>
+                <td colSpan={5} className="pv-empty">
+                  {tab === 'students'
+                    ? 'No students found in this programme.'
+                    : 'No teachers assigned to this programme yet.'}
+                </td>
+              </tr>
             )}
             {list.map((x) => (
               <tr key={x._id} className={x.active ? '' : 'off'}>
@@ -105,7 +180,12 @@ export default function ProgramView({ focus = 'students' }) {
                   </span>
                 </td>
                 <td>
-                  <button className={x.active ? 'pv-deact' : 'pv-actv'} onClick={() => toggle(x)}>
+                  <button
+                    className={x.active ? 'pv-deact' : 'pv-actv'}
+                    onClick={() =>
+                      toggleActive(x, tab === 'students' ? 'student' : 'teacher')
+                    }
+                  >
                     {x.active ? 'Deactivate' : 'Activate'}
                   </button>
                 </td>

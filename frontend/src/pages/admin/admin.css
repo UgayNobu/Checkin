@@ -28,15 +28,31 @@
    OVERVIEW PAGE
    ========================================================= */
 .prog {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   width: 200px;
   font-weight: 600;
   font-size: 13px;
-  padding: 8px 12px;
+  padding: 8px 36px 8px 12px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
   outline: none;
   cursor: pointer;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3e%3cpath fill='none' stroke='%234b5563' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+.prog:hover { border-color: #94a3b8; }
+.prog:focus {
+  border-color: #2f6df0;
+  box-shadow: 0 0 0 3px rgba(47, 109, 240, 0.15);
+}
+
+/* Stat cards */
 .stats {
   display: flex;
   gap: 16px;
@@ -192,7 +208,6 @@
 }
 .eb:hover { background: #f3f4f6; }
 
-/* --- Save button (green) --- */
 .eb.save {
   background: #10b981;
   color: #fff;
@@ -200,7 +215,6 @@
 }
 .eb.save:hover { background: #059669; }
 
-/* --- Delete button (red) --- */
 .eb.delete {
   background: #ef4444;
   color: #fff;
@@ -375,6 +389,7 @@
   color: #64748b;
   cursor: not-allowed;
 }
+
 .save-btn {
   width: 100%;
   margin-top: 16px;
@@ -395,4 +410,48 @@
   font-size: 12px;
   margin: 8px 0 0;
   text-align: center;
+}
+
+.save {
+  width: 100%;
+  margin-top: 16px;
+  background: #2f6df0;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.save:hover { background: #1c54d1; }
+
+/* =========================================================
+   UNIVERSAL DROPDOWN FIX
+   Every <select> inside .adm will:
+   - hide the native arrow
+   - show a custom chevron that ALWAYS points down
+   - never flip on click or focus
+   ========================================================= */
+.adm select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: #fff !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3e%3cpath fill='none' stroke='%234b5563' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px !important;
+  padding-right: 40px !important;
+  cursor: pointer;
+  outline: none;
+}
+
+.adm select:hover {
+  border-color: #94a3b8;
+}
+
+.adm select:focus {
+  border-color: #2f6df0 !important;
+  box-shadow: 0 0 0 3px rgba(47, 109, 240, 0.15) !important;
 }

@@ -6,32 +6,120 @@ import './Teacher.css';
 
 export function TeacherList() {
   const [d, setD] = useState(null);
-  
-  useEffect(() => { api('/management/teachers').then(setD); }, []);
-  
-  if (!d) return null;
-  
+  const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api('/management/teachers')
+      .then((data) => {
+        setD(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error loading teachers:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="mg">
+        <h2 className="ttl">Teacher</h2>
+        <p style={{ color: '#64748b', fontSize: 13 }}>Loading teachers...</p>
+      </div>
+    );
+  }
+
+  if (!d) {
+    return (
+      <div className="mg">
+        <h2 className="ttl">Teacher</h2>
+        <p style={{ color: '#ef4444', fontSize: 13 }}>Failed to load teacher data.</p>
+      </div>
+    );
+  }
+
+  // Group rows by teacher name so we can show one avatar per teacher
+  const rows = (d.rows || []).filter((r) => {
+    const s = (r.name + ' ' + r.module).toLowerCase();
+    return s.includes(q.toLowerCase());
+  });
+
+  const initials = (name) =>
+    name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
   return (
     <div className="mg">
-      <h2 className="ttl">Teacher</h2>
-      <div className="stat" style={{ marginBottom: 24 }}>
-        <small>Total Teacher</small><b>{d.total}</b>
+      {/* Header */}
+      <div className="tch-header">
+        <div>
+          <h2 className="ttl">Teachers</h2>
+          <p className="tch-sub">All faculty members and the modules they teach</p>
+        </div>
+        <div className="tch-stat">
+          <small>Total Teachers</small>
+          <b>{d.total}</b>
+        </div>
       </div>
-      <h4 style={{ fontSize: 11 }}>All</h4>
-      <div className="tbl" style={{ maxWidth: 560 }}>
+
+      {/* Search bar */}
+      <div className="tch-toolbar">
+        <input
+          className="tch-search"
+          placeholder="🔍  Search by teacher name or module..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <span className="tch-count">
+          {rows.length} {rows.length === 1 ? 'row' : 'rows'}
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="tch-tbl">
         <table>
           <thead>
-            <tr><th>Module</th><th>Name</th><th>class</th><th>total class take</th></tr>
+            <tr>
+              <th style={{ width: '40%' }}>MODULE</th>
+              <th style={{ width: '30%' }}>TEACHER</th>
+              <th style={{ width: '15%' }}>CLASS</th>
+              <th style={{ width: '15%' }}>HOURS</th>
+            </tr>
           </thead>
           <tbody>
-            {d.rows.map((r, i) => (
-              <tr key={i}>
-                <td>{r.module}</td>
-                <td>{r.name}</td>
-                <td className="mut">{r.cls}</td>
-                <td><span className="pill ok">{r.hours}hr</span></td>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="tch-empty">
+                  No teachers match your search.
+                </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="tch-module">{r.module}</td>
+                  <td>
+                    <div className="tch-person">
+                      <div className="tch-avatar">{initials(r.name || '?')}</div>
+                      <div>
+                        <b>{r.name}</b>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {r.cls ? (
+                      <span className="tch-badge">{r.cls}</span>
+                    ) : (
+                      <span className="tch-muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={'tch-hours ' + (r.hours > 0 ? 'has' : '')}>
+                      {r.hours} hr
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
