@@ -452,6 +452,12 @@ td {
 }
 
 /* ---------- 14. Responsive ---------- */
+/* Phone top bar and drawer: hidden on wider screens */
+.mbar,
+.mshade {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .login {
     grid-template-columns: 1fr;
@@ -461,8 +467,163 @@ td {
     display: none;
   }
 
+  /* App shell: content gets the full width; the sidebar slides in from the left */
+  .shell {
+    display: block;
+  }
+
+  .mbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    color: #fff;
+    background: var(--navy-staff);
+  }
+
+  .student .mbar {
+    background: var(--navy-student);
+  }
+
+  .mbar .logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    object-fit: cover;
+  }
+
+  .mbar-btn {
+    display: grid;
+    gap: 4px;
+    width: 38px;
+    height: 38px;
+    padding: 10px 9px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+  }
+
+  .mbar-btn span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
+  }
+
   .side {
-    width: 150px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: 250px;
+    max-width: 82vw;
+    overflow-y: auto;
+    padding-top: max(14px, env(safe-area-inset-top));
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .menu-open .side {
+    transform: none;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .side a {
+    font-size: 15px;
+    padding: 12px;
+  }
+
+  .mshade {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(10, 15, 30, 0.45);
+  }
+
+  .menu-open .mshade {
+    display: block;
+  }
+
+  .main {
+    min-height: calc(100vh - 58px);
+  }
+
+  /* Page header: title on top, the person underneath */
+  .top {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .top > div:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .top h2 {
+    font-size: 18px;
+  }
+
+  .me {
+    flex-wrap: wrap;
+  }
+
+  .page {
+    padding: 14px 16px;
+  }
+
+  /* Wide tables scroll sideways inside their box instead of stretching the page */
+  .page table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page img {
+    max-width: 100%;
+  }
+
+  /* Rows of panels and cards stack */
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .row > .panel {
+    flex: 1 1 100% !important;
+    min-width: 0;
+  }
+
+  /* Forms and cards that assume a wide screen */
+  .pform {
+    min-width: 0 !important;
+  }
+
+  .g2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mcards .mcard,
+  .prof .pcard {
+    width: 100%;
+  }
+
+  .page .ok:empty {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side {
+    transition: none;
   }
 }
 /* Student sign-up photo */
