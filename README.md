@@ -12,10 +12,10 @@ Students, tutors, admins and management each get their own dashboard.
 
 | Member | Role |
 |---|---|
-| Dechen Wangmo | Team Lead · Database |
+| Dechen Wangmo | Team Lead  |
 | Ugyen Norbu | Member |
 | Damchey Lhendup | Member |
-| Sanskar Gurung | Member · Frontend |
+| Sanskar Gurung | Member  |
 | Sanjuck Subba | Member |
 
 ## Features
