@@ -6,7 +6,8 @@
 //  2. session not ended
 //  3. student is enrolled in the module
 //  4. not already checked in
-//  5. location:
+//  5. location — the geofence is either a building outline (polygon, see config/buildings.js)
+//     or the tutor's workshop circle (tutor GPS + radius):
 //       clearly outside the geofence      → REFUSED ("not in the classroom area").
 //                                           Nothing is saved; if they don't check in
 //                                           properly before the code expires, the
@@ -28,8 +29,11 @@ const { normalizeCode, isValidCodeFormat } = require('../utils/code');
 const { round1, flagText } = require('../utils/format');
 const { BadRequest, Forbidden, Conflict } = require('../utils/errors');
 const { notify } = require('./notifications.service');
+const { buildingFromCode, publicBuildings } = require('../config/buildings');
+const { locateInBuilding } = require('../utils/geofence');
+const { locationOf } = require('./session.service');
 
-async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, locationError, offline }) {
+async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissionDenied, locationError, offline }) {
   const c = normalizeCode(code);
   if (!isValidCodeFormat(c)) throw BadRequest('That code doesn’t look right. Check it and try again.', 'CODE_INVALID');
 
@@ -39,6 +43,8 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
     include: { session: { include: { section: { include: { module: true } } } } },
   });
   if (!row) throw BadRequest('That code is not valid. Ask your tutor to confirm it.', 'CODE_INVALID');
+  // The student picked a class on the building card first: the code must belong to that class.
+  if (sessionId && row.sessionId !== sessionId) throw BadRequest('That code is not for the class you selected.', 'CODE_WRONG_CLASS');
   if (row.session.status === SESSION_STATUS.ENDED) throw BadRequest('This session has ended', 'SESSION_ENDED');
   const graceEnd = row.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000;
   if (row.expiryTimestamp <= now && !(offline && now.getTime() < graceEnd)) throw BadRequest('This code has expired', 'CODE_EXPIRED');
@@ -57,14 +63,21 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   else if (locationError) flagReason = FLAG_REASONS.LOCATION;
   else if (noLocation) flagReason = FLAG_REASONS.PERMISSION;
   else {
-    distance = round1(haversineMeters({ lat, lng }, { lat: row.latitude, lng: row.longitude }));
+    // building session: distance = metres outside the building's walls (0 inside)
+    // workshop session: distance = metres from the tutor's position
+    const building = buildingFromCode(row);
+    distance = round1(building
+      ? locateInBuilding({ lat, lng }, building).outsideBy
+      : haversineMeters({ lat, lng }, { lat: row.latitude, lng: row.longitude }));
     if (distance > row.geofenceRadius) {
       const couldBeInside = accuracy !== undefined && distance - accuracy <= row.geofenceRadius;
       if (!couldBeInside) {
         // Right code, but clearly not in the classroom: refuse. Nothing is saved, so they can
         // move into the room and try again; if they don't, the session sweep marks them Absent.
         throw BadRequest(
-          `You are not in the classroom area (about ${Math.round(distance)} m away). Move into the classroom and try again.`,
+          building
+            ? `You are not inside the ${building.name} (about ${Math.round(distance)} m outside it). Go to your class and try again.`
+            : `You are not in the workshop area (about ${Math.round(distance)} m from your tutor). Move closer and try again.`,
           'OUTSIDE_RADIUS'
         );
       }
@@ -107,4 +120,39 @@ async function checkIn(student, { code, lat, lng, accuracy, permissionDenied, lo
   };
 }
 
-module.exports = { checkIn };
+/**
+ * Classes the student can check in to right now (enrolled, session ongoing, code not expired),
+ * grouped by the 5 cards on the attendance page. The code itself is never sent.
+ */
+async function liveClasses(student) {
+  const now = new Date();
+  const sessions = await prisma.classSession.findMany({
+    where: {
+      status: SESSION_STATUS.ONGOING,
+      codes: { some: { expiryTimestamp: { gt: now } } },
+      section: { module: { enrollments: { some: { studentId: student.id } } } },
+      attendance: { none: { studentId: student.id } }, // already checked in → hide it
+    },
+    include: {
+      section: { include: { module: true, tutor: { select: { name: true } } } },
+      taker: { select: { name: true } },
+      codes: { orderBy: { expiryTimestamp: 'desc' }, take: 1 },
+    },
+  });
+  // enrolment must be in the section's own semester
+  const enrolled = await prisma.enrollment.findMany({ where: { studentId: student.id }, select: { moduleId: true, academicSession: true } });
+  const ok = new Set(enrolled.map((e) => `${e.moduleId}|${e.academicSession}`));
+  const classes = sessions
+    .filter((se) => ok.has(`${se.section.moduleId}|${se.section.academicSession}`))
+    .map((se) => ({
+      sessionId: se.id,
+      module: { code: se.section.module.code, name: se.section.module.name },
+      type: se.sessionType, room: se.section.room,
+      tutor: se.taker?.name || se.section.tutor?.name || null,
+      expiresAt: se.codes[0].expiryTimestamp,
+      location: locationOf(se.codes[0]),
+    }));
+  return { buildings: publicBuildings(), classes };
+}
+
+module.exports = { checkIn, liveClasses };
