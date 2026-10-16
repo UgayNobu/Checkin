@@ -38,7 +38,8 @@ letters, a number and a symbol.
 | GET | `/api/student/modules/:id/records` | Session list split into theory / practical |
 | GET | `/api/modules/browse` [`/api/student/modules`] | Every module in each programme's curriculum, with `selfEnrol` and `enrolled` (no keys) |
 | POST | `/api/modules/enrol` [`/api/student/enrol`] | `{ module, key }` (VLE-style: pick the module, type its key) or `{ key }`. Refused when self-enrolment is closed |
-| POST | `/api/attendance/checkin` [`/api/checkin`] | `{ code, lat, lng, accuracy, permissionDenied, locationError, offline }` → present or flagged with a reason |
+| POST | `/api/attendance/checkin` [`/api/checkin`] | `{ code, sessionId?, lat, lng, accuracy, permissionDenied, locationError, offline }` → present or flagged with a reason. `sessionId` = the class picked on the building card; the code must belong to it. Building sessions check the student is inside the building outline (10 m edge tolerance); workshop sessions check the tutor's radius |
+| GET | `/api/attendance/live` | `{ buildings, classes }`: the student's classes open for check-in now (no codes), each with `location` (`{ mode: 'building', building, name }` or `{ mode: 'workshop', radius }`) |
 | GET | `/api/student/timetable` | My weekly timetable: my programme and year, plus modules I'm enrolled in (`enrolled`). Today's slots have `isToday` and `session: { id, status, myStatus }` |
 | GET | `/api/attendance/me?month=2026-10` [`/api/student/calendar`] | `{ day: present/flagged/absent }` |
 
@@ -59,7 +60,8 @@ Module management — `/api/modules`: `GET /:id/key/suggest` · `PUT /:id/key` `
 Sessions — `/api/sessions`:
 | Method | Path | What |
 |---|---|---|
-| POST | `/` [`/start`] | `{ module, room, type, hours, lat, lng, minutes?, radius? }`, or add `slot` (a timetable slot id) to start from the timetable and link the session to it, or `{ sessionId, lat, lng }` to re-open |
+| POST | `/` [`/start`] | `{ module, room, type, hours, minutes?, mode, … }` where `mode: 'building'` needs `building` (`IT` \| `LT` \| `ACAD` \| `ARCH`, outlines and room lists in `src/config/buildings.js`, no GPS needed; if omitted, it is worked out from the room, e.g. `ITL 06` → IT) and `mode: 'workshop'` needs the tutor's `lat, lng` and `radius` (5–500 m). Add `slot` (a timetable slot id) to start from the timetable and link the session to it, or `{ sessionId, mode, … }` to re-open. Response includes `location` |
+| GET | `/buildings` | Campus buildings `{ key, name, polygons, rooms }` for the location and room pickers |
 | GET | `/mine?limit=&status=` | My sessions |
 | GET | `/:id/live` | Counter for the start screen, flagged students with their reason; closes the session once the code (plus grace time) has run out |
 | GET | `/:id/roster` | Every enrolled student with status, distance, accuracy, flag reason |

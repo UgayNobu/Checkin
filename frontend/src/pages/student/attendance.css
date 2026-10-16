@@ -27,6 +27,60 @@
 
 .msg{margin:8px 0 0;color:#3bb54a;font-size:13px;font-weight:600}
 
+/* ===== Building cards (4 buildings + workshop) ===== */
+.places{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:12px;
+  margin-top:12px;
+}
+.place{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:14px 10px;
+  background:#fff;
+  border:2px solid transparent;
+  border-radius:12px;
+  box-shadow:0 1px 3px #0003;
+  font:inherit;
+  cursor:pointer;
+  transition:transform .12s,border-color .12s;
+}
+.place:not(:disabled):hover{transform:translateY(-2px)}
+.place.on{border-color:var(--blue)}
+.place:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.place .outline{width:56px;height:56px}
+.place .outline path{fill:#dbe7ff;stroke:var(--blue);stroke-width:2;stroke-linejoin:round}
+.place.ws .outline path{fill:var(--blue);stroke:none}
+.place .outline .ring{fill:none;stroke:var(--blue);stroke-width:2;stroke-dasharray:6 5}
+.place .outline .dot{fill:#fff}
+.pname{font-weight:700;font-size:13px;text-align:center}
+.pinfo{font-size:11px;color:var(--muted)}
+.place:not(:disabled) .pinfo{color:#047857;font-weight:600}
+
+/* ===== Choose class + enter code ===== */
+.step{display:flex;flex-direction:column;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.classes{display:flex;flex-direction:column;gap:8px}
+.cls{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+  padding:10px 12px;
+  background:#fff;
+  border:2px solid transparent;
+  border-radius:10px;
+  box-shadow:0 1px 3px #0002;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.cls.on{border-color:var(--blue)}
+.cls b{font-size:13px}
+.cls span{font-size:11px;color:var(--muted)}
+
 /* ===== Calendar ===== */
 .calbox{
   padding:18px;
