@@ -21,8 +21,8 @@ const startSessionSchema = z.object({
 })
   .refine((b) => b.module || b.sessionId || b.slot || b.change, { message: 'Choose a module', path: ['module'] })
   .refine((b) => b.mode !== 'building' || b.building || b.room || b.slot || b.change, { message: 'Choose the building', path: ['building'] })
-  .refine((b) => b.mode !== 'workshop' || (b.lat !== undefined && b.lng !== undefined), { message: 'Your location is needed for a workshop session', path: ['lat'] })
-  .refine((b) => b.mode !== 'workshop' || b.radius !== undefined, { message: 'Enter the workshop radius in metres', path: ['radius'] });
+  // workshop radius is optional: without it the default GEOFENCE_METRES (40 m) is used
+  .refine((b) => b.mode !== 'workshop' || (b.lat !== undefined && b.lng !== undefined), { message: 'Your location is needed for a workshop session', path: ['lat'] });
 
 const sessionIdParamSchema = z.object({ id });
 const flaggedParamSchema = z.object({ id, attendanceId: id });
