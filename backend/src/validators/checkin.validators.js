@@ -4,6 +4,7 @@ const coord = (min, max) => z.preprocess(blankToUndef, z.coerce.number().min(min
 
 const checkInSchema = z.object({
   code: z.string().trim().min(4, 'Enter the check-in code').max(12),
+  sessionId: z.preprocess(blankToUndef, z.string().trim().max(40).optional()), // class picked on the building card
   lat: coord(-90, 90),
   lng: coord(-180, 180),
   accuracy: z.preprocess(blankToUndef, z.coerce.number().min(0).optional()),

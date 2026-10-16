@@ -4,6 +4,15 @@ import { api } from '../../api';
 
 const WINDOW_MIN = 2; // check-in window in minutes
 
+// Same matching as the backend (config/buildings.js): "ITL06", "itl-6", "CR3", "Drawing Studio 2" …
+const squash = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const roomKey = (t) => {
+  const m = squash(t).match(/^(ITL|IT|CR|LT|DS|DRAWINGSTUDIO|STUDIO)(\d+)$/);
+  return m ? `${/STUDIO/.test(m[1]) ? 'DS' : m[1]}|${Number(m[2])}` : null;
+};
+const buildingOfRoom = (room, buildings) =>
+  buildings.find((b) => b.rooms?.some((r) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room))));
+
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 // Today's date, e.g. "Wednesday, October 14, 2026"
@@ -13,7 +22,9 @@ const todayText = () =>
 export default function StartAttendance() {
   const [mods, setMods] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [f, setF] = useState({ module: '', room: '', type: 'theory', hours: 1 });
+  // where: 'IT' | 'LT' | 'ACAD' | 'ARCH' = students must be inside that building; 'WORKSHOP' = within radius of me
+  const [f, setF] = useState({ module: '', room: '', type: 'theory', hours: 1, where: '', radius: 30 });
+  const [buildings, setBuildings] = useState([]);
   const [sid, setSid] = useState(null);
   const [live, setLive] = useState(null);
   const [ends, setEnds] = useState(null);
@@ -35,6 +46,9 @@ export default function StartAttendance() {
       .catch(() => setMods([]))
       .finally(() => setLoaded(true));
   }, []);
+
+  // Campus buildings for the location picker
+  useEffect(() => { api('/sessions/buildings').then((b) => setBuildings(Array.isArray(b) ? b : [])).catch(() => {}); }, []);
 
   // Coming back to this page: restore a session that is still running
   useEffect(() => {
@@ -65,7 +79,7 @@ export default function StartAttendance() {
         const [sh, sm] = x.start.split(':').map(Number), [eh, em] = x.end.split(':').map(Number);
         const hours = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
         setSlot(x);
-        setF({ module: x.module.id, room: x.room?.name || '', type: x.type === 'practical' ? 'practical' : 'theory', hours });
+        setF((o) => ({ ...o, module: x.module.id, room: x.room?.name || '', type: x.type === 'practical' ? 'practical' : 'theory', hours, where: x.type === 'practical' ? 'WORKSHOP' : o.where }));
       })
       .catch(() => {});
   }, [params]);
@@ -81,7 +95,7 @@ export default function StartAttendance() {
         if (!c || c.type === 'cancelled') return;
         const hours = Math.max(1, Math.round(((+c.end.slice(0, 2) * 60 + +c.end.slice(3)) - (+c.start.slice(0, 2) * 60 + +c.start.slice(3))) / 60));
         setChg(c);
-        setF({ module: c.module.id, room: c.room?.name || '', type: c.sessionType === 'practical' ? 'practical' : 'theory', hours });
+        setF((o) => ({ ...o, module: c.module.id, room: c.room?.name || '', type: c.sessionType === 'practical' ? 'practical' : 'theory', hours, where: c.sessionType === 'practical' ? 'WORKSHOP' : o.where }));
       })
       .catch(() => {});
   }, [params]);
@@ -126,40 +140,58 @@ export default function StartAttendance() {
   };
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  // Practicals usually happen in a workshop, so switching the type suggests the matching location
+  const setType = (e) => {
+    const type = e.target.value;
+    setF({ ...f, type, where: type === 'practical' ? 'WORKSHOP' : f.where === 'WORKSHOP' ? '' : f.where });
+  };
+  const workshop = f.where === 'WORKSHOP';
+  const roomBuilding = buildingOfRoom(f.room, buildings);
+  useEffect(() => {
+    if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
+  }, [f.room, buildings]);
+
+  const start = (pos) => {
+    const { where, radius, ...rest } = f;
+    return api('/sessions', {
+      ...rest,
+      ...(slot && f.module === slot.module.id && { slot: slot.id }),
+      ...(chg && f.module === chg.module.id && { change: chg.id }),
+      ...(workshop
+        ? { mode: 'workshop', radius: Number(radius), lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }
+        : { mode: 'building', building: where }),
+      minutes: WINDOW_MIN,
+    })
+      .then((s) => {
+        setLive(null);
+        setShowFlags(false);
+        setSid(s._id || s.id);
+        setEnds(s.expiresAt ? new Date(s.expiresAt).getTime() : Date.now() + WINDOW_MIN * 60000);
+        setMsg('');
+      })
+      .catch((x) => { setMsg(x.message); setNotNow(x.code === 'CLASS_NOT_NOW'); })
+      .finally(() => setBusy(false));
+  };
 
   const gen = () => {
     if (!f.module) return setMsg('Please select a module.');
+    if (!f.where) return setMsg('Choose where the class is.');
+    if (workshop && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setMsg('Workshop radius must be 5–500 metres.');
     setNotNow(false);
-    if (!navigator.geolocation) return setMsg('Location is not supported on this browser.');
-
     setBusy(true);
-    setMsg('Getting your location…');
 
+    // A building's outline is already known: no need for the tutor's GPS
+    if (!workshop) return start(null);
+
+    if (!navigator.geolocation) { setBusy(false); return setMsg('Location is not supported on this browser.'); }
+    setMsg('Getting your location…');
     navigator.geolocation.getCurrentPosition(
-      (p) =>
-        api('/sessions', {
-          ...f,
-          ...(slot && f.module === slot.module.id && { slot: slot.id }),
-          ...(chg && f.module === chg.module.id && { change: chg.id }),
-          lat: p.coords.latitude,
-          lng: p.coords.longitude,
-          accuracy: p.coords.accuracy,
-          minutes: WINDOW_MIN,
-        })
-          .then((s) => {
-            setLive(null);
-            setShowFlags(false);
-            setSid(s._id || s.id);
-            setEnds(s.expiresAt ? new Date(s.expiresAt).getTime() : Date.now() + WINDOW_MIN * 60000);
-            setMsg('');
-          })
-          .catch((x) => { setMsg(x.message); setNotNow(x.code === 'CLASS_NOT_NOW'); })
-          .finally(() => setBusy(false)),
+      start,
       (e) => {
         setBusy(false);
         setMsg(
           e.code === 1
-            ? 'Allow location access to start a session.'
+            ? 'Allow location access to start a workshop session.'
             : 'Could not get your location. Please try again.'
         );
       },
@@ -221,13 +253,44 @@ export default function StartAttendance() {
         </select>
 
         <label>Room</label>
-        <input value={f.room} onChange={set('room')} disabled={open} />
+        <input value={f.room} onChange={set('room')} disabled={open} list="cst-rooms" placeholder="e.g. ITL 06" />
+        <datalist id="cst-rooms">
+          {buildings.flatMap((b) =>
+            (b.rooms || []).map((r) => (
+              <option key={r.name} value={r.name}>{r.label ? `${r.label} · ${b.name}` : b.name}</option>
+            ))
+          )}
+        </datalist>
+        {roomBuilding && !workshop && (
+          <small style={{ display: 'block', color: '#047857', marginTop: -4, marginBottom: 8 }}>
+            {f.room} is in the {roomBuilding.name}, so it’s selected below.
+          </small>
+        )}
 
         <label>Practical / theory</label>
-        <select value={f.type} onChange={set('type')} disabled={open}>
+        <select value={f.type} onChange={setType} disabled={open}>
           <option>theory</option>
           <option>practical</option>
         </select>
+
+        <label>Where students must be</label>
+        <select value={f.where} onChange={set('where')} disabled={open}>
+          <option value="">Select location</option>
+          {buildings.map((b) => (
+            <option key={b.key} value={b.key}>{b.name}</option>
+          ))}
+          <option value="WORKSHOP">Workshop – around my location</option>
+        </select>
+
+        {workshop && (
+          <>
+            <label>Workshop radius (metres)</label>
+            <input type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open} />
+            <small style={{ display: 'block', color: '#6b7280', marginTop: -4, marginBottom: 8 }}>
+              Stand in the middle of the workshop when you generate the code. Students must be within this distance of you.
+            </small>
+          </>
+        )}
 
         <label>Total hour</label>
         <input type="number" min="1" value={f.hours} onChange={set('hours')} disabled={open} />
@@ -277,6 +340,13 @@ export default function StartAttendance() {
                 {mmss(left)}
               </p>
               <small>Students enter this code in the CheckIn app before the timer runs out.</small>
+              {live?.location && (
+                <small style={{ display: 'block', marginTop: 4, color: '#2f6df0', fontWeight: 600 }}>
+                  {live.location.mode === 'building'
+                    ? `📍 Inside the ${live.location.name}`
+                    : `📍 Workshop · within ${Math.round(live.location.radius)} m of you`}
+                </small>
+              )}
             </>
           ) : (
             <>

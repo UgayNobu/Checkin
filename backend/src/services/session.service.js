@@ -11,6 +11,7 @@ const { NotFound, Conflict, BadRequest } = require('../utils/errors');
 const { sessionOrCurrent } = require('../lib/academicSession');
 const { notify } = require('./notifications.service');
 const { planStart } = require('./classChange.service');
+const { buildingByKey, buildingForRoom, buildingFromCode, EDGE_TOLERANCE_M } = require('../config/buildings');
 const latestCode = { orderBy: { expiryTimestamp: 'desc' }, take: 1 };
 
 /** Loads a session and checks this tutor teaches it. "Not found" hides other tutors' sessions. */
@@ -39,29 +40,39 @@ async function uniqueCode() {
  *    the timetable can be started any time), or
  *  • { sessionId } → re-opens an existing (scheduled/ongoing) session with a fresh code.
  * Outside class time the tutor books an extra class (classChange.service.js).
- * The tutor's current GPS becomes the classroom centre for the geofence.
+ * Geofence (b.mode):
+ *  • 'building' → students must be inside that building's outline (config/buildings.js).
+ *                 The code stores the building's anchor point + edge tolerance, so no DB change is needed.
+ *  • 'workshop' → the tutor's current GPS is the centre and b.radius (metres) the circle.
  */
 async function startSession(tutorId, b) {
-  const minutes = b.minutes ?? env.codeValidityMinutes, radius = b.radius ?? env.geofenceMetres;
+  const minutes = b.minutes ?? env.codeValidityMinutes;
+  // Which class this is (timetable class, extra class, cover) and whether it's class time.
+  // Worked out first so the class's room can decide the building when the tutor didn't pick one.
+  const plan = b.sessionId ? null : await planStart(tutorId, b);
+  const room = b.room || plan?.room;
+  // building chosen by the tutor, else the building the room is in (e.g. "ITL 06" → IT)
+  const building = b.mode === 'building' ? (buildingByKey(b.building) || buildingForRoom(room)) : null;
+  if (b.mode === 'building' && !building) throw BadRequest('Choose the building — that room is not in the building list.', 'BUILDING_INVALID');
+  const radius = building ? EDGE_TOLERANCE_M : (b.radius ?? env.geofenceMetres);
+  const centre = building ? building.anchor : { lat: b.lat, lng: b.lng };
   const now = new Date(), expiry = new Date(Date.now() + minutes * 60_000);
   const code = await uniqueCode();
-  const codeData = { code, expiryTimestamp: expiry, geofenceRadius: radius, latitude: b.lat, longitude: b.lng };
+  const codeData = { code, expiryTimestamp: expiry, geofenceRadius: radius, latitude: centre.lat, longitude: centre.lng };
+  const where = locationOf(codeData);
 
   if (b.sessionId) {
     const se = await ownedSession(b.sessionId, tutorId);
     if (se.status === SESSION_STATUS.ENDED) throw Conflict('This session has already ended', 'SESSION_ENDED');
     const live = se.codes[0];
-    if (se.status === SESSION_STATUS.ONGOING && live && live.expiryTimestamp > now) return { _id: se.id, code: live.code, expiresAt: live.expiryTimestamp };
+    if (se.status === SESSION_STATUS.ONGOING && live && live.expiryTimestamp > now) return { _id: se.id, code: live.code, expiresAt: live.expiryTimestamp, location: locationOf(live) };
     await prisma.$transaction([
       prisma.attendanceCode.create({ data: { sessionId: se.id, ...codeData } }),
       prisma.classSession.update({ where: { id: se.id }, data: { status: SESSION_STATUS.ONGOING } }),
     ]);
-    return { _id: se.id, code, expiresAt: expiry };
+    return { _id: se.id, code, expiresAt: expiry, location: where };
   }
 
-  // Which class this is (timetable class, extra class, cover) and whether it's class time
-  const plan = await planStart(tutorId, b);
-  const room = b.room || plan.room;
   if (room && !plan.takenBy) await prisma.section.updateMany({ where: { id: plan.sectionId, room: { not: room } }, data: { room } });
   const se = await prisma.classSession.create({
     data: {
@@ -70,7 +81,14 @@ async function startSession(tutorId, b) {
       codes: { create: codeData },
     },
   });
-  return { _id: se.id, code, expiresAt: expiry, radius, minutes, optional: !plan.counts };
+  return { _id: se.id, code, expiresAt: expiry, radius, minutes, optional: !plan.counts, location: where };
+}
+
+/** Readable geofence of an attendance code: { mode: 'building', building, name } or { mode: 'workshop', radius }. */
+function locationOf(codeRow) {
+  if (!codeRow) return null;
+  const bld = buildingFromCode(codeRow);
+  return bld ? { mode: 'building', building: bld.key, name: bld.name } : { mode: 'workshop', radius: codeRow.geofenceRadius };
 }
 
 /**
@@ -128,7 +146,7 @@ async function live(id, tutorId) {
   const present = list.filter((a) => ATTENDED.includes(a.status)).length;
   const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
   return {
-    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total, optional: !se.counts,
+    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total, optional: !se.counts, location: locationOf(c),
     checkedIn: present,
     absent: Math.max(0, total - present - flagged.length),
     flagged: flagged.map((a) => ({ id: a.id, attendanceId: a.id, name: a.student.name, flagReason: a.flagReason, reason: flagText(a.flagReason) })),
@@ -179,6 +197,7 @@ async function roster(id, tutorId) {
     session: {
       _id: se.id, module: { code: se.section.module.code, name: se.section.module.name }, date: sessionStart(se), type: se.sessionType,
       status: se.status, code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, radius: c?.geofenceRadius ?? null, optional: !se.counts,
+      location: locationOf(c),
     },
     counts: { enrolled: rows.length, present: n('present'), flagged: n('flagged'), absent: n('absent') },
     rows,
@@ -212,4 +231,4 @@ async function markManually(id, tutorId, studentId, present) {
   return { userId: studentId, status: present ? 'present' : 'absent' };
 }
 
-module.exports = { ownedSession, startSession, finalizeSession, sweepExpiredSessions, live, listMine, endSession, roster, decideFlagged, markManually };
+module.exports = { locationOf, ownedSession, startSession, finalizeSession, sweepExpiredSessions, live, listMine, endSession, roster, decideFlagged, markManually };
