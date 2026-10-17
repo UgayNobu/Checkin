@@ -74,7 +74,7 @@ export function Students() {
                 <td><b>{x.name}</b></td>
                 <td>{x.userId}</td>
                 <td>{x.programme || x.department}</td>
-                <td>{x.pct ?? 0}%</td>
+                <td>{x.pct == null ? '–' : `${x.pct}%`}</td>
                 <td><StatusPill user={x} /></td>
                 <td>
                   <button className="eb" onClick={() => rename(x)}>Edit</button>

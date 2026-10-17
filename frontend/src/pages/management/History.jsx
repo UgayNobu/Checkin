@@ -88,7 +88,7 @@ export function History() {
                 <td>{r.userId || r.sid}</td>
                 <td>{r.module}</td>
                 <td>{r.teacher || '–'}</td>
-                <td><span className={'pill ' + (r.pct >= 90 ? 'b' : 'o')}>{r.pct}%</span></td>
+                <td>{r.pct == null ? <span className="mut">No classes yet</span> : <span className={'pill ' + (r.pct >= 90 ? 'b' : 'o')}>{r.pct}%</span>}</td>
                 <td>
                   <a className="view" style={{ color: 'var(--blue)', cursor: 'pointer' }} onClick={() => nav(`/history/${r.sid}/${r.mid}`)}>
                     View
@@ -164,7 +164,7 @@ export function HistoryCalendar() {
             <div><b>{info.total ?? 0}</b><small>Classes</small></div>
             <div className="g"><b>{info.present ?? 0}</b><small>Present</small></div>
             <div className="r"><b>{info.absent ?? 0}</b><small>Absent</small></div>
-            <div className={info.pct >= 90 ? 'g' : 'r'}><b>{info.pct ?? 0}%</b><small>Attendance</small></div>
+            <div className={info.pct == null ? '' : info.pct >= 90 ? 'g' : 'r'}><b>{info.pct == null ? '–' : `${info.pct}%`}</b><small>Attendance</small></div>
           </div>
         </div>
       )}

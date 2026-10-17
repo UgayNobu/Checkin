@@ -12,8 +12,12 @@ async function dashboard(studentId) {
   const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
   const m = await loadMatrix(en.map((e) => e.moduleId), [studentId]);
   return en.map((e) => {
-    const pct = m.pct(studentId, e.moduleId) ?? 0;
-    return { id: e.moduleId, name: e.module.name, code: e.module.code, pct, atRisk: pct < env.atRiskPct, belowRequired: pct < env.requiredPct };
+    // pct is null until a class of the module has been held: "no classes yet", not 0%
+    const pct = m.pct(studentId, e.moduleId);
+    return {
+      id: e.moduleId, name: e.module.name, code: e.module.code, pct, classes: m.sessionsOf(e.moduleId).length,
+      atRisk: pct != null && pct < env.atRiskPct, belowRequired: pct != null && pct < env.requiredPct,
+    };
   });
 }
 
@@ -22,7 +26,7 @@ async function summary(studentId) {
   const mods = await enrolledModuleIds(studentId);
   const t = (await loadMatrix(mods, [studentId])).overallTally(studentId, mods);
   return {
-    rate: t.total ? Math.round((t.present / t.total) * 100) : 0,
+    rate: t.total ? Math.round((t.present / t.total) * 100) : null, // null = no classes held yet
     absences: t.missed,
     absentHours: round1(t.missedHours),
     required: env.requiredPct,
@@ -37,8 +41,8 @@ async function moduleRecords(studentId, moduleId) {
   const rows = m.sessionsOf(moduleId)
     .map((s) => ({ date: sessionStart(s), hours: s.duration / 60, type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }))
     .reverse();
-  const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) ?? 0 });
-  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) ?? 0 };
+  const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) }); // null = none held
+  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) };
 }
 
 /**

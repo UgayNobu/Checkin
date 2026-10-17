@@ -296,7 +296,7 @@ export function MyModules() {
               <b>{m.name}</b>
               <small>{m.code}</small>
             </div>
-            <span className={'pc ' + cls(m.pct)}>{Math.round(m.pct)}%</span>
+            <span className={'pc ' + (m.pct == null ? '' : cls(m.pct))}>{m.pct == null ? '–' : `${Math.round(m.pct)}%`}</span>
           </div>
         ))}
       </div>

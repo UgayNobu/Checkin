@@ -119,7 +119,8 @@ async function overallFor(studentIds, { term } = {}) {
   const m = await loadMatrix(mods, studentIds, { term: academicSession });
   const byStudent = new Map(studentIds.map((id) => [id, []]));
   en.forEach((e) => byStudent.get(e.studentId).push(e.moduleId));
-  return new Map(studentIds.map((id) => [id, m.overall(id, byStudent.get(id)) ?? 0]));
+  // null = no classes held yet in their modules (not the same as 0%)
+  return new Map(studentIds.map((id) => [id, m.overall(id, byStudent.get(id))]));
 }
 
 /**

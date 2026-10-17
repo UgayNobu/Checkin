@@ -318,7 +318,7 @@ export default function AdminOverview() {
                       <>
                         <td><b>{x.name}</b></td>
                         <td>{x.userId}</td>
-                        <td>{x.pct ?? 0}%</td>
+                        <td>{x.pct == null ? '–' : `${x.pct}%`}</td>
                       </>
                     ) : (
                       <>

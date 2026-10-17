@@ -220,9 +220,10 @@ async function programmeReport(name) {
   const pct = await overallFor(studs.map((u) => u.id));
   const rows = studs.map((u) => {
     const p = pct.get(u.id);
-    return { userId: u.id, name: u.name, programme: u.programme, year: u.year, pct: p, status: p < env.atRiskPct ? 'At risk' : 'OK' };
+    return { userId: u.id, name: u.name, programme: u.programme, year: u.year, pct: p, status: p == null ? 'No classes yet' : p < env.atRiskPct ? 'At risk' : 'OK' };
   });
-  const avg = rows.length ? round1(rows.reduce((a, r) => a + r.pct, 0) / rows.length) : 0;
+  const had = rows.filter((r) => r.pct != null);
+  const avg = had.length ? round1(had.reduce((a, r) => a + r.pct, 0) / had.length) : null;
   return { programme: name, students: rows.length, average: avg, atRisk: rows.filter((r) => r.status === 'At risk').length, threshold: env.atRiskPct, rows };
 }
 

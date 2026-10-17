@@ -489,9 +489,11 @@ export function ModuleView() {
                     )}
                   </td>
                   <td className="ta-center">
-                    <span className={'att-badge ' + attClass(r.pct ?? 0)}>
-                      {r.pct ?? 0}%
-                    </span>
+                    {r.pct == null ? (
+                      <span className="mut">No classes yet</span>
+                    ) : (
+                      <span className={'att-badge ' + attClass(r.pct)}>{r.pct}%</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -531,7 +533,7 @@ export function StudentView() {
               <tr>
                 <td><b>{d.student.name}</b></td>
                 <td>{d.student.userId}</td>
-                <td>{d.pct}%</td>
+                <td>{d.pct == null ? 'No classes yet' : `${d.pct}%`}</td>
               </tr>
             </tbody>
           </table>
