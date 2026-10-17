@@ -25,6 +25,9 @@ const env = {
   codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),
   // extra time for a check-in that the app held back because of bad internet
   networkGraceSeconds: num(process.env.NETWORK_GRACE_SECONDS, 120),
+  // After the check-in code closes, the tutor has this long to decide flagged students
+  // (Present / Absent). Then the session closes and anyone undecided is marked Absent.
+  reviewMinutes: num(process.env.REVIEW_MINUTES, 3),
   requiredPct: num(process.env.REQUIRED_ATTENDANCE_PERCENT, 90),
   atRiskPct: num(process.env.AT_RISK_ATTENDANCE_PERCENT, 80),
   realertDays: num(process.env.LOW_ATTENDANCE_REALERT_DAYS, 7),
