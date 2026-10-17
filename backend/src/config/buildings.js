@@ -42,7 +42,7 @@ const BUILDINGS = [
   {
     key: 'LT',
     name: 'LT Building',
-    rooms: [{ name: 'LT 01' }, { name: 'LT 02' }],
+    rooms: [{ name: 'LT 01' }, { name: 'LT 02' }, { name: 'LT 03' }], // the LT building next to the IT building
     anchor: { lat: 26.849801, lng: 89.391903 },
     polygons: [[
       [89.391755, 26.849926], [89.391819, 26.849635], [89.392051, 26.849682], [89.391988, 26.849958], [89.391755, 26.849926],

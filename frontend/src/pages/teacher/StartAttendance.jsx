@@ -167,8 +167,9 @@ export default function StartAttendance() {
   const roomBuilding = buildingOfRoom(f.room, buildings);
   useEffect(() => {
     if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
-    // labs that aren't inside a mapped building (EG Lab, Robotic Lab, Hydraulics lab …) → Workshop around the tutor
-    else if (!roomBuilding && !f.where && /\blab\b|workshop/i.test(f.room)) setF((x) => ({ ...x, where: 'WORKSHOP' }));
+    // rooms that aren't inside a mapped building → Workshop around the tutor:
+    // labs (EG Lab, Robotic Lab, Hydraulics lab …) and LH-01 (lecture hall near the football ground)
+    else if (!roomBuilding && !f.where && /\blab\b|workshop|^\s*lh[\s-]*0?1\b/i.test(f.room)) setF((x) => ({ ...x, where: 'WORKSHOP' }));
   }, [f.room, buildings]);
 
   const start = (pos) => {
