@@ -60,7 +60,7 @@ const BUILDINGS = [
   },
   {
     key: 'ARCH',
-    name: 'Architecture Building',
+    name: 'Library Building', // also has the Architecture drawing studios
     // The timetable lists these rooms as "Library Building" (first and second floor)
     rooms: [
       ...['14', '15', '16', '17', '18'].map((n) => ({ name: `CR ${n}` })),
