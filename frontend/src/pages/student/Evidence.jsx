@@ -94,7 +94,7 @@ export default function Evidence() {
           <p>Students must maintain a minimum of 90% attendance across all modules to qualify for final module assessments. Pending absence requests take up to 52 hours to process.</p>
         </div>
         <div className="ev-stats">
-          <div className="ev-stat"><b>{sum.rate}%</b><small>Attendance Rate</small></div>
+          <div className="ev-stat"><b>{sum.rate == null ? '–' : `${sum.rate}%`}</b><small>Attendance Rate</small></div>
           <div className="ev-stat"><b>{sum.absences}</b><small>Absences</small></div>
         </div>
       </div>

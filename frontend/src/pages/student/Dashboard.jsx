@@ -19,7 +19,8 @@ export default function Dashboard() {
   };
   const close = () => { setSelected(null); setRecords(null); };
 
-  const lowModule = modules.find((m) => m.pct < 90);
+  // modules with no classes held yet have pct = null: no warning, no bar
+  const lowModule = modules.find((m) => m.pct != null && m.pct < 90);
 
   /* ---------- One module: theory + practical, title on top, table below ---------- */
   if (selected) {
@@ -36,8 +37,8 @@ export default function Dashboard() {
                   <h3>{selected.name}</h3>
                   <span className="sdm-kind">{t === 'theory' ? 'Theory class' : 'Practical class'}</span>
                 </div>
-                <div className={'sdm-pct' + (part.pct < 90 ? ' low' : '')}>
-                  Total percentage <b>{part.pct}%</b>
+                <div className={'sdm-pct' + (part.pct != null && part.pct < 90 ? ' low' : '')}>
+                  {part.pct == null ? 'No classes yet' : <>Total percentage <b>{part.pct}%</b></>}
                 </div>
               </div>
 
@@ -102,11 +103,11 @@ export default function Dashboard() {
             <div className="sdc-plot">
               {modules.map((m) => (
                 <div key={m.id} className="sdc-col">
-                  <span className="sdc-val">{Math.round(cap(m.pct))}%</span>
+                  <span className="sdc-val">{m.pct == null ? '–' : `${Math.round(cap(m.pct))}%`}</span>
                   <div
-                    className={'sdc-bar' + (m.pct < 90 ? ' low' : '')}
-                    style={{ height: cap(m.pct) * 2 }}
-                    title={`${m.name}: ${Math.round(cap(m.pct))}%`}
+                    className={'sdc-bar' + (m.pct != null && m.pct < 90 ? ' low' : '')}
+                    style={{ height: cap(m.pct ?? 0) * 2 }}
+                    title={m.pct == null ? `${m.name}: no classes yet` : `${m.name}: ${Math.round(cap(m.pct))}%`}
                   />
                 </div>
               ))}
