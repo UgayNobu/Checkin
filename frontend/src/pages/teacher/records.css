@@ -1,0 +1,375 @@
+/* =========================================================
+   Attendance Records (scoped under .recs)
+   ========================================================= */
+
+.recs{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-width:980px;
+  font-size:13px;
+}
+
+/* ----- Top row: <back + Download ----- */
+.recs .rowb{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.recs .back{
+  padding:0;
+  background:none;
+  border:none;
+  color:#111;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.recs .back:hover{text-decoration:underline}
+.recs .dl{
+  padding:4px 16px;
+  background:#0f1b3d;
+  color:#fff;
+  border:none;
+  border-radius:999px;
+  font-size:10px;
+  cursor:pointer;
+}
+.recs .dl:hover{background:#1c2c5c}
+.recs .dl:disabled{
+  background:#9aa3b8;
+  cursor:not-allowed;
+}
+
+/* ----- Student name + ID ----- */
+.recs .who{
+  margin:4px 0 0;
+  font-size:13px;
+  line-height:1.5;
+  color:#111;
+}
+
+/* ----- Legend ----- */
+.recs .legend{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:14px;
+}
+.recs .legend small{
+  flex-basis:100%;
+  color:#6b7280;
+  font-size:11px;
+}
+
+/* ----- Cards ----- */
+.recs .card{
+  background:#fff;
+  border:1px solid #6b7280;
+  border-radius:10px;
+}
+.recs .card.graph{
+  padding:18px;
+  border-color:#e3e7f0;
+}
+.recs h4{margin:0 0 14px}
+
+/* ----- Tables ----- */
+.recs .tbl{
+  overflow-x:auto;
+  padding-bottom:24px;
+}
+.recs table{
+  width:100%;
+  border-collapse:collapse;
+}
+.recs th{
+  padding:12px 14px;
+  text-align:left;
+  font-size:11px;
+  font-weight:700;
+  color:#111;
+  border-bottom:1px solid #9ca3af;
+}
+.recs td{
+  padding:14px;
+  font-size:12px;
+  color:#111;
+  border-bottom:1px solid #9ca3af;
+}
+.recs tbody tr:hover{background:#fafbfe}
+.recs .empty{
+  text-align:center;
+  color:#6b7280;
+  padding:28px;
+}
+
+/* ----- Status: plain text (practical) ----- */
+.recs .st{
+  font-size:11px;
+  font-weight:700;
+}
+.recs .st.present{color:#2f6df0}
+.recs .st.absent{color:#ef4444}
+.recs .st.flagged{color:#d97706}
+
+/* ----- Status: pill (theory) ----- */
+.recs .pill{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:4px;
+  background:#fde8ec;
+  font-size:11px;
+  font-weight:700;
+}
+.recs .pill.present{color:#2f6df0}
+.recs .pill.absent{color:#ef4444}
+.recs .pill.flagged{color:#b45309;background:#fef3c7}
+
+.recs [title]{cursor:help}
+
+/* ----- Misc text ----- */
+.recs .mut{color:#9ca3af}
+.recs .total{font-weight:700;color:#2f6df0}
+.recs .total.low{color:#ef4444}
+.recs .view{
+  padding:0;
+  background:none;
+  border:none;
+  color:#2f6df0;
+  font-size:12px;
+  text-decoration:underline;
+  cursor:pointer;
+}
+
+/* ----- Bar graph (module page) ----- */
+.recs .gchart{display:flex;gap:8px}
+.recs .gaxis{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  width:26px;
+  height:160px;
+  margin-top:14px;
+  font-size:10px;
+  text-align:right;
+  color:#6b7280;
+}
+.recs .gmain{flex:1;min-width:0;overflow-x:auto}
+.recs .gplot{
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+  height:180px;
+  padding-top:20px;
+  border-bottom:1px solid #999;
+  background:repeating-linear-gradient(to bottom,#e6e9f0 0 1px,transparent 1px 32px);
+  background-position:0 20px;
+}
+.recs .gcol{
+  flex:1;
+  min-width:48px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+}
+.recs .gcol span{font-size:10px;font-weight:600}
+.recs .gbar{width:22px;background:#2f6df0;border-radius:4px 4px 0 0}
+.recs .gbar.low{background:#ef4444}
+.recs .gbar.zero{background:#e3e7f0}
+.recs .glabels{display:flex;gap:6px;margin-top:6px}
+.recs .glabels span{
+  flex:1;
+  min-width:48px;
+  text-align:center;
+  font-size:10px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* ----- Errors ----- */
+.recs .err{margin:0;color:#b91c1c;font-size:13px}
+
+/* ----- Module list (/records) ----- */
+.recs .modgrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:16px;
+}
+.recs .modcard{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:18px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.recs .modcard:hover{border-color:#2f6df0;box-shadow:0 2px 8px rgba(47,109,240,.12)}
+.recs .modcard b{font-size:15px;color:#0f1b3d}
+.recs .modcard span{font-size:13px;color:#374151}
+.recs .modcard small{margin-top:6px;font-size:11px;color:#2f6df0}
+.recs .nomods{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:40px;
+  text-align:center;
+  border-color:#e3e7f0;
+}
+.recs .nomods small{color:#6b7280}
+/* ===== Session-based Attendance Records (Sanskar, 14 Oct) — moved here from reports.css ===== */
+/* =========================================================
+   Attendance Records (scoped under .recs, own class names)
+   ========================================================= */
+.recs{display:flex;flex-direction:column;gap:16px;width:100%}
+
+/* ----- Top row ----- */
+.rec-top{display:flex;justify-content:space-between;align-items:center}
+.rec-back{padding:0;background:none;border:0;font-size:13px;font-weight:700;cursor:pointer}
+.rec-back:hover{text-decoration:underline}
+.rec-dl{
+  padding:6px 18px;
+  background:#0f1b3d;
+  color:#fff;
+  border:0;
+  border-radius:999px;
+  font-size:12px;
+  cursor:pointer;
+}
+.rec-dl:disabled{background:#9aa3b8;cursor:not-allowed}
+
+/* ----- Title ----- */
+.rec-title h2{margin:0 0 4px;font-size:20px}
+.rec-title small{color:#6b7280;font-size:13px}
+
+/* ----- Search bar ----- */
+.rec-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rec-bar label{margin:0;font-size:13px;font-weight:600}
+.rec-bar input{width:240px;padding:9px 12px;border:1px solid #d6dbe6;border-radius:8px}
+.rec-clear{padding:7px 12px;background:#fff;border:1px solid #d6dbe6;border-radius:8px;cursor:pointer}
+
+/* ----- Table (full width) ----- */
+.rec-tbl{
+  width:100%;
+  overflow-x:auto;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+}
+.rec-tbl table{width:100%;min-width:640px;border-collapse:collapse}
+.rec-tbl th{
+  padding:13px 16px;
+  background:#f6f8fc;
+  text-align:left;
+  font-size:12px;
+  color:#4b5563;
+  white-space:nowrap;
+  border-bottom:1px solid #e3e7f0;
+}
+.rec-tbl td{
+  padding:13px 16px;
+  font-size:13px;
+  border-top:0;
+  border-bottom:1px solid #eef1f6;
+}
+.rec-tbl tbody tr:last-child td{border-bottom:none}
+.rec-tbl tbody tr:hover{background:#fafbfe}
+.rec-empty{text-align:center;color:#6b7280;padding:30px !important}
+
+/* ----- Cells ----- */
+.rec-cap{text-transform:capitalize}
+.rec-g{color:#059669;font-weight:600}
+.rec-r{color:#dc2626;font-weight:600}
+.rec-o{color:#b45309;font-weight:600}
+.rec-flagnote{color:#b45309;font-weight:500}
+.rec-live{
+  margin-left:8px;
+  padding:2px 8px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+}
+.rec-pct{
+  display:inline-block;
+  padding:3px 10px;
+  background:#d1fae5;
+  color:#065f46;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+.rec-pct.low{background:#fee2e2;color:#991b1b}
+.rec-view{
+  padding:5px 14px;
+  background:#fff;
+  color:#2f6df0;
+  border:1px solid #2f6df0;
+  border-radius:6px;
+  font-size:12px;
+  cursor:pointer;
+}
+.rec-view:hover{background:#2f6df0;color:#fff}
+
+/* ----- Status badges ----- */
+.rec-st{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+}
+.rec-st.present{background:#d1fae5;color:#065f46}
+.rec-st.absent{background:#fee2e2;color:#991b1b}
+.rec-st.flagged{background:#fef3c7;color:#b45309;cursor:help}
+
+/* ----- Teacher decides a flagged check-in ----- */
+.rec-decide{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-yes,
+.rec-no{
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.rec-yes{background:#059669;color:#fff;border:1px solid #059669}
+.rec-no{background:#fff;color:#dc2626;border:1px solid #dc2626}
+
+/* ----- Module list (/records) ----- */
+.rec-modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.rec-modcard{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:18px;
+  background:#fff;
+  border:1px solid #e3e7f0;
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.rec-modcard:hover{border-color:#2f6df0;box-shadow:0 2px 8px rgba(47,109,240,.12)}
+.rec-modcard b{font-size:15px;color:#0f1b3d}
+.rec-modcard span{font-size:13px;color:#374151}
+.rec-modcard small{margin-top:6px;font-size:11px;color:#2f6df0}
+.rec-box{padding:40px;background:#fff;border:1px solid #e3e7f0;border-radius:12px}
+.rec-empty-box{display:flex;flex-direction:column;gap:6px;text-align:center}
+.rec-empty-box small{color:#6b7280}
+
+.rec-err{margin:0;color:#b91c1c;font-size:13px}.rec-tag{
+  margin-left:6px;
+  padding:2px 8px;
+  background:#ecfdf5;
+  color:#047857;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+}

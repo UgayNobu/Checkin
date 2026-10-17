@@ -1,165 +1,249 @@
 # CheckIn — Student Attendance System
 
-A credit-based, hardware-free attendance and engagement platform for the
-College of Science and Technology (CST). Instead of tutors calling out
-names or passing around a paper sheet, a tutor opens a time-limited
-check-in code at the start of class, and students check in from their
-own device. The system verifies the code and the student's location,
-then records attendance automatically. Students, tutors, and admin
-staff each get a dashboard suited to their role.
+A hardware-free attendance platform for the College of Science and Technology
+(CST). Instead of calling out names or passing around a paper sheet, the tutor
+opens a 2-minute check-in code at the start of class and students check in from
+their own phone. CheckIn checks the code, the student's enrolment and their
+location (inside the class's building, or near the tutor for practicals), then
+records attendance automatically. Uncertain check-ins are flagged for the tutor
+to decide. Students, tutors, admins and management each get their own dashboard.
 
 ## Team
 
 | Member | Role |
 |---|---|
 | Dechen Wangmo | Team Lead |
-| Ugyen Norbu | Git flow / repo owner |
+| Ugyen Norbu | Member |
 | Damchey Lhendup | Member |
 | Sanskar Gurung | Member |
 | Sanjuck Subba | Member |
+
+## Features
+
+**Students**
+- Check in on the Attendance page: tap the building card that lights up (IT, LT, Academic or Library Building, or Workshop/Practical), pick the class and enter the code.
+- Attendance % per module (theory and practical, hour-weighted), a monthly calendar (tap a day to see each class), and the 90% rule warnings.
+- Weekly timetable with cancelled, cover, extra and optional classes; notifications when a class changes.
+- Join modules with the tutor's enrolment key; upload evidence documents (PDF/images) for missed classes.
+
+**Tutors**
+- Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, or book an extra class (free periods, free rooms and clash checks). Optional classes take attendance but never count.
+- Start Attendance: 2 minutes for students to check in, then 3 minutes to mark flagged students Present/Absent; anyone undecided or missing is marked Absent.
+- Geofence per session: the class's building outline, or a Workshop circle around the tutor with a radius they choose (5–500 m).
+- Live counts, records per module and student, CSV/PDF exports, reports, evidence documents (view), profile and password.
+
+**Admins**
+- Programmes, modules and tutor assignments; approve tutor sign-ups.
+- Activate/deactivate students and tutors with a reason (graduated, resigned …); accounts are never deleted.
+- Semesters: add the next semester and start it; past semesters stay viewable.
+
+**Management**
+- Department, programme and module overviews, attendance trends, student history, tutor reports.
+- Approve/decline evidence documents.
+- Class changes: every cancelled, cover, extra and optional class, plus timetable classes nobody took.
+
+**Other**
+- Forgot password with a 6-digit code by email; works on phones (slide-in menu) and big screens.
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, Next.js, Tailwind CSS |
-| Backend | Node.js, Express.js |
-| Database | PostgreSQL, Prisma ORM |
-| Geolocation | Browser Geolocation API + Haversine formula |
-| Storage | Supabase Storage |
-| Hosting | Vercel (frontend) + Render (backend) |
+| Frontend | React + Vite |
+| Backend | Node.js, Express.js (plain JavaScript) |
+| Database | PostgreSQL on Supabase, Prisma ORM |
+| Auth | JWT (bcrypt-hashed passwords) |
+| Geolocation | Browser Geolocation API; building outlines (point-in-polygon) and Haversine distance |
+| Email | Nodemailer (Gmail SMTP for the project) |
+| Exports | CSV, PDF (pdfkit) |
 | API testing | Postman / Thunder Client |
 
 ## Project structure
 
 ```
-checkin/
-├── frontend/          # Next.js app
-├── backend/           # Node.js / Express API
-├── docs/              # ERD, Figma exports, proposal, sprint reports
+Checkin/
+├── frontend/                 # React + Vite app
+│   └── src/pages/            # student, teacher, admin, management, shared, public
+├── backend/
+│   ├── src/
+│   │   ├── server.js         # starts the API (+ the every-minute session sweep)
+│   │   ├── app.js            # assembles middleware and routers
+│   │   ├── routes/           # URL → guards → controller
+│   │   ├── controllers/      # read the request, call one service, send JSON
+│   │   ├── services/         # all business rules and database work
+│   │   ├── validators/       # zod rules for request bodies, queries and params
+│   │   ├── middleware/       # auth, roles, validation, uploads, rate limits, errors
+│   │   ├── utils/ lib/ config/
+│   ├── API.md                # every API route
+│   ├── scripts/              # create-admin, import-roster, set-test-passwords
+│   ├── uploads/              # uploaded evidence documents and avatars (not in git)
+│   └── prisma/
+│       ├── schema.prisma     # Prisma map of the database tables
+│       ├── database.sql      # all database changes + seed data
+│       └── seed.js           # npm run seed – loads the seed data part
+├── docs/                     # proposal, sprint reports
 └── README.md
 ```
 
 ## Getting started
 
 ### Prerequisites
-- Node.js (LTS)
-- npm or pnpm
-- PostgreSQL instance (local or a shared Supabase/hosted dev database — ask Ugyen for credentials)
-- Git
 
-### Clone and run
+- Node.js (LTS) and Git
+- The real `.env` values. Ask the team lead; they are **never** shared on GitHub or in group chats.
+
+### 1. Clone
 
 ```bash
-git clone https://github.com/<org-or-username>/checkin.git
-cd checkin
+git clone https://github.com/UgayNobu/Checkin.git
+cd Checkin
+git checkout dev
+```
 
-# Frontend
-cd frontend
-npm install
-npm run dev          # runs on http://localhost:3000
+### 2. Environment files
 
-# Backend (in a second terminal)
+Copy `.env.example` to `.env` in **both** `backend/` and `frontend/`, then fill in the real values.
+
+| File | Variables |
+|---|---|
+| `backend/.env` | `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT`; email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`; optional: `GEOFENCE_METRES` (40), `REVIEW_MINUTES` (3), `START_EARLY_MINUTES` (15), `REQUIRED_ATTENDANCE_PERCENT` (90), `AT_RISK_ATTENDANCE_PERCENT` (80) |
+| `frontend/.env` | `VITE_API` – the backend URL, e.g. `http://localhost:5001/api` |
+
+### 3. Run (two terminals)
+
+```bash
+# Terminal 1 – backend
 cd backend
 npm install
-cp .env.example .env  # fill in DATABASE_URL and other secrets
-npx prisma generate
-npm run dev           # runs on http://localhost:5000 (adjust if different)
+npm run generate   # again after every pull that changes schema.prisma
+npm run dev        # "CheckIn API ready"
+
+# Terminal 2 – frontend
+cd frontend
+npm install
+npm run dev        # open http://localhost:5173
 ```
 
-### Environment variables
+Check the backend is up with `curl http://localhost:5001/health`. To check email, run `npm run mail:test -- you@example.com` in `backend/`.
 
-This repo is **public**, so `.env` must never be committed. Only
-`.env.example` (placeholder values, no real secrets) belongs in the repo.
-`.env` is already covered by the Node `.gitignore` — double-check it's
-being ignored before your first commit:
+> **macOS:** port 5000 is used by AirPlay Receiver, so we use port **5001**. Either turn AirPlay Receiver off, or keep `PORT=5001` in `backend/.env` and `VITE_API` pointing to 5001.
+
+### Test accounts
+
+Test accounts use the password `Test@1234` (change them before real use).
+
+| Role | ID |
+|---|---|
+| Admin | `CST-ICT01` |
+| Management | `CST-MGT01` |
+| Tutor | `CST-0142` |
+| Student | `U004` |
+
+New students sign up themselves; new tutors request an account and the admin approves it.
+
+## Database
+
+The whole team shares **one** Supabase database, so database changes go through the team lead.
+
+- `backend/prisma/database.sql` holds every change to the original schema in numbered parts, plus seed data at the end. Each part is safe to re-run: it only adds what is missing.
+- To apply a change, run **only that part** in the Supabase SQL Editor. Don't re-run the whole file on the shared database: the seed data at the end would bring back sample rows that were cleaned up.
+- After any change to `schema.prisma`, everyone runs `npm run generate`.
+- **Never** run `prisma migrate` or `prisma db push` against Supabase. They can drop tables.
+
+| Part | What it adds |
+|---|---|
+| 0–2 | Evidence documents (renamed from relief requests), columns the frontend and backend need |
+| 3 | Departments and programme details |
+| 4 | VLE-style enrolment keys |
+| 5 | Curriculum (a module in several programmes) |
+| 6 | Rooms and the weekly timetable |
+| 7 | Forgot-password codes |
+| 8 | Uploaded files stored in the database |
+| 9 | Semesters (academic sessions); assignments and enrolments belong to a semester |
+| 10 | Deactivated accounts (reason, note, date, by whom) |
+| 11 | Class changes (cancelled, cover, extra/optional classes) |
+
+Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `notifications`, `audit_logs`.
+
+The building outlines and room lists are in `backend/src/config/buildings.js` (no database table).
+
+## Attendance rules
+
+- Attendance % = hours attended ÷ hours of classes held, per module (theory and practical counted separately and together). Optional classes never count.
+- Students need **90%**; under **80%** they are at risk.
+- A check-in is **Present** inside the geofence, **refused** when clearly outside, and **Flagged** when GPS is weak or location is missing. The tutor decides flagged students within the review time; undecided ones become Absent.
+- Cancelled classes don't count, so nobody is marked absent for them.
+
+## Environment variables & secrets
+
+This repo is **public**. `.env` files are git-ignored, and only `.env.example` files with placeholder values belong in the repo. Before your first commit, check:
 
 ```bash
-git check-ignore backend/.env   # should print the path back if it's ignored
+git check-ignore backend/.env frontend/.env   # should print both paths
 ```
-
-Real values (database URL, Supabase keys, etc.) get shared directly
-between teammates, not through Git.
 
 ## Branching model
 
 We use a simplified **main / dev / feature** flow:
 
-- **`main`** — always stable and deployable. Protected: no direct pushes, PRs only, requires at least 1 review.
-- **`dev`** — integration branch. All feature work merges here first.
-- **`feature/<task-id>-<short-desc>`** — one branch per task, created off the latest `dev`.
-
-### Naming convention
-
-```
-feature/T210-nextjs-scaffold
-feature/T211-express-scaffold
-feature/T212-prisma-schema
-feature/T213-auth-login
-```
-
-Use the Sprint task ID (e.g. `T210`) so it's traceable back to the sprint board.
-
-### Day-to-day workflow
+- **`main`**: always stable. Protected; changes arrive only by pull request with at least one review.
+- **`dev`**: integration branch. All feature work merges here first.
+- **`feature/<task-id>-<short-desc>`**: one branch per task, created from the latest `dev`.
 
 ```bash
-# 1. Make sure dev is up to date
-git checkout dev
-git pull origin dev
-
-# 2. Create your feature branch
+git checkout dev && git pull
 git checkout -b feature/T213-auth-login
-
-# 3. Work, commit as you go
-git add .
+# work, then:
+git add -A
 git commit -m "T213: add login form and validation"
-
-# 4. Push and open a PR into dev (not main)
 git push -u origin feature/T213-auth-login
 ```
 
-Open the PR on GitHub targeting `dev`. Once reviewed and merged, delete the
-feature branch.
+Open the pull request on GitHub into **`dev`** (not `main`). After it is merged, delete the branch. At the end of a sprint, when `dev` is stable, merge `dev` into `main`.
 
-### Releasing to main
-
-When `dev` is stable (end of sprint or a working milestone):
-
-```bash
-git checkout main
-git pull origin main
-git merge --no-ff dev
-git push origin main
-```
-
-## Commit message convention
+### Commit message convention
 
 ```
 <task-id>: short imperative description
-
-e.g.
-T208: set up repo structure and branch protection
-T206: add tutor dashboard Figma-to-component scaffold
+e.g. T208: set up repo structure and branch protection
 ```
+
+### Dos and don'ts
+
+- Pull `dev` before starting work, and run `npm install` after pulling.
+- Don't push directly to `dev` or `main`.
+- Don't commit `.env` files, `node_modules` or uploads.
+- Don't send code as zip files. Push a branch instead.
+- Don't run `npm audit fix --force`, upgrade Prisma, or use `sudo npm install`.
+
+## Common problems
+
+| Problem | Fix |
+|---|---|
+| `Missing script: "dev"` | You're in the wrong folder. `cd backend` or `cd frontend` first. |
+| `EACCES` / permission denied | `sudo chown -R $(whoami) <project folder>`, delete `node_modules`, then `npm install`. |
+| `EADDRINUSE :::5000` | AirPlay is using the port. Use 5001 (see above). |
+| `Can't reach database server` | College Wi-Fi may block Supabase ports, so try a phone hotspot. Also check that the Supabase project isn't paused. |
+| `Account is not active` | New tutor accounts need admin approval. |
+| `Column … does not exist` | The database is missing a part of `database.sql`. Tell the team lead. |
+| `Unknown field … for select statement` | Run `npm run generate` in `backend/`, then restart. |
+| "This class is … You can start attendance from …" | It isn't class time. Book an extra class on the Timetable to teach now. |
 
 ## Issues
 
-Log bugs and blockers as GitHub Issues, tagged with the related Sprint
-task ID where possible, so they map back to the sprint report.
+Log bugs and blockers as GitHub Issues, tagged with the related sprint task ID.
 
 ## Supervisors
 
-This repo is public so our guide and co-guide can follow progress
-without needing collaborator access.
+This repo is public so our guide and co-guide can follow progress.
 
 | Role | Name |
 |---|---|
 | Guide | Mr. Parsu Ram Dhungyel |
 | Co-Guide | Mr. Pema Namgay |
 
-Project proposal and weekly sprint reports are in [`docs/`](./docs).
+The project proposal and weekly sprint reports are in [`docs/`](./docs).
 
 ## License
 
-No license has been applied yet — this is a supervised college
-capstone project, not intended for external reuse at this stage.
+No license has been applied yet. This is a supervised college capstone project, not intended for external reuse at this stage.

@@ -1,0 +1,361 @@
+generator client {
+  provider        = "prisma-client-js"
+  // Loads linked tables (include) in ONE SQL query with joins instead of one query each,
+  // which matters a lot because every query travels to the Supabase server and back.
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Department {
+  id        String    @id @default(dbgenerated("gen_id('D'::text, 'seq_departments'::text)")) @map("department_id") @db.VarChar(10)
+  code      String    @unique(map: "uq_departments_code") @map("department_code") @db.VarChar(10)
+  name      String    @unique(map: "uq_departments_name") @map("department_name") @db.VarChar(100)
+  website   String?   @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at")
+  programs  Program[]
+
+  @@map("departments")
+}
+
+model Program {
+  id            String          @id @default(dbgenerated("gen_id('P'::text, 'seq_programs'::text)")) @map("program_id")
+  name          String          @map("program_name")
+  departmentId  String?         @map("department_id") @db.VarChar(10)
+  level         String?         @db.VarChar(10)
+  durationYears Int?            @map("duration_years")
+  department    Department?     @relation(fields: [departmentId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_programs_department")
+  modules       Module[]
+  curriculum    ProgramModule[]
+  slots         TimetableSlot[]
+
+  @@map("programs")
+}
+
+model User {
+  id                 String             @id @map("user_id")
+  name               String?
+  email              String             @unique
+  passwordHash       String?            @map("password_hash")
+  role               String
+  phone              String?
+  department         String?
+  designation        String?
+  programme          String?
+  year               Int?
+  isActive           Boolean            @default(true) @map("is_active")
+  status             String             @default("active") @db.VarChar(10)
+  avatarUrl          String?            @map("avatar_url") @db.VarChar(255)
+  deactivatedAt      DateTime?          @map("deactivated_at") @db.Timestamptz(6)
+  deactivationReason String?            @map("deactivation_reason") @db.VarChar(20)
+  deactivationNote   String?            @map("deactivation_note") @db.VarChar(200)
+  deactivatedBy      String?            @map("deactivated_by") @db.VarChar(10)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+  prefs              Json               @default("{}") @map("notification_prefs")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  sections           Section[]
+  attendance         Attendance[]
+  enrollments        Enrollment[]
+  evidence           EvidenceDocument[] @relation("EvidenceStudent")
+  reviewed           EvidenceDocument[] @relation("EvidenceReviewer")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  slots              TimetableSlot[]
+  resets             PasswordReset[]
+  files              StoredFile[]
+  coversGiven        ClassChange[]      @relation("ChangeCover")
+  changesMade        ClassChange[]      @relation("ChangeBy")
+  sessionsTaken      ClassSession[]     @relation("SessionTakenBy")
+
+  @@map("users")
+}
+
+model Module {
+  id           String             @id @default(dbgenerated("gen_id('M'::text, 'seq_modules'::text)")) @map("module_id")
+  code         String             @unique @map("module_code")
+  name         String             @map("module_name")
+  programId    String             @map("program_id")
+  year         Int?
+  semester     Int?
+  enrolmentKey String?            @map("enrolment_key")
+  selfEnrol    Boolean            @default(true) @map("self_enrol")
+  moduleCount  Int?               @map("module_count")
+  program      Program            @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  sections     Section[]
+  enrollments  Enrollment[]
+  evidence     EvidenceDocument[]
+  curriculum   ProgramModule[]
+  slots        TimetableSlot[]
+  changes      ClassChange[]
+
+  @@map("modules")
+}
+
+/// Which programmes a module belongs to, and in which year/semester (one module can be in several programmes)
+model ProgramModule {
+  programId String  @map("program_id") @db.VarChar(10)
+  moduleId  String  @map("module_id") @db.VarChar(10)
+  year      Int
+  semester  Int
+  program   Program @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_pm_program")
+  module    Module  @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_pm_module")
+
+  @@id([programId, moduleId])
+  @@index([moduleId], map: "idx_pm_module")
+  @@map("program_modules")
+}
+
+model Section {
+  id              String          @id @default(dbgenerated("gen_id('SEC'::text, 'seq_sections'::text)")) @map("section_id")
+  moduleId        String          @map("module_id")
+  tutorId         String          @map("tutor_id")
+  name            String?         @map("section_name")
+  room            String?
+  schedule        String?
+  academicSession String          @default(dbgenerated("current_academic_session()")) @map("academic_session") @db.VarChar(10)
+  module          Module          @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  tutor           User            @relation(fields: [tutorId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  term            AcademicSession @relation(fields: [academicSession], references: [code], onUpdate: Cascade, onDelete: Restrict, map: "fk_sections_term")
+  sessions        ClassSession[]
+
+  @@index([academicSession, tutorId], map: "idx_sections_term")
+  @@map("sections")
+}
+
+model ClassSession {
+  id          String           @id @default(dbgenerated("gen_id('S'::text, 'seq_sessions'::text)")) @map("session_id")
+  sectionId   String           @map("section_id")
+  date        DateTime         @db.Date
+  startTime   DateTime         @map("start_time") @db.Time(6)
+  duration    Int
+  sessionType String?          @map("session_type")
+  status      String           @default("scheduled") @db.VarChar(20)
+  slotId      String?          @map("slot_id") @db.VarChar(10)
+  slot        TimetableSlot?   @relation(fields: [slotId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_slot")
+  /// the class change (extra / cover) this session came from
+  changeId    String?          @map("change_id") @db.VarChar(10)
+  change      ClassChange?     @relation(fields: [changeId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_change")
+  /// the tutor who actually took the class when it was a cover
+  takenBy     String?          @map("taken_by") @db.VarChar(10)
+  taker       User?            @relation("SessionTakenBy", fields: [takenBy], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_sessions_taken_by")
+  /// false = optional extra class: attendance is taken but never counts toward anyone's %
+  counts      Boolean          @default(true)
+  section     Section          @relation(fields: [sectionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  codes       AttendanceCode[]
+  attendance  Attendance[]
+
+  @@map("class_sessions")
+}
+
+model AttendanceCode {
+  sessionId       String       @map("session_id")
+  code            String
+  expiryTimestamp DateTime     @map("expiry_timestamp")
+  geofenceRadius  Float        @map("geofence_radius")
+  latitude        Float
+  longitude       Float
+  session         ClassSession @relation(fields: [sessionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@id([sessionId, code])
+  @@map("attendance_codes")
+}
+
+model Attendance {
+  id             String       @id @default(dbgenerated("gen_id('A'::text, 'seq_attendance'::text)")) @map("attendance_id")
+  studentId      String       @map("student_id")
+  sessionId      String       @map("session_id")
+  timestamp      DateTime?    @default(now())
+  status         String       @default("Absent")
+  submittedLat   Float?       @map("submitted_lat")
+  submittedLng   Float?       @map("submitted_lng")
+  accuracy       Float?
+  distanceMeters Float?       @map("distance_meters")
+  flagReason     String?      @map("flag_reason") @db.VarChar(100)
+  student        User         @relation(fields: [studentId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  session        ClassSession @relation(fields: [sessionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@unique([studentId, sessionId])
+  @@map("attendance")
+}
+
+model Enrollment {
+  studentId       String          @map("student_id")
+  moduleId        String          @map("module_id")
+  enrolledDate    DateTime        @default(now()) @map("enrolled_date") @db.Date
+  academicSession String          @default(dbgenerated("current_academic_session()")) @map("academic_session") @db.VarChar(10)
+  student         User            @relation(fields: [studentId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  module          Module          @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  term            AcademicSession @relation(fields: [academicSession], references: [code], onUpdate: Cascade, onDelete: Restrict, map: "fk_enrollments_term")
+
+  @@id([studentId, moduleId, academicSession])
+  @@index([academicSession, moduleId], map: "idx_enrollments_term")
+  @@map("enrollments")
+}
+
+model EvidenceDocument {
+  id               String    @id @default(dbgenerated("gen_id('E'::text, 'seq_evidence'::text)")) @map("evidence_id")
+  studentId        String    @map("student_id")
+  moduleId         String    @map("module_id")
+  date             DateTime  @db.Date
+  reason           String?
+  documentUrl      String?   @map("document_url")
+  status           String    @default("Pending")
+  reviewedBy       String?   @map("reviewed_by")
+  leaveType        String?   @map("leave_type")
+  originalFilename String?   @map("original_filename") @db.VarChar(255)
+  reviewedAt       DateTime? @map("reviewed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  student          User      @relation("EvidenceStudent", fields: [studentId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  module           Module    @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  reviewer         User?     @relation("EvidenceReviewer", fields: [reviewedBy], references: [id], onUpdate: Cascade, onDelete: SetNull)
+
+  @@map("evidence_documents")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_id('N'::text, 'seq_notif'::text)")) @map("notification_id")
+  userId    String   @map("user_id")
+  message   String
+  category  String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("gen_id('L'::text, 'seq_audit'::text)")) @map("log_id")
+  adminId   String   @map("admin_id")
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@map("audit_logs")
+}
+
+model Room {
+  id        String          @id @default(dbgenerated("gen_id('RM'::text, 'seq_rooms'::text)")) @map("room_id") @db.VarChar(10)
+  name      String          @unique(map: "uq_rooms_name") @map("room_name") @db.VarChar(50)
+  capacity  Int?
+  location  String?         @db.VarChar(100)
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime        @default(now()) @map("created_at")
+  slots     TimetableSlot[]
+  changes   ClassChange[]
+
+  @@map("rooms")
+}
+
+/// One fixed weekly class from the college timetable (e.g. SWE Year 1, Monday 09:00-10:00, MAT205 lecture in IT-05)
+model TimetableSlot {
+  id              String          @id @default(dbgenerated("gen_id('TS'::text, 'seq_slots'::text)")) @map("slot_id") @db.VarChar(10)
+  programId       String          @map("program_id") @db.VarChar(10)
+  year            Int
+  semester        Int             @default(1)
+  academicSession String          @default("AS2026") @map("academic_session") @db.VarChar(10)
+  term            AcademicSession @relation(fields: [academicSession], references: [code], onUpdate: Cascade, onDelete: Restrict, map: "fk_slots_term")
+  dayOfWeek       Int             @map("day_of_week")
+  startTime       DateTime        @map("start_time") @db.Time(6)
+  endTime         DateTime        @map("end_time") @db.Time(6)
+  moduleCode      String          @map("module_code") @db.VarChar(15)
+  moduleId        String?         @map("module_id") @db.VarChar(10)
+  sessionType     String          @default("theory") @map("session_type") @db.VarChar(10)
+  groupLabel      String?         @map("group_label") @db.VarChar(5)
+  roomId          String?         @map("room_id") @db.VarChar(10)
+  tutorNames      String?         @map("tutor_names") @db.VarChar(255)
+  tutorId         String?         @map("tutor_id") @db.VarChar(10)
+  note            String?         @db.VarChar(50)
+  program         Program         @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_slots_program")
+  module          Module?         @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_module")
+  room            Room?           @relation(fields: [roomId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_room")
+  tutor           User?           @relation(fields: [tutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_tutor")
+  sessions        ClassSession[]
+  changes         ClassChange[]
+
+  @@index([programId, year], map: "idx_slots_program_year")
+  @@index([tutorId], map: "idx_slots_tutor")
+  @@map("timetable_slots")
+}
+
+/// Forgot-password codes (only a bcrypt hash of the 6-digit code is stored)
+model PasswordReset {
+  id        Int       @id @default(autoincrement()) @map("reset_id")
+  userId    String    @map("user_id") @db.VarChar(10)
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  attempts  Int       @default(0)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_resets_user")
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_resets_user")
+  @@map("password_resets")
+}
+
+model StoredFile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @map("file_id") @db.Uuid
+  ownerId      String   @map("owner_id") @db.VarChar(10)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  originalName String?  @map("original_name") @db.VarChar(255)
+  sizeBytes    Int      @map("size_bytes")
+  content      Bytes
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_files_owner")
+
+  @@index([ownerId], map: "idx_files_owner")
+  @@map("stored_files")
+}
+
+/// A semester: Autumn (AS) or Spring (SS). Exactly one is current (database.sql Part 9).
+model AcademicSession {
+  code        String          @id @map("session_code") @db.VarChar(10)
+  name        String          @db.VarChar(60)
+  term        String          @db.VarChar(10)
+  startDate   DateTime        @map("start_date") @db.Date
+  endDate     DateTime        @map("end_date") @db.Date
+  isCurrent   Boolean         @default(false) @map("is_current")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  sections    Section[]
+  enrollments Enrollment[]
+  slots       TimetableSlot[]
+  changes     ClassChange[]
+
+  @@map("academic_sessions")
+}
+
+/// A one-date change to the timetable: a cancelled class, a cover by another tutor, or an extra class
+model ClassChange {
+  id              String          @id @default(dbgenerated("gen_id('CC'::text, 'seq_class_changes'::text)")) @map("change_id") @db.VarChar(10)
+  type            String          @map("change_type") @db.VarChar(10) /// cancelled | cover | extra
+  date            DateTime        @map("class_date") @db.Date
+  slotId          String?         @map("slot_id") @db.VarChar(10)
+  moduleId        String          @map("module_id") @db.VarChar(10)
+  roomId          String?         @map("room_id") @db.VarChar(10)
+  startTime       DateTime        @map("start_time") @db.Time(6)
+  endTime         DateTime        @map("end_time") @db.Time(6)
+  sessionType     String          @default("theory") @map("session_type") @db.VarChar(10)
+  counts          Boolean         @default(true)
+  coverTutorId    String?         @map("cover_tutor_id") @db.VarChar(10)
+  reason          String          @db.VarChar(200)
+  academicSession String          @default(dbgenerated("current_academic_session()")) @map("academic_session") @db.VarChar(10)
+  createdBy       String?         @map("created_by") @db.VarChar(10)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  slot            TimetableSlot?  @relation(fields: [slotId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_cc_slot")
+  module          Module          @relation(fields: [moduleId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_cc_module")
+  room            Room?           @relation(fields: [roomId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_room")
+  coverTutor      User?           @relation("ChangeCover", fields: [coverTutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_cover")
+  by              User?           @relation("ChangeBy", fields: [createdBy], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_cc_by")
+  term            AcademicSession @relation(fields: [academicSession], references: [code], onUpdate: Cascade, onDelete: Restrict, map: "fk_cc_term")
+  sessions        ClassSession[]
+
+  @@index([academicSession, date], map: "idx_cc_date")
+  @@index([moduleId], map: "idx_cc_module")
+  @@map("class_changes")
+}
