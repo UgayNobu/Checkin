@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
+import './startform.css';
 
 const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
 const REVIEW_MIN = 3; // then the tutor has 3 more minutes to decide flagged students (REVIEW_MINUTES on the server)
@@ -166,6 +167,8 @@ export default function StartAttendance() {
   const roomBuilding = buildingOfRoom(f.room, buildings);
   useEffect(() => {
     if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
+    // labs that aren't inside a mapped building (EG Lab, Robotic Lab, Hydraulics lab …) → Workshop around the tutor
+    else if (!roomBuilding && !f.where && /\blab\b|workshop/i.test(f.room)) setF((x) => ({ ...x, where: 'WORKSHOP' }));
   }, [f.room, buildings]);
 
   const start = (pos) => {
@@ -249,71 +252,83 @@ export default function StartAttendance() {
           </p>
         )}
 
-        <label>Date</label>
-        <input value={todayText()} readOnly disabled />
+        <div className="sa-grid">
+          <div className="sa-f">
+            <label htmlFor="sa-date">Date</label>
+            <input id="sa-date" value={todayText()} readOnly disabled />
+          </div>
 
-        <label>Module</label>
-        <select value={f.module} onChange={set('module')} disabled={open || noMods}>
-          {noMods ? (
-            <option value="">No modules assigned. Contact admin.</option>
-          ) : (
-            <>
-              <option value="">Select module</option>
-              {mods.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.code} – {m.name}
-                </option>
-              ))}
-              {/* a module you are only covering today */}
-              {chg && !mods.some((m) => m.id === chg.module.id) && (
-                <option value={chg.module.id}>{chg.module.code} – {chg.module.name} (cover)</option>
+          <div className="sa-f">
+            <label htmlFor="sa-module">Module</label>
+            <select id="sa-module" value={f.module} onChange={set('module')} disabled={open || noMods}>
+              {noMods ? (
+                <option value="">No modules assigned. Contact admin.</option>
+              ) : (
+                <>
+                  <option value="">Select module</option>
+                  {mods.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.code} – {m.name}
+                    </option>
+                  ))}
+                  {/* a module you are only covering today */}
+                  {chg && !mods.some((m) => m.id === chg.module.id) && (
+                    <option value={chg.module.id}>{chg.module.code} – {chg.module.name} (cover)</option>
+                  )}
+                </>
               )}
-            </>
+            </select>
+          </div>
+
+          <div className="sa-f">
+            <label htmlFor="sa-room">Room</label>
+            <input id="sa-room" value={f.room} onChange={set('room')} disabled={open} list="cst-rooms" placeholder="e.g. ITL 06" />
+            <datalist id="cst-rooms">
+              {buildings.flatMap((b) =>
+                (b.rooms || []).map((r) => (
+                  <option key={r.name} value={r.name}>{r.label ? `${r.label} · ${b.name}` : b.name}</option>
+                ))
+              )}
+            </datalist>
+            {roomBuilding && !workshop && (
+              <small className="sa-ok">{f.room} is in the {roomBuilding.name}, so it’s selected below.</small>
+            )}
+          </div>
+
+          <div className="sa-f">
+            <label htmlFor="sa-type">Practical / theory</label>
+            <select id="sa-type" value={f.type} onChange={setType} disabled={open}>
+              <option value="theory">Theory</option>
+              <option value="practical">Practical</option>
+            </select>
+          </div>
+
+          <div className="sa-f">
+            <label htmlFor="sa-where">Where students must be</label>
+            <select id="sa-where" value={f.where} onChange={set('where')} disabled={open}>
+              <option value="">Select location</option>
+              {buildings.map((b) => (
+                <option key={b.key} value={b.key}>{b.name}</option>
+              ))}
+              <option value="WORKSHOP">Workshop – around my location</option>
+            </select>
+          </div>
+
+          <div className="sa-f">
+            <label htmlFor="sa-hours">Total hours</label>
+            <input id="sa-hours" type="number" min="1" value={f.hours} onChange={set('hours')} disabled={open} />
+          </div>
+
+          {workshop && (
+            <div className="sa-f sa-wide">
+              <label htmlFor="sa-radius">Workshop radius (metres)</label>
+              <input id="sa-radius" type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open} />
+              <small className="sa-help">
+                Stand in the middle of the workshop when you generate the code. Students must be within this distance of you.
+              </small>
+            </div>
           )}
-        </select>
-
-        <label>Room</label>
-        <input value={f.room} onChange={set('room')} disabled={open} list="cst-rooms" placeholder="e.g. ITL 06" />
-        <datalist id="cst-rooms">
-          {buildings.flatMap((b) =>
-            (b.rooms || []).map((r) => (
-              <option key={r.name} value={r.name}>{r.label ? `${r.label} · ${b.name}` : b.name}</option>
-            ))
-          )}
-        </datalist>
-        {roomBuilding && !workshop && (
-          <small style={{ display: 'block', color: '#047857', marginTop: -4, marginBottom: 8 }}>
-            {f.room} is in the {roomBuilding.name}, so it’s selected below.
-          </small>
-        )}
-
-        <label>Practical / theory</label>
-        <select value={f.type} onChange={setType} disabled={open}>
-          <option>theory</option>
-          <option>practical</option>
-        </select>
-
-        <label>Where students must be</label>
-        <select value={f.where} onChange={set('where')} disabled={open}>
-          <option value="">Select location</option>
-          {buildings.map((b) => (
-            <option key={b.key} value={b.key}>{b.name}</option>
-          ))}
-          <option value="WORKSHOP">Workshop – around my location</option>
-        </select>
-
-        {workshop && (
-          <>
-            <label>Workshop radius (metres)</label>
-            <input type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open} />
-            <small style={{ display: 'block', color: '#6b7280', marginTop: -4, marginBottom: 8 }}>
-              Stand in the middle of the workshop when you generate the code. Students must be within this distance of you.
-            </small>
-          </>
-        )}
-
-        <label>Total hour</label>
-        <input type="number" min="1" value={f.hours} onChange={set('hours')} disabled={open} />
+        </div>
 
         <p>
           <small>

@@ -142,6 +142,35 @@ async function monthDays(studentId, moduleIds, month) {
   return out;
 }
 
+/**
+ * One day on the student's calendar: every class held that day in their modules, with
+ * their own status. Optional classes are listed too, marked as not counting.
+ */
+async function dayDetails(studentId, moduleIds, day) {
+  const sessions = await prisma.classSession.findMany({
+    where: { section: { moduleId: { in: moduleIds } }, date: new Date(`${day}T00:00:00Z`) },
+    include: {
+      section: { include: { module: { select: { code: true, name: true } } } },
+      attendance: { where: { studentId }, select: { status: true, flagReason: true } },
+    },
+    orderBy: { startTime: 'asc' },
+  });
+  const bhutanTime = (d) => new Date(d.getTime() + 6 * 3600 * 1000).toISOString().slice(11, 16);
+  return {
+    date: day,
+    classes: sessions.filter((s) => isHeld(s)).map((s) => {
+      const a = s.attendance[0];
+      return {
+        module: s.section.module, start: bhutanTime(sessionStart(s)), hours: hoursOf(s), type: s.sessionType,
+        optional: s.counts === false,
+        // no record for a counted class = absent; for an optional class = didn't come (not counted)
+        status: a ? apiStatus(a.status) : s.counts === false ? 'not_attended' : 'absent',
+        note: a && apiStatus(a.status) === 'flagged' ? 'Waiting for your tutor to decide' : null,
+      };
+    }),
+  };
+}
+
 /** Class rate for a set of sessions: attended records ÷ (sessions × class size). */
 async function classRate(sessions, classSize) {
   if (!sessions.length || !classSize) return 0;
@@ -149,4 +178,4 @@ async function classRate(sessions, classSize) {
   return round1((n / (sessions.length * classSize)) * 100);
 }
 
-module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, classRate };
+module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, dayDetails, classRate };
