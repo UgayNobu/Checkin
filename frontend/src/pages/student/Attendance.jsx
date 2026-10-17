@@ -37,13 +37,22 @@ export default function Attendance() {
   const [busy, setBusy] = useState(false);
   const [mo, setMo] = useState(new Date());
   const [days, setDays] = useState({});
+  const [sel, setSel] = useState(null); // calendar day clicked: { date, classes } or { date, loading }
   const [live, setLive] = useState({ buildings: [], classes: [] });
   const [card, setCard] = useState(null); // 'IT' | 'LT' | 'ACAD' | 'ARCH' | 'WORKSHOP'
   const [pick, setPick] = useState(null); // sessionId of the chosen class
 
   const y = mo.getFullYear(), m = mo.getMonth(), key = `${y}-${String(m + 1).padStart(2, '0')}`;
   const load = () => api('/attendance/me?month=' + key).then(setDays).catch(() => setDays({}));
-  useEffect(() => { load(); }, [key]);
+  useEffect(() => { load(); setSel(null); }, [key]);
+
+  // Click a day: list each class held that day with this student's status
+  const openDay = (d) => {
+    const date = `${key}-${String(d).padStart(2, '0')}`;
+    if (sel?.date === date) return setSel(null);
+    setSel({ date, loading: true });
+    api('/attendance/me/day?date=' + date).then(setSel).catch(() => setSel({ date, classes: [], error: true }));
+  };
 
   // Classes open for check-in right now (refreshes every 15 s)
   const loadLive = () => api('/attendance/live').then(setLive).catch(() => {});
@@ -167,15 +176,56 @@ export default function Attendance() {
         </div>
         <div className="grid">
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => <b key={d}>{d}</b>)}
-          {cells.map((c, i) => (
-            <div key={i} className={'day ' + (c.getMonth() === m ? show(days[c.getDate()]) : '')}>
-              {c.getDate()}
-            </div>
-          ))}
+          {cells.map((c, i) => {
+            const inMonth = c.getMonth() === m, st = inMonth ? days[c.getDate()] : null;
+            const ds = `${key}-${String(c.getDate()).padStart(2, '0')}`;
+            return inMonth && st ? (
+              <button
+                key={i} type="button"
+                className={'day click ' + show(st) + (sel?.date === ds ? ' sel' : '')}
+                onClick={() => openDay(c.getDate())}
+                aria-label={`${c.getDate()} ${mo.toLocaleString('en', { month: 'long' })}: ${st}. Show classes`}
+              >
+                {c.getDate()}
+              </button>
+            ) : (
+              <div key={i} className={'day' + (inMonth ? '' : ' out')}>{c.getDate()}</div>
+            );
+          })}
         </div>
+
+        {sel && (
+          <div className="dayinfo" role="region" aria-live="polite">
+            <div className="dayinfo-h">
+              <b>{new Date(sel.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</b>
+              <button type="button" onClick={() => setSel(null)} aria-label="Close">✕</button>
+            </div>
+            {sel.loading ? (
+              <small className="mutd">Loading…</small>
+            ) : !sel.classes?.length ? (
+              <small className="mutd">{sel.error ? 'Could not load this day.' : 'No classes recorded this day.'}</small>
+            ) : (
+              <ul>
+                {sel.classes.map((x, j) => (
+                  <li key={j}>
+                    <span className="dt">{x.start}</span>
+                    <span className="dm">
+                      <b>{x.module.code}</b> {x.module.name}
+                      <small>{x.type === 'practical' ? 'Practical' : 'Theory'} · {x.hours} hr{x.optional ? ' · Optional (doesn\'t count)' : ''}{x.note ? ` · ${x.note}` : ''}</small>
+                    </span>
+                    <span className={'ds ' + x.status}>
+                      {{ present: 'Present', flagged: 'Flagged', absent: 'Absent', not_attended: 'Not attended' }[x.status]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         <div className="legend">
           <span><i className="g" />Present</span>
           <span><i className="r" />Absent</span>
+          <span className="hint">Tap a coloured day to see each class</span>
         </div>
       </div>
     </div>

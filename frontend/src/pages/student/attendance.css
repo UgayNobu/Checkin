@@ -137,3 +137,26 @@
 }
 .g{background:#10b981}
 .r{background:#ef4444}
+
+/* Clickable calendar days + the day's classes */
+.day.click{cursor:pointer;font:inherit;font-weight:600;transition:transform .1s}
+.day.click:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.day.click:focus-visible{outline:2px solid #2f6df0;outline-offset:2px}
+.day.sel{outline:2px solid #2f6df0;outline-offset:1px}
+.day.out{opacity:.35}
+.legend .hint{margin-left:auto;color:#6b7280}
+.dayinfo{margin-top:16px;border:1px solid #e3e7f0;border-radius:12px;padding:14px 16px;background:#fff}
+.dayinfo-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.dayinfo-h button{background:none;border:0;font-size:14px;cursor:pointer;color:#6b7280;padding:4px 8px;border-radius:6px}
+.dayinfo-h button:hover{background:#f3f4f6}
+.dayinfo ul{list-style:none;margin:0;padding:0}
+.dayinfo li{display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #eef0f6}
+.dayinfo .dt{font-weight:700;font-size:13px;width:46px;flex-shrink:0}
+.dayinfo .dm{flex:1;min-width:0;font-size:13px}
+.dayinfo .dm small{display:block;color:#6b7280;font-size:11px;margin-top:2px}
+.dayinfo .ds{font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap}
+.dayinfo .ds.present{background:#d1fae5;color:#047857}
+.dayinfo .ds.absent{background:#fee2e2;color:#b91c1c}
+.dayinfo .ds.flagged{background:#fef3c7;color:#b45309}
+.dayinfo .ds.not_attended{background:#f3f4f6;color:#4b5563}
+.dayinfo .mutd{color:#6b7280}

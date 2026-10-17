@@ -18,7 +18,7 @@ const BUILDINGS = [
     key: 'IT',
     name: 'IT Building',
     rooms: [
-      ...['01', '02', '03', '04', '05'].map((n) => ({ name: `IT ${n}` })),
+      ...['01', '02', '03', '04', '05', '06'].map((n) => ({ name: `IT ${n}` })),
       { name: 'ITL 01', label: 'Programming Lab I' },
       { name: 'ITL 02', label: 'Programming Lab II' },
       { name: 'ITL 03', label: 'BYOD Lab' },
@@ -61,7 +61,11 @@ const BUILDINGS = [
   {
     key: 'ARCH',
     name: 'Architecture Building',
-    rooms: [{ name: 'CR 14' }, { name: 'CR 16' }, { name: 'CR 17' }, { name: 'Drawing Studio 01' }, { name: 'Drawing Studio 02' }],
+    // The timetable lists these rooms as "Library Building" (first and second floor)
+    rooms: [
+      ...['14', '15', '16', '17', '18'].map((n) => ({ name: `CR ${n}` })),
+      ...['01', '02', '03', '04', '05'].map((n) => ({ name: `Drawing Studio ${n}` })),
+    ],
     anchor: { lat: 26.849592, lng: 89.394145 },
     polygons: [[
       [89.393902, 26.849643], [89.393981, 26.84952], [89.39398, 26.849482], [89.39405, 26.84937],

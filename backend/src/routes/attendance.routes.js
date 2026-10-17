@@ -7,7 +7,7 @@ const { requireRole } = require('../middleware/requireRole');
 const { validateBody, validateQuery } = require('../middleware/validate');
 const { checkinLimiter } = require('../middleware/rateLimits');
 const { checkInSchema } = require('../validators/checkin.validators');
-const { monthQuerySchema } = require('../validators/attendance.validators');
+const { monthQuerySchema, dayQuerySchema } = require('../validators/attendance.validators');
 
 const router = Router();
 router.use(requireAuth, requireRole('student'));
@@ -15,6 +15,7 @@ router.use(requireAuth, requireRole('student'));
 router.post('/checkin', checkinLimiter, validateBody(checkInSchema), checkin.checkIn);
 router.get('/live', checkin.live); // classes open for check-in right now + building outlines (the 5 cards)
 router.get('/me', validateQuery(monthQuerySchema), student.calendar); // ?month=2026-10
+router.get('/me/day', validateQuery(dayQuerySchema), student.calendarDay); // ?date=2026-10-12: each class that day
 
 // Same handler, mounted at /api/checkin (design-doc path).
 const checkinRouter = Router();
