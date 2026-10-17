@@ -653,3 +653,26 @@ td {
 #loadbar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: #1ea7e8; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 #loadbar.on { opacity: 1; animation: loadbar 1.2s ease-in-out infinite; }
 @keyframes loadbar { 0% { left: 0; width: 0; } 50% { left: 20%; width: 60%; } 100% { left: 100%; width: 0; } }
+
+/* ---------- Desktop page layout ----------
+   Every page uses the same content column: up to 1200px wide and centred in the space
+   next to the sidebar, so pages don't sit squeezed on the left of a big screen.
+   The page title bar lines up with the same column. Phones keep the layout above. */
+@media (min-width: 761px) {
+  .main {
+    --gutter: max(32px, calc((100% - 1200px) / 2));
+  }
+  .top {
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
+  .page {
+    padding: 28px var(--gutter) 48px;
+  }
+  /* page wrappers had their own max-width (860–1100px) and sat on the left: let them fill the column */
+  .page > * {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
