@@ -9,10 +9,16 @@ const withAvatar = async (u) => ({ ...userOut(u), avatarUrl: await fileUrl(u.ava
 
 const getProfile = async (userId) => withAvatar(await prisma.user.findUniqueOrThrow({ where: { id: userId } }));
 
-async function updateProfile(userId, { name, email, phone, prefs }) {
+async function updateProfile(userId, { name, email, phone, designation, prefs }) {
   const u = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   // Only send fields that were given, so { phone } alone doesn't wipe the name.
-  const data = Object.fromEntries(Object.entries({ name, email, phone }).filter(([, v]) => v !== undefined));
+  // '' clears phone / designation. Department and programme are changed by the admin only.
+  const data = Object.fromEntries(Object.entries({ name, email, phone, designation }).filter(([, v]) => v !== undefined)
+    .map(([k, v]) => [k, (k === 'phone' || k === 'designation') && v === '' ? null : v]));
+  if (data.email && data.email !== u.email) {
+    const taken = await prisma.user.findFirst({ where: { email: data.email, id: { not: userId } }, select: { id: true } });
+    if (taken) throw BadRequest('That email is already used by another account', 'EMAIL_TAKEN');
+  }
   if (prefs) data.prefs = { ...(u.prefs || {}), ...prefs }; // merge, keep the other toggles
   return withAvatar(await prisma.user.update({ where: { id: userId }, data }));
 }
