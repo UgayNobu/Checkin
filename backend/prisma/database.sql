@@ -86,7 +86,13 @@ ALTER TABLE evidence_documents ADD CONSTRAINT chk_evidence_leave_type
   CHECK (leave_type IS NULL OR leave_type IN ('Medical','Official'));
 
 -- enrollments: backend never sends academic_year, so give it a default
-ALTER TABLE enrollments ALTER COLUMN academic_year SET DEFAULT '2026-27';
+-- (the column is removed in Part 12; skip this once it's gone)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'enrollments' AND column_name = 'academic_year') THEN
+    ALTER TABLE enrollments ALTER COLUMN academic_year SET DEFAULT '2026-27';
+  END IF;
+END $$;
 ALTER TABLE enrollments ALTER COLUMN enrolled_date SET DEFAULT CURRENT_DATE;
 
 -- attendance: backend expects a check-in time
@@ -419,6 +425,21 @@ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS idx_sessions_slot_date ON class_sessions (slot_id, date);
 
+-- ===== Part 12: remove enrollments.academic_year =====
+-- Replaced by academic_session (Part 9): enrolments now belong to a semester (AS2026, SS2027 …).
+-- Nothing in the app reads or writes academic_year any more. Only dropped when it is no longer
+-- part of the primary key (Part 9 must have run first).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'enrollments' AND column_name = 'academic_year')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+       WHERE i.indrelid = 'enrollments'::regclass AND i.indisprimary AND a.attname = 'academic_year'
+     ) THEN
+    ALTER TABLE enrollments DROP COLUMN academic_year;
+  END IF;
+END $$;
+
 COMMIT;
 
 
@@ -477,9 +498,9 @@ INSERT INTO attendance (attendance_id, student_id, session_id, "timestamp", stat
 ON CONFLICT DO NOTHING;
 
 -- enrollments (2 rows)
-INSERT INTO enrollments (student_id, module_id, academic_year, enrolled_date) VALUES
-  ('U004', 'M001', '2026-27', '2026-08-10'),
-  ('U004', 'M002', '2026-27', '2026-08-10')
+INSERT INTO enrollments (student_id, module_id, enrolled_date) VALUES
+  ('U004', 'M001', '2026-08-10'),
+  ('U004', 'M002', '2026-08-10')
 ON CONFLICT DO NOTHING;
 
 -- evidence_documents (2 rows)
