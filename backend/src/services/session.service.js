@@ -14,6 +14,15 @@ const { planStart } = require('./classChange.service');
 const { buildingByKey, buildingForRoom, buildingFromCode, EDGE_TOLERANCE_M } = require('../config/buildings');
 const latestCode = { orderBy: { expiryTimestamp: 'desc' }, take: 1 };
 
+/**
+ * How long after the code closes the session stays open: the tutor's review time for
+ * flagged students (REVIEW_MINUTES, default 3), and never less than the offline grace time.
+ * Code 2 min + review 3 min = 5 min in total.
+ */
+const closeAfterMs = () => Math.max(env.reviewMinutes * 60_000, env.networkGraceSeconds * 1000);
+/** When a session with this code is closed automatically. */
+const closesAt = (code) => (code ? new Date(code.expiryTimestamp.getTime() + closeAfterMs()) : null);
+
 /** Loads a session and checks this tutor teaches it. "Not found" hides other tutors' sessions. */
 async function ownedSession(id, tutorId) {
   const se = await prisma.classSession.findUnique({ where: { id }, include: { section: { include: { module: true } }, codes: latestCode } });
@@ -81,7 +90,7 @@ async function startSession(tutorId, b) {
       codes: { create: codeData },
     },
   });
-  return { _id: se.id, code, expiresAt: expiry, radius, minutes, optional: !plan.counts, location: where };
+  return { _id: se.id, code, expiresAt: expiry, closesAt: closesAt({ expiryTimestamp: expiry }), radius, minutes, optional: !plan.counts, location: where };
 }
 
 /** Readable geofence of an attendance code: { mode: 'building', building, name } or { mode: 'workshop', radius }. */
@@ -121,11 +130,12 @@ async function finalizeSession(sessionId) {
 }
 
 /**
- * Closes every ongoing session whose code (plus the network grace time) has run out.
+ * Closes every ongoing session whose code has run out AND whose review time is over
+ * (code + REVIEW_MINUTES).
  * server.js runs this every minute, so absences are recorded even if the tutor closes the page.
  */
 async function sweepExpiredSessions() {
-  const cutoff = new Date(Date.now() - env.networkGraceSeconds * 1000);
+  const cutoff = new Date(Date.now() - closeAfterMs());
   const expired = await prisma.classSession.findMany({
     where: { status: SESSION_STATUS.ONGOING, codes: { some: {}, every: { expiryTimestamp: { lte: cutoff } } } },
     select: { id: true },
@@ -138,15 +148,15 @@ async function sweepExpiredSessions() {
 async function live(id, tutorId) {
   const se = await ownedSession(id, tutorId), c = se.codes[0];
   let status = se.status;
-  const graceOver = c && c.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000 <= Date.now();
-  if (status === SESSION_STATUS.ONGOING && graceOver) { await finalizeSession(se.id); status = SESSION_STATUS.ENDED; }
+  const reviewOver = c && closesAt(c) <= new Date();
+  if (status === SESSION_STATUS.ONGOING && reviewOver) { await finalizeSession(se.id); status = SESSION_STATUS.ENDED; }
 
   const total = await prisma.enrollment.count({ where: { moduleId: se.section.moduleId, academicSession: se.section.academicSession, student: { isActive: true } } });
   const list = await prisma.attendance.findMany({ where: { sessionId: se.id }, include: { student: true } });
   const present = list.filter((a) => ATTENDED.includes(a.status)).length;
   const flagged = list.filter((a) => apiStatus(a.status) === 'flagged');
   return {
-    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, status, total, optional: !se.counts, location: locationOf(c),
+    code: c?.code ?? null, expiresAt: c?.expiryTimestamp ?? null, closesAt: closesAt(c), status, total, optional: !se.counts, location: locationOf(c),
     checkedIn: present,
     absent: Math.max(0, total - present - flagged.length),
     flagged: flagged.map((a) => ({ id: a.id, attendanceId: a.id, name: a.student.name, flagReason: a.flagReason, reason: flagText(a.flagReason) })),

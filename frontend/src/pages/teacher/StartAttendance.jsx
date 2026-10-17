@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 
-const WINDOW_MIN = 2; // check-in window in minutes
+const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
+const REVIEW_MIN = 3; // then the tutor has 3 more minutes to decide flagged students (REVIEW_MINUTES on the server)
 
 // Same matching as the backend (config/buildings.js): "ITL06", "itl-6", "CR3", "Drawing Studio 2" …
 const squash = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -28,7 +29,9 @@ export default function StartAttendance() {
   const [sid, setSid] = useState(null);
   const [live, setLive] = useState(null);
   const [ends, setEnds] = useState(null);
-  const [left, setLeft] = useState(0);
+  const [, setTick] = useState(0); // re-renders the countdowns every second
+  const [closes, setCloses] = useState(null); // when the review time ends (ms)
+  const [liveAt, setLiveAt] = useState(0); // when the live counts were last loaded
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [showFlags, setShowFlags] = useState(false); // flagged list open?
@@ -58,9 +61,11 @@ export default function StartAttendance() {
         if (!se) return;
         const l = await api(`/sessions/${se._id}/live`);
         const end = l?.expiresAt ? new Date(l.expiresAt).getTime() : 0;
-        if (end > Date.now()) {
+        const close = l?.closesAt ? new Date(l.closesAt).getTime() : end + REVIEW_MIN * 60000;
+        if (close > Date.now()) { // still checking in, or still in the review time
           setSid(se._id);
           setEnds(end);
+          setCloses(close);
           setLive(l);
           setF((x) => ({ ...x, module: se.module?.id || '', room: se.room || '', type: se.type || 'theory', hours: se.hours || 1 }));
         }
@@ -99,35 +104,47 @@ export default function StartAttendance() {
       })
       .catch(() => {});
   }, [params]);
-  // Countdown
+  // Countdowns: check-in time, then review time
   useEffect(() => {
     if (!ends) return;
-    const tick = () => setLeft(Math.max(0, Math.round((ends - Date.now()) / 1000)));
-    tick();
-    const t = setInterval(tick, 1000);
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [ends]);
+  // worked out from the clock on every render, so they are never stale
+  const left = ends ? Math.max(0, Math.round((ends - Date.now()) / 1000)) : 0; // check-in seconds left
+  const reviewLeft = ends ? Math.max(0, Math.round(((closes || ends + REVIEW_MIN * 60000) - Date.now()) / 1000)) : 0;
+  const ended = live?.status === 'ended';
+  const open = sid && left > 0 && !ended; // students can check in
+  const reviewing = sid && ends && !open && reviewLeft > 0 && !ended; // code closed, tutor decides flagged
+  const closed = sid && ends && !open && !reviewing; // session over
 
-  const open = sid && left > 0;
-  const closed = sid && ends && left === 0;
+  const loadLive = () => sid && api(`/sessions/${sid}/live`)
+    .then((l) => { setLive(l); setLiveAt(Date.now()); if (l?.closesAt) setCloses(new Date(l.closesAt).getTime()); })
+    .catch(() => {});
 
-  const loadLive = () => sid && api(`/sessions/${sid}/live`).then(setLive).catch(() => {});
-
-  // Live counts: poll while open
+  // Live counts: poll while students check in and during the review time
   useEffect(() => {
     if (!sid) return;
     loadLive();
-    if (!open) return;
+    if (!open && !reviewing) return;
     const t = setInterval(loadLive, 4000);
     return () => clearInterval(t);
-  }, [sid, open]);
+  }, [sid, open, reviewing]);
 
-  // Time's up: close the session now, so undecided flagged students become Absent straight away
+  // Close the session (undecided flagged students become Absent) when the review time is over,
+  // or straight away when the code has closed and nobody is waiting to be decided.
+  const nobodyFlagged = live && liveAt >= ends && (live.flagged || []).length === 0;
   useEffect(() => {
-    if (!closed || endedFor.current === sid) return;
+    if (!sid || !ends || open || endedFor.current === sid || ended) return;
+    if (!(closed || (reviewing && nobodyFlagged))) return;
     endedFor.current = sid;
     api(`/sessions/${sid}/end`, {}).catch(() => {}).finally(loadLive);
-  }, [closed, sid]);
+  }, [closed, reviewing, nobodyFlagged, sid, open, ended]);
+
+  // When the code closes with flagged students waiting, open their list
+  useEffect(() => {
+    if (reviewing && (live?.flagged || []).length) setShowFlags(true);
+  }, [reviewing, live]);
 
   // Teacher decides a flagged student: Present (accept) or Absent (reject)
   const decide = (s, present) => {
@@ -166,7 +183,10 @@ export default function StartAttendance() {
         setLive(null);
         setShowFlags(false);
         setSid(s._id || s.id);
-        setEnds(s.expiresAt ? new Date(s.expiresAt).getTime() : Date.now() + WINDOW_MIN * 60000);
+        const end = s.expiresAt ? new Date(s.expiresAt).getTime() : Date.now() + WINDOW_MIN * 60000;
+        setEnds(end);
+        setCloses(s.closesAt ? new Date(s.closesAt).getTime() : end + REVIEW_MIN * 60000);
+        endedFor.current = null;
         setMsg('');
       })
       .catch((x) => { setMsg(x.message); setNotNow(x.code === 'CLASS_NOT_NOW'); })
@@ -203,7 +223,7 @@ export default function StartAttendance() {
     setSid(null);
     setLive(null);
     setEnds(null);
-    setLeft(0);
+    setCloses(null);
     setMsg('');
     setShowFlags(false);
   };
@@ -297,8 +317,8 @@ export default function StartAttendance() {
 
         <p>
           <small>
-            Students have {WINDOW_MIN} minutes to check in. Flagged students must be decided before the
-            timer ends, or they are marked absent.
+            Students have {WINDOW_MIN} minutes to check in. After that you have {REVIEW_MIN} more minutes to mark
+            flagged students Present or Absent; anyone not decided is marked absent.
           </small>
         </p>
         {msg && <p className="err">{msg}</p>}
@@ -321,9 +341,9 @@ export default function StartAttendance() {
             className="btn"
             style={{ width: '100%' }}
             onClick={gen}
-            disabled={busy || open || noMods}
+            disabled={busy || open || reviewing || noMods}
           >
-            {busy ? 'Starting…' : open ? 'Session running…' : 'Generate Check-in Code'}
+            {busy ? 'Starting…' : open ? 'Session running…' : reviewing ? 'Reviewing flagged students…' : 'Generate Check-in Code'}
           </button>
         )}
       </div>
@@ -348,9 +368,17 @@ export default function StartAttendance() {
                 </small>
               )}
             </>
+          ) : reviewing ? (
+            <>
+              <h3 style={{ margin: '8px 0' }}>Check-in closed</h3>
+              <p style={{ fontSize: 22, fontWeight: 700, color: reviewLeft <= 30 ? '#ef4444' : '#d97706', margin: 0 }}>
+                {mmss(reviewLeft)}
+              </p>
+              <small>Time left to mark the flagged students below. Anyone not decided is marked absent.</small>
+            </>
           ) : (
             <>
-              <h3 style={{ margin: '8px 0' }}>Check-in window closed</h3>
+              <h3 style={{ margin: '8px 0' }}>Session closed</h3>
               <small>Students who didn't check in, and flagged students not decided, are marked absent.</small>
             </>
           )}
@@ -388,9 +416,9 @@ export default function StartAttendance() {
           {showFlags && flagged.length > 0 && (
             <div style={{ marginTop: 16, textAlign: 'left', borderTop: '1px solid #eee', paddingTop: 12 }}>
               <small style={{ color: '#6b7280' }}>
-                {open
-                  ? 'Ask the student, then mark them. Anyone not decided before the timer ends becomes absent.'
-                  : 'The window has closed.'}
+                {open || reviewing
+                  ? 'Ask the student, then mark them. Anyone not decided before the review time ends becomes absent.'
+                  : 'The session has closed.'}
               </small>
               {flagged.map((s) => {
                 const aid = s.attendanceId || s.id;
@@ -414,14 +442,14 @@ export default function StartAttendance() {
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => decide(s, true)}
-                        disabled={!open || deciding === aid}
+                        disabled={!(open || reviewing) || deciding === aid}
                         style={{ padding: '6px 14px', background: '#059669', color: '#fff', border: 0, borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
                       >
                         Present
                       </button>
                       <button
                         onClick={() => decide(s, false)}
-                        disabled={!open || deciding === aid}
+                        disabled={!(open || reviewing) || deciding === aid}
                         style={{ padding: '6px 14px', background: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
                       >
                         Absent
