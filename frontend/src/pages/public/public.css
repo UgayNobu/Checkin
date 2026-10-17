@@ -20,3 +20,46 @@
 .okmsg { color: #16a34a; font-size: 12px; font-weight: 600; text-align: center; margin: 8px 0; }
 .lcard button[disabled] { opacity: 0.6; cursor: not-allowed; }
 .steps { font-size: 11px; color: #64748b; text-align: center; margin: 0 0 10px; }
+
+/* ---------- Landing page layout ----------
+   Text + a large campus photo on the left, the "Continue as" card on the right,
+   centred in a 1200px column and filling the screen height. */
+.land .lhead { padding: 14px max(32px, calc((100% - 1200px) / 2)); }
+.land .lhead b { font-size: 18px; }
+.land .lhead small { font-size: 11px; }
+.land .lhead .logo { width: 34px; height: 34px; }
+.land .lbody {
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 56px; align-items: center;
+  max-width: 1200px; margin: 0 auto; padding: 48px 40px; min-height: calc(100vh - 66px); box-sizing: border-box;
+}
+.land .ltxt { min-width: 0; }
+.land .ltxt h1 { font-size: clamp(34px, 4.2vw, 58px); line-height: 1.05; margin: 12px 0 14px; }
+.land .ltxt p { font-size: 15px; line-height: 1.55; max-width: 560px; }
+.land .eyebrow { font-size: 12px; }
+.land .photo {
+  height: clamp(260px, 46vh, 480px); max-width: none; margin-top: 28px;
+  border-radius: 18px; overflow: hidden; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+}
+.land .photo img { transition: transform 0.6s ease; }
+.land .photo:hover img { transform: scale(1.02); }
+.land .loc { left: 16px; bottom: 16px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(17, 17, 17, 0.82); }
+.land .pick { width: auto; margin: 0; padding: 30px 26px; border-radius: 18px; }
+.land .pick h2 { font-size: 26px; }
+.land .pick small { font-size: 12px; }
+.land .pick .cont { font-size: 11px; letter-spacing: 0.06em; }
+.land .logobox { width: 64px; height: 64px; }
+.land .logobox .logo { width: 44px; height: 44px; }
+.land .opt { padding: 16px 18px; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+.land .opt:hover { border-color: #2f6df0; box-shadow: 0 6px 16px rgba(47, 109, 240, 0.15); transform: translateY(-1px); }
+.land .opt b { font-size: 15px; }
+.land .opt small { font-size: 12px; line-height: 1.4; }
+
+@media (max-width: 900px) {
+  .land .lbody { grid-template-columns: 1fr; gap: 32px; padding: 32px 20px; min-height: 0; }
+  .land .photo { height: 240px; }
+  .land .pick { max-width: 420px; width: 100%; margin: 0 auto; }
+}
+@media (max-width: 480px) {
+  .land .lhead { padding: 12px 16px; }
+  .land .photo { height: 200px; border-radius: 14px; }
+}
