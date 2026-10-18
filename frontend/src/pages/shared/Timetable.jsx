@@ -40,7 +40,7 @@ export default function Timetable() {
   const thisMonday = mondayOf(today);
   const todayIdx = (new Date(today + 'T00:00:00Z').getUTCDay() || 7) - 1;
   const [monday, setMonday] = useState(thisMonday);
-  const [day, setDay] = useState(todayIdx < 6 ? todayIdx : 0); // Sunday → show Monday
+  const [day, setDay] = useState(todayIdx); // 0 = Monday … 6 = Sunday (Sunday tab only shows when needed)
   const [list, setList] = useState(null);
   const [changes, setChanges] = useState([]);
   const [mods, setMods] = useState([]); // tutor's modules (for extra classes)
@@ -110,6 +110,10 @@ export default function Timetable() {
 
   if (!list) return <p className="tt-empty">Loading timetable…</p>;
 
+  // Sunday has no timetable classes, so its tab only shows when it is today or has an extra class
+  const showSun = (monday === thisMonday && todayIdx === 6) || itemsOn(6).length > 0;
+  const days = showSun ? [...DAYS, 'Sunday'] : DAYS;
+  if (day === 6 && !showSun) { setDay(0); return null; }
   const date = addDays(monday, day);
   const isToday = date === today;
   const classes = itemsOn(day);
@@ -122,10 +126,10 @@ export default function Timetable() {
   const done = (text) => () => { setDialog(null); setMsg(text); setReload((n) => n + 1); };
   const goWeek = (n) => {
     setMsg('');
-    if (n === 0) { setMonday(thisMonday); setDay(todayIdx < 6 ? todayIdx : 0); } else setMonday(addDays(monday, 7 * n));
+    if (n === 0) { setMonday(thisMonday); setDay(todayIdx); } else setMonday(addDays(monday, 7 * n));
   };
   const weekName = monday === thisMonday ? 'This week' : monday === addDays(thisMonday, 7) ? 'Next week' : monday === addDays(thisMonday, -7) ? 'Last week' : 'Week of';
-  const weekLabel = `${short(monday, { day: 'numeric', month: 'short' })} – ${short(addDays(monday, 5), { day: 'numeric', month: 'short' })}`;
+  const weekLabel = `${short(monday, { day: 'numeric', month: 'short' })} – ${short(addDays(monday, showSun ? 6 : 5), { day: 'numeric', month: 'short' })}`;
 
   /** The right-hand side of a tutor's card. */
   const tutorActions = (x) => {
@@ -212,7 +216,7 @@ export default function Timetable() {
       </div>
 
       <div className="tt-days" role="tablist">
-        {DAYS.map((d, i) => {
+        {days.map((d, i) => {
           const ds = addDays(monday, i);
           return (
             <button key={d} role="tab" aria-selected={day === i} className={'tt-day' + (day === i ? ' on' : '')} onClick={() => setDay(i)}>

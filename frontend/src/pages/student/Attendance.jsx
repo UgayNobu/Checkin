@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
+import { bestPosition } from '../../geo';
 import './attendance.css';
 
 // Students only see present (green) or absent (red).
@@ -96,15 +97,14 @@ export default function Attendance() {
     if (!pick) return setMsg('Choose your class first.');
     if (!code.trim()) return setMsg('Enter the check-in code first.');
     setBusy(true);
-    setMsg('Getting your location…');
+    setMsg('Getting your location… (this can take a few seconds)');
 
     if (!navigator.geolocation) return send({ locationError: true });
 
-    navigator.geolocation.getCurrentPosition(
-      (p) => send({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
-      (e) => send(e.code === 1 ? { permissionDenied: true } : { locationError: true }),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+    // Waits up to 10 s for a GPS-quality reading instead of taking the first rough one
+    bestPosition()
+      .then((p) => send(p))
+      .catch((e) => send(e.code === 1 ? { permissionDenied: true } : { locationError: true }));
   };
 
   const lead = new Date(y, m, 1).getDay(), weeks = Math.ceil((lead + new Date(y, m + 1, 0).getDate()) / 7);

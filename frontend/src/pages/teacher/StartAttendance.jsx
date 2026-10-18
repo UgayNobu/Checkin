@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
+import { bestPosition } from '../../geo';
 import './startform.css';
 
 const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
@@ -209,8 +210,7 @@ export default function StartAttendance() {
 
     if (!navigator.geolocation) { setBusy(false); return setMsg('Location is not supported on this browser.'); }
     setMsg('Getting your location…');
-    navigator.geolocation.getCurrentPosition(
-      start,
+    bestPosition().then((p) => start({ coords: { latitude: p.lat, longitude: p.lng, accuracy: p.accuracy } }),
       (e) => {
         setBusy(false);
         setMsg(
@@ -218,9 +218,7 @@ export default function StartAttendance() {
             ? 'Allow location access to start a workshop session.'
             : 'Could not get your location. Please try again.'
         );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+      });
   };
 
   const reset = () => {
