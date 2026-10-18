@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { StatusPill, StatusButton } from './AccountStatus';
 import './programview.css';
+import { PROGRAMME_DEPARTMENT, sameDept } from './programmes';
 
 const E = encodeURIComponent;
 
@@ -48,9 +49,13 @@ export default function ProgramView({ focus = 'students' }) {
           if (tid) assignedTutorIds.add(tid);
         });
 
-        // Strict filter: show only those tutors
+        // Tutors who teach one of its modules, plus tutors of the department that runs
+        // this programme (so a new tutor shows up here before the admin assigns a module)
+        const dept = PROGRAMME_DEPARTMENT[program];
         const allTeachers = Array.isArray(t) ? t : [];
-        setTut(allTeachers.filter((x) => assignedTutorIds.has(x.userId)));
+        setTut(allTeachers.filter((x) =>
+          assignedTutorIds.has(x.userId) || x.programme === program || sameDept(x.department, program) || (dept && sameDept(x.department, dept))
+        ));
       })
       .finally(() => setLoaded(true));
   };
