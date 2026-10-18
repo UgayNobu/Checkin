@@ -128,6 +128,16 @@ Check the backend is up with `curl http://localhost:5001/health`. To check email
 
 > **macOS:** port 5000 is used by AirPlay Receiver, so we use port **5001**. Either turn AirPlay Receiver off, or keep `PORT=5001` in `backend/.env` and `VITE_API` pointing to 5001.
 
+### Demo on phones
+
+Phones only share their location with **https** pages, and `localhost` on a phone is the phone itself. So for a phone demo, one laptop runs everything and a free Cloudflare tunnel gives it an https link:
+
+1. In `frontend/.env` set `VITE_API=/api` (Vite then forwards `/api` to the backend on port 5001; set `VITE_PROXY_TARGET` if yours runs elsewhere) and restart the frontend.
+2. `brew install cloudflared`, then `cloudflared tunnel --url http://localhost:5173`.
+3. Open the printed `https://….trycloudflare.com` link on the phones and allow **precise** location.
+
+The link changes each time the tunnel restarts. Laptops have no GPS (they guess from Wi-Fi, often 50–150 m off), so laptop check-ins are often flagged. For laptop-only testing you can set `ACCURACY_FLAG_METRES=150` in `backend/.env`, but put it back to 50 for real use.
+
 ### Test accounts
 
 Test accounts use the password `Test@1234` (change them before real use).

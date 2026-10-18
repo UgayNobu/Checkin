@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import TutorRequests from './TutorRequests.jsx';
 import './adminoverview.css';
 
 /* =========================================================
@@ -214,6 +215,8 @@ export default function AdminOverview() {
         ))}
       </div>
 
+      {/* Tutors who signed up and wait for approval (hidden when there are none) */}
+      <TutorRequests />
       {/* Middle: Students view + Tutors view */}
       <div className="ao-views">
         {views.map((v) => (
