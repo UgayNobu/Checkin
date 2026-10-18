@@ -21,9 +21,9 @@ to decide. Students, tutors, admins and management each get their own dashboard.
 ## Features
 
 **Students**
-- Check in on the Attendance page: tap the building card that lights up (IT, LT, Academic or Library Building, or Workshop/Practical), pick the class and enter the code.
+- Check in on the Attendance page: tap the building card that lights up (IT, LT, Academic or Library Building, or Workshop/Practical), pick the class and enter the code. The app waits a few seconds for a GPS-quality location before sending it.
 - Attendance % per module (theory and practical, hour-weighted), a monthly calendar (tap a day to see each class), and the 90% rule warnings.
-- Weekly timetable with cancelled, cover, extra and optional classes; notifications when a class changes.
+- Weekly timetable with cancelled, cover, extra and optional classes (a Sunday tab appears for Sunday extra classes); notifications when a class changes.
 - Join modules with the tutor's enrolment key; upload evidence documents (PDF/images) for missed classes.
 
 **Tutors**
@@ -33,7 +33,8 @@ to decide. Students, tutors, admins and management each get their own dashboard.
 - Live counts, records per module and student, CSV/PDF exports, reports, evidence documents (view), profile and password.
 
 **Admins**
-- Programmes, modules and tutor assignments; approve tutor sign-ups.
+- Programmes, modules and tutor assignments.
+- Tutor requests on the Admin home page: approve or reject new tutor sign-ups. New tutors also show in their programme's Tutors view before they get a module.
 - Activate/deactivate students and tutors with a reason (graduated, resigned …); accounts are never deleted.
 - Semesters: add the next semester and start it; past semesters stay viewable.
 
@@ -136,7 +137,7 @@ Phones only share their location with **https** pages, and `localhost` on a phon
 2. `brew install cloudflared`, then `cloudflared tunnel --url http://localhost:5173`.
 3. Open the printed `https://….trycloudflare.com` link on the phones and allow **precise** location.
 
-The link changes each time the tunnel restarts. Laptops have no GPS (they guess from Wi-Fi, often 50–150 m off), so laptop check-ins are often flagged. For laptop-only testing you can set `ACCURACY_FLAG_METRES=150` in `backend/.env`, but put it back to 50 for real use.
+The link changes each time the tunnel restarts, and the app works on phones only while that laptop runs the backend, frontend and tunnel. Turn on **Precise location** on each phone (iPhone: Settings → Privacy & Security → Location Services → Safari/Chrome; Android: Settings → Location → Use precise location).
 
 ### Test accounts
 
@@ -182,6 +183,10 @@ The building outlines and room lists are in `backend/src/config/buildings.js` (n
 - Attendance % = hours attended ÷ hours of classes held, per module (theory and practical counted separately and together). Optional classes never count.
 - Students need **90%**; under **80%** they are at risk.
 - A check-in is **Present** inside the geofence, **refused** when clearly outside, and **Flagged** when GPS is weak or location is missing. The tutor decides flagged students within the review time; undecided ones become Absent.
+- Geofences:
+  - **Buildings** (IT, LT, Academic, Library): the building's outline from the map plus a **10 m** margin.
+  - **Workshop** (labs, LH-01, unmapped rooms): a circle around the tutor's location when they start, radius chosen by the tutor (default 30 m, 5–500 m). If the tutor starts from a laptop, use a bigger radius, because laptops have no GPS.
+- **Accuracy tolerance** (`ACCURACY_FLAG_METRES` in `backend/.env`): a reading less precise than this is flagged even inside the geofence. We use **150 m**, because laptops guess their location from Wi-Fi and phones indoors often report 50–150 m. It does not widen the geofence: the reported point must still be inside the building (or circle). Set it lower (e.g. 50) for stricter checks.
 - Cancelled classes don't count, so nobody is marked absent for them.
 
 ## Environment variables & secrets
