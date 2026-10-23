@@ -6,6 +6,7 @@ const { isSmtpConfigured, verifyMail } = require('./lib/mailer');
 
 const { sweepExpiredSessions } = require('./services/session.service');
 const { runLowAttendanceJob } = require('./services/admin.service');
+const { autoCancel } = require('./services/classChange.service');
 
 const server = createApp().listen(env.port, () => {
   console.log(`CheckIn API ready on http://localhost:${env.port} (PostgreSQL + Prisma)`);
@@ -34,11 +35,21 @@ const runAlerts = () => runLowAttendanceJob(null)
 const alertStart = setTimeout(runAlerts, 2 * 60 * 1000);
 const alertTimer = setInterval(runAlerts, 24 * 60 * 60 * 1000);
 
+// Every 5 minutes: timetable classes that ended without the tutor starting attendance
+// are marked cancelled ("Not started by the tutor"), so nobody is marked absent.
+const runAutoCancel = () => autoCancel({ force: true })
+  .then((n) => n && console.log(`Auto-cancelled ${n} class${n === 1 ? '' : 'es'} nobody started`))
+  .catch((e) => console.error('Auto-cancel failed:', e.message));
+const autoStart = setTimeout(runAutoCancel, 15 * 1000);
+const autoTimer = setInterval(runAutoCancel, 5 * 60 * 1000);
+
 const shutdown = (signal) => {
   console.log(`${signal} received, closing…`);
   clearInterval(sweepTimer);
   clearTimeout(alertStart);
   clearInterval(alertTimer);
+  clearTimeout(autoStart);
+  clearInterval(autoTimer);
   server.close(async () => { await prisma.$disconnect(); process.exit(0); });
 };
 process.on('SIGINT', shutdown);

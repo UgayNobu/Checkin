@@ -118,8 +118,11 @@ export default function Timetable() {
   const isToday = date === today;
   const classes = itemsOn(day);
   const cancelled = (x) => x.change?.type === 'cancelled';
-  const next = isToday ? classes.find((x) => x.start > now && !cancelled(x)) : null;
-  const count = (i) => itemsOn(i).filter((x) => !cancelled(x)).length;
+  // No tutor assigned to the module this semester: the class doesn't happen and its room is free
+  const unassigned = (x) => x.kind === 'slot' && x.assigned === false;
+  const off = (x) => cancelled(x) || unassigned(x);
+  const next = isToday ? classes.find((x) => x.start > now && !off(x)) : null;
+  const count = (i) => itemsOn(i).filter((x) => !off(x)).length;
   const over = (x) => x.date < today || (x.date === today && x.end <= now);
   const open = (x) => x.date === today && mins(now) >= mins(x.start) - EARLY && now < x.end;
 
@@ -133,6 +136,7 @@ export default function Timetable() {
 
   /** The right-hand side of a tutor's card. */
   const tutorActions = (x) => {
+    if (unassigned(x)) return [];
     const c = x.change, se = x.session;
     const iCover = c?.type === 'cover' && c.coverTutor?.id === myId;
     const mine = x.kind === 'extra' ? x.teaches : x.teaches && !iCover;
@@ -178,7 +182,7 @@ export default function Timetable() {
 
   const studentActions = (x) => {
     const se = x.session;
-    if (cancelled(x)) return null;
+    if (off(x)) return null;
     if (se?.myStatus) return <span className={'pill ' + (ATT[se.myStatus] || 'b')}>{se.myStatus}</span>;
     if (se?.status === 'ongoing') return <button className="pbtn" onClick={() => nav('/attendance')}>Check in</button>;
     if (x.kind === 'slot' && x.enrolled === false) return <small className="mut">Not enrolled</small>;
@@ -247,9 +251,9 @@ export default function Timetable() {
       ) : (
         <div className="tt-list">
           {classes.map((x) => {
-            const live = isToday && x.start <= now && now < x.end && !cancelled(x);
+            const live = isToday && x.start <= now && now < x.end && !off(x);
             const c = x.change;
-            const cls = ['tt-card', live && 'live', over(x) && 'done', cancelled(x) && 'off', x.kind === 'extra' && 'extra', c?.type === 'cover' && 'cover'].filter(Boolean).join(' ');
+            const cls = ['tt-card', live && 'live', over(x) && 'done', off(x) && 'off', unassigned(x) && 'na', x.kind === 'extra' && 'extra', c?.type === 'cover' && 'cover'].filter(Boolean).join(' ');
             return (
               <div key={x.key} className={cls}>
                 <div className="tt-time">
@@ -262,6 +266,7 @@ export default function Timetable() {
                     {live && <span className="pill b">Now</span>}
                     {next && next.key === x.key && <span className="pill o">Next</span>}
                     {cancelled(x) && <span className="pill red">Cancelled</span>}
+                    {unassigned(x) && <span className="pill gr">Module not assigned</span>}
                     {c?.type === 'cover' && <span className="pill v">Cover</span>}
                     {x.kind === 'extra' && <span className={'pill ' + (c.counts ? 'g' : 'gr')}>{c.counts ? 'Extra class' : 'Optional'}</span>}
                     <span className={'tt-type ' + x.type}>{TYPE[x.type] || x.type}</span>
@@ -269,11 +274,11 @@ export default function Timetable() {
                   </div>
                   <b className="tt-mod">{x.module.code} · {x.module.name}</b>
                   <small className="mut">
-                    {x.room ? `Room ${x.room.name}` : 'Room not set'}
-                    {x.kind === 'slot' && x.tutors && !c ? ` · ${x.tutors}` : ''}
+                    {x.room ? `Room ${x.room.name}${unassigned(x) ? ' (free to book)' : ''}` : 'Room not set'}
+                    {x.kind === 'slot' && x.tutors && !c && !unassigned(x) ? ` · ${x.tutors}` : ''}
                     {!teacher && x.year ? ` · Year ${x.year}` : ''}
                   </small>
-                  {changeInfo(x)}
+                  {unassigned(x) ? <small className="tt-why">No tutor is assigned to this module yet, so this class doesn't run.</small> : changeInfo(x)}
                   {x.session?.takenBy && c?.type !== 'cover' && <small className="mut">Taken by {x.session.takenBy}</small>}
                 </div>
 

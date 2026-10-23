@@ -41,6 +41,8 @@
 .tt-card.done { opacity: 0.6; }
 .tt-card.off { background: #f8f9fa; border-left-color: #f3b4b4; }
 .tt-card.off .tt-mod, .tt-card.off .tt-time b { text-decoration: line-through; color: #6a737b; }
+.tt-card.na { border-left-color: #ced4da; }
+.tt-card.na .tt-mod, .tt-card.na .tt-time b { text-decoration: none; }
 .tt-card.extra { border-left-color: #357a32; }
 .tt-card.cover { border-left-color: #8b5cf6; }
 .tt-why { font-size: 11px; color: #495057; }

@@ -118,7 +118,7 @@ export default function ClassChanges() {
                         </div>
                       )}
                     </td>
-                    <td>{c.by?.name || '–'}</td>
+                    <td>{c.by?.name || (c.type === 'cancelled' ? 'Automatic' : '–')}</td>
                   </tr>
                 );
               })}
