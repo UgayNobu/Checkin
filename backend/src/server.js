@@ -5,6 +5,7 @@ const { prisma } = require('./lib/prisma');
 const { isSmtpConfigured, verifyMail } = require('./lib/mailer');
 
 const { sweepExpiredSessions } = require('./services/session.service');
+const { runLowAttendanceJob } = require('./services/admin.service');
 
 const server = createApp().listen(env.port, () => {
   console.log(`CheckIn API ready on http://localhost:${env.port} (PostgreSQL + Prisma)`);
@@ -24,9 +25,20 @@ const server = createApp().listen(env.port, () => {
 const runSweep = () => sweepExpiredSessions().catch((e) => console.error('Session sweep failed:', e.message));
 const sweepTimer = setInterval(runSweep, 60 * 1000);
 
+// Once a day (first run 2 minutes after start): students under the required % get an alert,
+// and each tutor gets one message per module listing them. Nobody is alerted twice within
+// LOW_ATTENDANCE_REALERT_DAYS, so restarting the server doesn't spam anyone.
+const runAlerts = () => runLowAttendanceJob(null)
+  .then((r) => r.alerts && console.log(`Low-attendance alerts: ${r.alerts} students, ${r.tutorAlerts || 0} tutor messages`))
+  .catch((e) => console.error('Low-attendance job failed:', e.message));
+const alertStart = setTimeout(runAlerts, 2 * 60 * 1000);
+const alertTimer = setInterval(runAlerts, 24 * 60 * 60 * 1000);
+
 const shutdown = (signal) => {
   console.log(`${signal} received, closing…`);
   clearInterval(sweepTimer);
+  clearTimeout(alertStart);
+  clearInterval(alertTimer);
   server.close(async () => { await prisma.$disconnect(); process.exit(0); });
 };
 process.on('SIGINT', shutdown);

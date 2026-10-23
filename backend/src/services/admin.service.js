@@ -235,7 +235,8 @@ async function programmeReport(name) {
  */
 async function runLowAttendanceJob(adminId) {
   const cutoff = new Date(Date.now() - env.realertDays * DAY_MS), res = { scanned: 0, alerts: 0, skipped: 0 };
-  const en = await prisma.enrollment.findMany({ where: { academicSession: await currentAcademicSession(), student: { role: 'student', isActive: true } }, include: { module: true } });
+  const term = await currentAcademicSession(), newlyLow = new Map(); // moduleId → { module, rows }
+  const en = await prisma.enrollment.findMany({ where: { academicSession: term, student: { role: 'student', isActive: true } }, include: { module: true } });
   const m = await loadMatrix([...new Set(en.map((e) => e.moduleId))]);
   for (const e of en) {
     const p = m.pct(e.studentId, e.moduleId);
@@ -247,6 +248,18 @@ async function runLowAttendanceJob(adminId) {
     await notify(e.studentId, `Your attendance in ${e.module.code} is ${p}% - below the ${env.requiredPct}% requirement. Please speak to your tutor.`,
       'Attendance', { email: `Low attendance in ${e.module.code}` });
     res.alerts++;
+    if (!newlyLow.has(e.moduleId)) newlyLow.set(e.moduleId, { module: e.module, rows: [] });
+    newlyLow.get(e.moduleId).rows.push(`${e.studentId}: ${p}%`);
+  }
+  // One message per tutor and module, listing only the students alerted in this run
+  if (newlyLow.size) {
+    const secs = await prisma.section.findMany({ where: { moduleId: { in: [...newlyLow.keys()] }, academicSession: term }, select: { moduleId: true, tutorId: true } });
+    for (const sec of secs) {
+      const { module: mod, rows } = newlyLow.get(sec.moduleId);
+      await notify(sec.tutorId, `${rows.length} student${rows.length > 1 ? 's are' : ' is'} below ${env.requiredPct}% attendance in ${mod.code} – ${mod.name}:\n${rows.join('\n')}`,
+        'Attendance', { email: `Attendance shortage in ${mod.code}` });
+      res.tutorAlerts = (res.tutorAlerts || 0) + 1;
+    }
   }
   if (adminId) await writeAuditLog(adminId, 'Low-attendance job', `${res.alerts} alerts sent, ${res.skipped} skipped`);
   return res;
