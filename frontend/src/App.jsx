@@ -303,11 +303,9 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
-  const handleProfileClick = () => {
-    if (user.role === 'student') nav('/settings/profile');
-    else if (user.role === 'teacher') nav('/profile');
-    else nav('/');
-  };
+  // Only students and tutors have a profile page
+  const profilePath = { student: '/settings/profile', teacher: '/profile' }[user.role];
+  const handleProfileClick = () => { setUserMenu(false); nav(profilePath); };
   const doLogout = () => logout().then(() => nav('/login'));
 
   const links = NAV[user.role];
@@ -354,7 +352,7 @@ function Shell({ user, children, title, sub }) {
             </button>
             {userMenu && (
               <div className="vmenu right" role="menu">
-                <button role="menuitem" onClick={handleProfileClick}>Profile</button>
+                {profilePath && <button role="menuitem" onClick={handleProfileClick}>Profile</button>}
                 <button role="menuitem" onClick={doLogout}>Log out</button>
               </div>
             )}
