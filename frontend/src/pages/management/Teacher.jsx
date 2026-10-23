@@ -25,7 +25,7 @@ export function TeacherList() {
     return (
       <div className="mg">
         <h2 className="ttl">Teacher</h2>
-        <p style={{ color: '#64748b', fontSize: 13 }}>Loading teachers...</p>
+        <p style={{ color: '#6a737b', fontSize: 13 }}>Loading teachers...</p>
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function TeacherList() {
     return (
       <div className="mg">
         <h2 className="ttl">Teacher</h2>
-        <p style={{ color: '#ef4444', fontSize: 13 }}>Failed to load teacher data.</p>
+        <p style={{ color: '#ca3120', fontSize: 13 }}>Failed to load teacher data.</p>
       </div>
     );
   }

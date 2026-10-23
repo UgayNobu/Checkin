@@ -30,21 +30,21 @@
   gap: 10px;
   padding: 26px 28px;
   background: #fff;
-  border: 2px solid #e3e7f0;
-  border-radius: 14px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
   cursor: pointer;
 }
-.pv-stat.on { border-color: #2f6df0; }
-.pv-stat small { font-size: 17px; color: #6b7280; }
+.pv-stat.on { border-color: #0f6cbf; }
+.pv-stat small { font-size: 17px; color: #6a737b; }
 .pv-stat b { font-size: 46px; line-height: 1; }
 
 /* Third card (Modules) — not clickable, no hover, same size */
 .pv-stat-info {
   cursor: default;
-  border-color: #e3e7f0 !important;
+  border-color: #dee2e6 !important;
 }
 .pv-stat-info:hover {
-  border-color: #e3e7f0 !important;
+  border-color: #dee2e6 !important;
 }
 
 /* =========================================================
@@ -62,20 +62,20 @@
 .pv-tabs button {
   padding: 8px 18px;
   background: #fff;
-  border: 1px solid #d6dbe6;
+  border: 1px solid #dee2e6;
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
 }
 .pv-tabs button.on {
-  background: #0f1b3d;
+  background: #0f6cbf;
   color: #fff;
-  border-color: #0f1b3d;
+  border-color: #dee2e6;
 }
 .pv-bar input {
   width: 240px;
   padding: 9px 12px;
-  border: 1px solid #d6dbe6;
+  border: 1px solid #dee2e6;
   border-radius: 8px;
 }
 
@@ -85,8 +85,8 @@
 .pv-tbl {
   overflow-x: auto;
   background: #fff;
-  border: 1px solid #e3e7f0;
-  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
 }
 .pv-tbl table {
   width: 100%;
@@ -95,21 +95,21 @@
 }
 .pv-tbl th {
   padding: 12px 16px;
-  background: #f6f8fc;
+  background: #f8f9fa;
   text-align: left;
   font-size: 12px;
-  color: #4b5563;
-  border-bottom: 1px solid #e3e7f0;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
 }
 .pv-tbl td {
   padding: 12px 16px;
-  border-bottom: 1px solid #eef1f6;
+  border-bottom: 1px solid #dee2e6;
 }
 .pv-tbl tbody tr:last-child td { border-bottom: none; }
 .pv-tbl tr.off td { opacity: 0.55; }
 .pv-empty {
   text-align: center;
-  color: #6b7280;
+  color: #6a737b;
   padding: 28px !important;
 }
 
@@ -123,8 +123,8 @@
   font-size: 12px;
   font-weight: 600;
 }
-.pv-st.act { background: #d1fae5; color: #047857; }
-.pv-st.inact { background: #f3f4f6; color: #6b7280; }
+.pv-st.act { background: #d7e6d7; color: #2b6328; }
+.pv-st.inact { background: #f8f9fa; color: #6a737b; }
 
 .pv-deact,
 .pv-actv {
@@ -134,8 +134,8 @@
   font-weight: 600;
   cursor: pointer;
 }
-.pv-deact { background: #fff; color: #ef4444; border: 1px solid #ef4444; }
-.pv-actv { background: #059669; color: #fff; border: 1px solid #059669; }
+.pv-deact { background: #fff; color: #ca3120; border: 1px solid #ca3120; }
+.pv-actv { background: #357a32; color: #fff; border: 1px solid #357a32; }
 
 /* =========================================================
    Small screens: stack

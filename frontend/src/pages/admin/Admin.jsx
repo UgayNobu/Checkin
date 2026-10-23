@@ -181,8 +181,8 @@ export function Programs() {
           </button>
         </div>
 
-        {error && <p className="err" style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#fef2f2', borderRadius: 6 }}>⚠️ {error}</p>}
-        {success && <p style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#d1fae5', color: '#047857', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>✓ {success}</p>}
+        {error && <p className="err" style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#f4d6d2', borderRadius: 6 }}>⚠️ {error}</p>}
+        {success && <p style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#d7e6d7', color: '#2b6328', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>✓ {success}</p>}
 
         {/* Program List */}
         {loading ? (
@@ -296,7 +296,7 @@ export function SemesterModules() {
         {shown.map((x) => (
           <div className="mod" key={x._id} onClick={() => go(x._id)}>
             <b>{x.code} -</b> {x.name}
-            <small style={{ display: 'block', color: x.tutor ? '#16a34a' : '#b45309' }}>
+            <small style={{ display: 'block', color: x.tutor ? '#357a32' : '#8a5a00' }}>
               {x.tutor ? `Tutor: ${x.tutor.name}${x.tutor.active === false ? " (deactivated, assign a new tutor)" : ""}` : 'No tutor assigned yet'}
             </small>
           </div>
@@ -379,7 +379,7 @@ export function ModuleForm() {
             </optgroup>
           )}
         </select>
-        <small style={{ color: '#64748b' }}>The tutor will see this module and can then set its enrolment key.</small>
+        <small style={{ color: '#6a737b' }}>The tutor will see this module and can then set its enrolment key.</small>
 
         <p className="err">{err}</p>
         <button className="save" onClick={save}>Save</button>

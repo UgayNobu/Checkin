@@ -1,0 +1,483 @@
+/* =========================================================
+   vle.css — VLE (Moodle 4 "Boost") look for the logged-in app
+   Applies only inside .shell.vle, so the landing, login, sign-up
+   and forgot-password pages keep their own design.
+   Colours follow Moodle's defaults:
+     primary #0f6cbf · text #1d2125 · muted #6a737b · borders #dee2e6
+   ========================================================= */
+
+.vle {
+  --vle-primary: #0f6cbf;
+  --vle-primary-dark: #0c589c;
+  --vle-primary-light: #e7f1fa;
+  --vle-text: #1d2125;
+  --vle-muted: #6a737b;
+  --vle-border: #dee2e6;
+  --vle-light: #f8f9fa;
+  --vle-secondary: #ced4da;
+  --vle-success: #357a32;
+  --vle-danger: #ca3120;
+  --vle-warning: #f0ad4e;
+  /* old variables used by some pages, mapped onto the VLE palette */
+  --blue: var(--vle-primary);
+  --blue-text: var(--vle-primary);
+  --purple: var(--vle-primary);
+  --green: var(--vle-success);
+  --red: var(--vle-danger);
+  --orange: var(--vle-warning);
+  --ink: var(--vle-text);
+  --muted: var(--vle-muted);
+  --line: var(--vle-border);
+  --navy-student: var(--vle-primary);
+  --navy-staff: var(--vle-primary);
+
+  display: block;
+  min-height: 100vh;
+  background: #fff;
+  color: var(--vle-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.vle .main {
+  background: #fff;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+.vle .page {
+  flex: 1;
+}
+
+/* ---------- Top navbar ---------- */
+.vnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 60px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--vle-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.vle .vbrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 18px;
+  color: var(--vle-text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 19px;
+}
+.vbrand .logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+}
+.vnav-links {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+.vle .vnav-links > a,
+.vle .vnav-more > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
+  background: none;
+  color: var(--vle-text);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.vnav-links > a:hover,
+.vnav-more > button:hover {
+  background: var(--vle-light);
+}
+.vnav-links > a.active,
+.vnav-more > button.active {
+  border-bottom-color: var(--vle-primary);
+  font-weight: 600;
+}
+.vnav-more {
+  position: relative;
+  display: flex;
+}
+.caret {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+}
+.vmenu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 120;
+  min-width: 220px;
+  padding: 8px 0;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+.vmenu.right {
+  left: auto;
+  right: 0;
+}
+.vle .vmenu a,
+.vle .vmenu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 20px;
+  border: 0;
+  background: none;
+  color: var(--vle-text);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.vmenu a:hover,
+.vmenu button:hover {
+  background: #e9ecef;
+}
+.vle .vmenu a.active {
+  background: var(--vle-primary);
+  color: #fff;
+}
+.vnav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vuser {
+  position: relative;
+}
+.vuser > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--vle-text);
+  font: inherit;
+  cursor: pointer;
+}
+.vuser > button:hover {
+  background: var(--vle-light);
+}
+.vle .avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: var(--vle-text);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.vuser-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: left;
+}
+.vuser-name small {
+  color: var(--vle-muted);
+  font-size: 12px;
+}
+.vle .bell {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 17px;
+}
+.vle .bell:hover {
+  background: var(--vle-light);
+}
+.vle .bellpanel {
+  top: 46px;
+  border-radius: 8px;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+.vle .bellpanel p.unread {
+  background: var(--vle-primary-light);
+}
+.vle .nbadge {
+  float: none;
+  margin-left: 4px;
+  background: var(--vle-danger);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+}
+
+/* ---------- Drawer (small screens) ---------- */
+.vnav-burger,
+.vshade,
+.vdrawer {
+  display: none;
+}
+
+/* ---------- Page header + footer ---------- */
+.vhead {
+  padding: 28px 24px 4px;
+}
+.vhead h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--vle-text);
+}
+.vhead p {
+  margin: 6px 0 0;
+  color: var(--vle-muted);
+  font-size: 15px;
+}
+.vfoot {
+  padding: 18px 24px;
+  border-top: 1px solid var(--vle-border);
+  background: var(--vle-light);
+  color: var(--vle-muted);
+  font-size: 13px;
+}
+@media (min-width: 761px) {
+  .vle .main {
+    --gutter: max(32px, calc((100% - 1200px) / 2));
+  }
+  .vhead,
+  .vfoot {
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
+}
+
+/* ---------- Common components inside the app ---------- */
+.vle a {
+  color: var(--vle-primary);
+}
+.vle .card,
+.vle .panel {
+  border: 1px solid var(--vle-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+.vle .stat {
+  border: 1px solid var(--vle-border);
+  border-radius: 8px;
+}
+.vle .btn,
+.vle .pbtn {
+  background: var(--vle-primary);
+  border: 1px solid var(--vle-primary);
+  border-radius: 8px;
+  color: #fff;
+}
+.vle .btn:hover,
+.vle .pbtn:hover {
+  background: var(--vle-primary-dark);
+  border-color: var(--vle-primary-dark);
+}
+.vle .ghost {
+  background: var(--vle-secondary);
+  border: 1px solid var(--vle-secondary);
+  color: var(--vle-text);
+  border-radius: 8px;
+}
+.vle .page input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
+.vle .page select,
+.vle .page textarea {
+  border: 1px solid #8f959e;
+  border-radius: 8px;
+  color: var(--vle-text);
+  background-color: #fff;
+}
+.vle .page input:focus,
+.vle .page select:focus,
+.vle .page textarea:focus {
+  outline: none;
+  border-color: #87b6df;
+  box-shadow: 0 0 0 0.2rem rgba(15, 108, 191, 0.75);
+}
+.vle .page table th {
+  color: var(--vle-text);
+  font-weight: 700;
+  border-bottom: 2px solid var(--vle-border);
+}
+.vle .page table td {
+  border-top: 1px solid var(--vle-border);
+}
+.vle .page table tbody tr:nth-child(odd) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+.vle .page table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+.vle .err {
+  color: var(--vle-danger);
+}
+.vle .ok {
+  color: var(--vle-success);
+}
+
+/* ---------- Narrower screens: links move into the drawer ---------- */
+@media (max-width: 1099px) {
+  .vnav-links,
+  .vuser-name,
+  .vuser > button .caret {
+    display: none;
+  }
+  .vnav-burger {
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    width: 42px;
+    height: 42px;
+    margin: auto 6px auto 0;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+  }
+  .vnav-burger:hover {
+    background: var(--vle-light);
+  }
+  .vnav-burger span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--vle-text);
+  }
+  .vdrawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 160;
+    width: 285px;
+    max-width: 85vw;
+    overflow-y: auto;
+    background: var(--vle-light);
+    border-right: 1px solid var(--vle-border);
+    padding-top: env(safe-area-inset-top);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+  .menu-open .vdrawer {
+    transform: none;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+  }
+  .vdrawer-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--vle-border);
+    background: #fff;
+  }
+  .vdrawer-head b {
+    display: block;
+    font-size: 15px;
+  }
+  .vdrawer-head small {
+    color: var(--vle-muted);
+    font-size: 13px;
+  }
+  .vdrawer nav {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+  }
+  .vle .vdrawer nav a {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: var(--vle-text);
+    text-decoration: none;
+    font-size: 15px;
+  }
+  .vdrawer nav a:hover {
+    background: #e9ecef;
+  }
+  .vle .vdrawer nav a.active {
+    background: var(--vle-primary-light);
+    color: var(--vle-primary);
+    font-weight: 600;
+  }
+  .vdrawer-out {
+    margin: auto 20px 20px;
+    padding: 10px;
+    border: 1px solid var(--vle-secondary);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--vle-text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .vshade {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .menu-open .vshade {
+    display: block;
+  }
+}
+@media (max-width: 760px) {
+  .vnav {
+    padding: 0 10px;
+    padding-top: env(safe-area-inset-top);
+  }
+  .vbrand {
+    font-size: 17px;
+  }
+  .vhead {
+    padding: 18px 16px 0;
+  }
+  .vhead h1 {
+    font-size: 24px;
+  }
+  .vfoot {
+    padding: 14px 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vdrawer {
+    transition: none;
+  }
+}

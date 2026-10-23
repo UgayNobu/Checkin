@@ -35,7 +35,7 @@ export default function SemesterPicker({ session, setSession }) {
       <select
         value={session}
         onChange={(e) => setSession(e.target.value)}
-        style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #d6dbe6', font: 'inherit', fontSize: 12 }}
+        style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #dee2e6', font: 'inherit', fontSize: 12 }}
       >
         <option value="">{current ? `${current.name} (current)` : 'Current semester'}</option>
         {list.filter((x) => !x.isCurrent).map((x) => (

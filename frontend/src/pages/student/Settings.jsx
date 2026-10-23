@@ -419,7 +419,7 @@ export function Enrol() {
             </small>
           </p>
 
-          {chosen.enrolled && <p className="foot" style={{ color: '#16a34a', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
+          {chosen.enrolled && <p className="foot" style={{ color: '#357a32', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
           {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
           {!chosen.enrolled && (<>
           <label>Enrolment Key</label>
@@ -445,7 +445,7 @@ export function Enrol() {
         </div>
       )}
 
-      {msg.text && <p className="foot" style={{ color: msg.ok ? '#16a34a' : '#b42318', fontWeight: 600 }}>{msg.text}</p>}
+      {msg.text && <p className="foot" style={{ color: msg.ok ? '#357a32' : '#ca3120', fontWeight: 600 }}>{msg.text}</p>}
     </div>
   );
 }
@@ -473,7 +473,7 @@ export function BrowseModules() {
       (!f.module || m.id === f.module)
   );
 
-  const icons = ['#ede9fe', '#dbeafe', '#d1fae5'];
+  const icons = ['#e7f1fa', '#e7f1fa', '#d7e6d7'];
 
   return (
     <div className="sub1" style={{ maxWidth: 760 }}>

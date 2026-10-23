@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import './reports.css';
 
-const C = ['#059669', '#2f6df0', '#f59e0b'];
-const GREY = '#cbd5e1';
+const C = ['#357a32', '#0f6cbf', '#f0ad4e'];
+const GREY = '#dee2e6';
 const AXIS = [100, 80, 60, 40, 20, 0];
 const MIN_WEEKS = 6;
 
