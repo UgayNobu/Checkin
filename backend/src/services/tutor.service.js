@@ -110,11 +110,18 @@ async function reports(tutorId) {
   // All the numbers come from the one loadMatrix call (no extra query per week).
   return mods.map((mod) => {
     const ses = m.sessionsOf(mod.id);
+    const weekClasses = [], weekStarts = [];
     const weeks = Array.from({ length: 6 }, (_, i) => {
       const a = now - (6 - i) * WEEK_MS, b = a + WEEK_MS; // i = 0 → 6 weeks ago, i = 5 → this week
-      return m.classRate(ses.filter((s) => sessionStart(s) >= a && sessionStart(s) < b), mod.students);
+      const list = ses.filter((s) => sessionStart(s) >= a && sessionStart(s) < b);
+      weekClasses.push(list.length);
+      weekStarts.push(new Date(a).toISOString());
+      return list.length ? m.classRate(list, mod.students) : null; // null = no class that week (not 0%)
     });
-    return { id: mod.id, code: mod.code, name: mod.name, weeks, overall: m.classRate(ses, mod.students) };
+    return {
+      id: mod.id, code: mod.code, name: mod.name, students: mod.students, classes: ses.length,
+      weeks, weekClasses, weekStarts, overall: ses.length ? m.classRate(ses, mod.students) : null,
+    };
   });
 }
 
