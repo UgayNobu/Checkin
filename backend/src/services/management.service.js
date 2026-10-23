@@ -120,13 +120,18 @@ async function studentView(studentId, moduleId, { term } = {}) {
 
 async function teachers({ term } = {}) {
   term = await sessionOrCurrent(term);
-  const [secs, total] = await Promise.all([
+  const [secs, total, enrolled] = await Promise.all([
     prisma.section.findMany({ where: { academicSession: term }, include: { module: true, tutor: true, sessions: { select: { duration: true } } }, orderBy: { module: { code: 'asc' } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
+    prisma.enrollment.groupBy({ by: ['moduleId'], where: { academicSession: term, student: { isActive: true } }, _count: { _all: true } }),
   ]);
+  const students = new Map(enrolled.map((e) => [e.moduleId, e._count._all]));
   return {
     total,
-    rows: secs.map((x) => ({ module: `${x.module.code} – ${x.module.name}`, name: x.tutor.name, cls: x.name, hours: round1(x.sessions.reduce((a, y) => a + y.duration / 60, 0)) })),
+    rows: secs.map((x) => ({
+      module: `${x.module.code} – ${x.module.name}`, name: x.tutor.name, students: students.get(x.moduleId) || 0,
+      classes: x.sessions.length, hours: round1(x.sessions.reduce((a, y) => a + y.duration / 60, 0)),
+    })),
   };
 }
 

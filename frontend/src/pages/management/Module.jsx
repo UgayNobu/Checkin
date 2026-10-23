@@ -1,3 +1,4 @@
+import { pattern } from '../teacher/Modules.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
@@ -129,6 +130,13 @@ function Dropdown({ value, onChange, options, placeholder }) {
 /* =========================================================
    Programs list
    ========================================================= */
+// Short label for the card banner: "B.E. Civil Engineering" → "CE"
+const abbr = (name) => { const w = name.replace(/^(B\.?E\.?|Bachelor of|Master of (Science in|Engineering in)?|Master in)\s*/i, '')
+  .replace(/\(.*?\)/g, '').split(/\s+/).filter((x) => /^[A-Z]/.test(x));
+  const a = w.map((x) => x[0]).join('').slice(0, 4);
+  return a.length > 1 ? a : (w[0] || name).slice(0, 4).toUpperCase();
+};
+
 export function Departments() {
   const nav = useNavigate();
   const [p, setP] = useState([]);
@@ -156,8 +164,12 @@ export function Departments() {
       ) : (
         <div className="dept-grid">
           {p.map((x) => (
-            <div className="dept" key={x} onClick={() => nav('/department/' + E(x))}>
-              {x}
+            <div className="dept pcard" key={x} role="link" tabIndex={0} onClick={() => nav('/department/' + E(x))} onKeyDown={(e) => e.key === 'Enter' && nav('/department/' + E(x))}>
+              <div className="pcard-img" style={{ backgroundImage: pattern(x) }}><b>{abbr(x)}</b></div>
+              <div className="pcard-body">
+                <small>{/^master/i.test(x) ? "Master's programme" : "Bachelor's programme"}</small>
+                <span>{x}</span>
+              </div>
             </div>
           ))}
         </div>

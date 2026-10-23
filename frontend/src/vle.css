@@ -481,3 +481,66 @@
     transition: none;
   }
 }
+
+/* =========================================================
+   Colour accents (light touches so pages aren't flat white)
+   ========================================================= */
+/* brand strip on the navbar, soft blue wash behind the page title */
+.vnav { border-top: 3px solid var(--vle-primary); }
+.vle .main { background: linear-gradient(180deg, #e8f1fb 0, #f4f8fd 150px, #fff 340px); }
+.vle .vuser .avatar, .vle .vdrawer-head .avatar { background: var(--vle-primary); color: #fff; }
+/* dark-blue footer */
+.vfoot { background: #0f3f6e; border-top: 0; color: #c9dcef; }
+
+/* table headers: pale blue instead of grey */
+.vle .page table thead th {
+  background: #eaf2fb;
+  color: #0c4a86;
+  border-bottom: 2px solid #c6dbf0;
+}
+
+/* stat tiles: a coloured top edge, colour follows the tile's position */
+.vle .stat, .vle .ao-stat, .vle .pv-stat, .vle .rp-tile, .vle .tch-stat, .vle .hx-stats > *, .vle .stats > .stat {
+  border-top: 4px solid var(--acc, var(--vle-primary));
+}
+.vle :is(.stat, .ao-stat, .pv-stat, .rp-tile, .hx-stats > *):nth-child(4n + 1) { --acc: #0f6cbf; }
+.vle :is(.stat, .ao-stat, .pv-stat, .rp-tile, .hx-stats > *):nth-child(4n + 2) { --acc: #12867a; }
+.vle :is(.stat, .ao-stat, .pv-stat, .rp-tile, .hx-stats > *):nth-child(4n + 3) { --acc: #e07b16; }
+.vle :is(.stat, .ao-stat, .pv-stat, .rp-tile, .hx-stats > *):nth-child(4n + 4) { --acc: #7b4fbf; }
+
+/* page headings inside pages (management/admin draw their own) get a small blue bar */
+.vle .page .ttl, .vle .page .sem-title, .vle .page .pv-title, .vle .page .ao-title {
+  padding-left: 12px;
+  border-left: 4px solid var(--vle-primary);
+}
+
+/* card-style programme tiles (Management → Programs) */
+.vle .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+.vle .dept.pcard {
+  max-width: none; min-width: 0; padding: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; text-align: left;
+}
+.vle .dept.pcard:hover { color: inherit; }
+.pcard-img { height: 92px; background-size: cover; background-position: center; display: flex; align-items: flex-end; padding: 10px 14px; }
+.pcard-img b { color: #fff; font-size: 20px; letter-spacing: .5px; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.pcard-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.pcard-body small { color: var(--vle-muted); font-size: 12px; font-weight: 400; }
+.pcard-body span { color: var(--vle-primary); font-size: 15px; font-weight: 600; line-height: 1.35; }
+.vle .dept.pcard:hover .pcard-body span { text-decoration: underline; }
+
+/* student dashboard course cards get the same pattern strip as the tutor's */
+.vle .course { padding: 0; overflow: hidden; gap: 0; }
+.vle .course .course-img { height: 64px; background-size: cover; background-position: center; }
+.vle .course > b, .vle .course > small, .vle .course > a { padding: 0 14px; }
+.vle .course > b { padding-top: 10px; }
+.vle .course > a { padding-bottom: 12px; }
+
+/* student dashboard warning */
+.vle .dash .alert { background: #fcefdc; border: 1px solid #f3cf9a; border-left: 4px solid #e07b16; color: #8a5a00; border-radius: 8px; }
+@media (max-width: 760px) {
+  .vle .dept-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pcard-img { height: 60px; padding: 8px 10px; }
+  .pcard-img b { font-size: 16px; }
+  .pcard-body { padding: 10px; }
+  .pcard-body span { font-size: 14px; }
+}
