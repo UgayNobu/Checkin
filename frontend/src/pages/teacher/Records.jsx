@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import SemesterPicker, { useSemester } from '../shared/SemesterPicker';
+import { pattern } from './Modules.jsx';
 import './records.css';
 
 /* ---------- Helpers ---------- */
@@ -30,11 +31,34 @@ export function RecordModules() {
   const nav = useNavigate();
   const { session, setSession, qs } = useSemester(); // ?session=AS2026 → an old semester
   const [mods, setMods] = useState([]);
+  const [info, setInfo] = useState({}); // moduleId → { classes, hours, last, avg, below, students }
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    api('/teacher/modules' + qs)
-      .then((r) => setMods(Array.isArray(r) ? r : []))
+    const term = qs ? '&' + qs.slice(1) : '';
+    setInfo({});
+    Promise.all([api('/teacher/modules' + qs), api('/sessions/mine?limit=100' + term).catch(() => [])])
+      .then(async ([r, ses]) => {
+        const list = Array.isArray(r) ? r : [];
+        setMods(list);
+        const all = Array.isArray(ses) ? ses : [];
+        // A tutor has at most a few modules, so one records call per module is fine
+        const entries = await Promise.all(list.map(async (m) => {
+          const mine = all.filter((s) => s.module?.id === m.id && s.status === 'ended' && !s.optional);
+          const rows = await api(`/teacher/records/${m.id}${qs}`).catch(() => []);
+          const has = mine.length > 0;
+          const pcts = (Array.isArray(rows) ? rows : []).map((x) => x.total);
+          return [m.id, {
+            classes: mine.length,
+            hours: Math.round(mine.reduce((a, s) => a + (s.hours || 0), 0) * 10) / 10,
+            last: mine[0]?.date || null,
+            avg: has && pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
+            below: has ? pcts.filter((p) => p < 90).length : 0,
+            students: pcts.length,
+          }];
+        }));
+        setInfo(Object.fromEntries(entries));
+      })
       .catch(() => setMods([]))
       .finally(() => setLoaded(true));
   }, [qs]);
@@ -50,14 +74,38 @@ export function RecordModules() {
           <small>Modules appear here once an admin assigns them to you.</small>
         </div>
       ) : (
-        <div className="rec-modgrid">
-          {mods.map((m) => (
-            <button className="rec-modcard" key={m.id} onClick={() => nav('/records/' + m.id + qs)}>
-              <b>{m.code}</b>
-              <span>{m.name}</span>
-              <small>View attendance →</small>
-            </button>
-          ))}
+        <div className="rmods">
+          {mods.map((m) => {
+            const i = info[m.id];
+            const go = () => nav('/records/' + m.id + qs);
+            return (
+              <div className="rmod" key={m.id} role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go()}>
+                <div className="rmod-img" style={{ backgroundImage: pattern(m.code) }} aria-hidden="true">
+                  <span>{m.code}</span>
+                </div>
+                <div className="rmod-main">
+                  <div className="rmod-head">
+                    <div>
+                      <small className="rmod-cat">{m.code}{m.section ? ` · Section ${m.section}` : ''}</small>
+                      <b className="rmod-name">{m.name}</b>
+                    </div>
+                    <span className="rmod-link">View attendance →</span>
+                  </div>
+                  <div className="rmod-stats">
+                    <div><small>Students</small><b>{i ? i.students : '…'}</b></div>
+                    <div><small>Classes held</small><b>{i ? i.classes : '…'}</b><em>{i && i.hours ? `${i.hours} hours` : ' '}</em></div>
+                    <div><small>Last class</small><b className="rmod-date">{i ? (i.last ? new Date(i.last).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '–') : '…'}</b></div>
+                    <div className="rmod-avg">
+                      <small>Average attendance</small>
+                      <b className={i && i.avg == null ? 'none' : i && i.avg < 90 ? 'low' : ''}>{i ? (i.avg == null ? 'No classes yet' : `${i.avg}%`) : '…'}</b>
+                      {i && i.avg != null && <span className="rmod-bar"><span style={{ width: `${Math.min(100, i.avg)}%` }} className={i.avg < 90 ? 'low' : ''} /></span>}
+                    </div>
+                    <div><small>Below 90%</small><b className={i && i.below ? 'low' : ''}>{i ? i.below : '…'}</b><em>{i && i.below ? (i.below === 1 ? 'student' : 'students') : ' '}</em></div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

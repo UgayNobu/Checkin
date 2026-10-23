@@ -6,7 +6,7 @@ const dt = (d) => new Date(d).toLocaleDateString('en', { day: 'numeric', month: 
 
 // VLE-style course card image: a pattern whose colour comes from the module code (like Moodle's course images)
 const HUES = ['#0f6cbf', '#357a32', '#7a3a99', '#a35d00', '#1b7f8c', '#b0372c', '#3a5aa8', '#5b6b2a'];
-function pattern(code = '') {
+export function pattern(code = '') {
   let h = 0; for (const c of code) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const bg = HUES[h % HUES.length], r = (n) => ((h >> n) % 40) + 20;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" fill="${bg}"/>` +

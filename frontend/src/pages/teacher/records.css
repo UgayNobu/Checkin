@@ -373,3 +373,36 @@
   font-size:11px;
   font-weight:600;
 }
+
+/* ---------- VLE-style module list (/records): one wide card per module ---------- */
+.rmods{display:flex;flex-direction:column;gap:18px}
+.rmod{display:flex;border:1px solid #dee2e6;border-radius:8px;background:#fff;overflow:hidden;cursor:pointer;transition:box-shadow .15s}
+.rmod:hover,.rmod:focus-visible{box-shadow:0 4px 12px rgba(0,0,0,.12);outline:none}
+.rmod-img{flex:0 0 200px;background-size:cover;background-position:center;display:flex;align-items:flex-end;padding:14px}
+.rmod-img span{color:#fff;font-size:20px;font-weight:700;letter-spacing:.5px;text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.rmod-main{flex:1;min-width:0;padding:18px 22px}
+.rmod-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.rmod-cat{display:block;color:#6a737b;font-size:13px}
+.rmod-name{display:block;font-size:18px;color:#1d2125;margin-top:2px}
+.rmod:hover .rmod-name{color:#0f6cbf;text-decoration:underline}
+.rmod-link{flex-shrink:0;color:#0f6cbf;font-size:14px;white-space:nowrap;padding-top:4px}
+.rmod-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #dee2e6}
+.rmod-stats > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rmod-stats small{color:#6a737b;font-size:13px}
+.rmod-stats b{font-size:22px;font-weight:700;color:#1d2125;line-height:1.2}
+.rmod-stats b.rmod-date{font-size:18px;padding-top:3px}
+.rmod-stats b.low{color:#ca3120}
+.rmod-stats em{font-style:normal;color:#6a737b;font-size:12px;min-height:16px}
+.rmod-avg b{font-size:22px}
+.rmod-bar{display:block;height:6px;margin-top:6px;border-radius:3px;background:#e9ecef;overflow:hidden}
+.rmod-bar span{display:block;height:100%;background:#357a32;border-radius:3px}
+.rmod-bar span.low{background:#ca3120}
+@media (max-width:900px){.rmod-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){
+  .rmod{flex-direction:column}
+  .rmod-img{flex:0 0 90px;min-height:90px}
+  .rmod-main{padding:14px 16px}
+  .rmod-head{flex-direction:column;gap:6px}
+  .rmod-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.rmod-stats b.none{font-size:16px;font-weight:400;color:#6a737b;padding-top:5px}
