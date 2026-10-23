@@ -9,9 +9,12 @@ import './semesters.css';
 const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Past = its end date has gone by. A semester whose dates have begun but that
+// hasn't been started yet is "Not started", not "Past".
 function status(x) {
   if (x.isCurrent) return ['Current', 'cur'];
-  return x.startDate > today() ? ['Upcoming', 'up'] : ['Past', 'past'];
+  if (x.endDate < today()) return ['Past', 'past'];
+  return x.startDate > today() ? ['Upcoming', 'up'] : ['Not started', 'up'];
 }
 
 export default function Semesters() {
@@ -92,7 +95,8 @@ export default function Semesters() {
             <li>The admin assigns tutors to modules again, and students enrol again with the tutor's key.</li>
             <li>The timetable shows {confirm.code} classes ({confirm.timetableSlots} loaded).</li>
             <li>{current ? current.name : 'The old semester'} and all its attendance stay saved.</li>
-            {confirm.startDate <= today() && <li><b>This semester has already started or ended.</b> Only switch back to it to undo a mistake.</li>}
+            {confirm.endDate < today() && <li><b>This semester has already ended.</b> Only switch back to it to undo a mistake.</li>}
+            {confirm.startDate <= today() && confirm.endDate >= today() && <li><b>This semester's start date has already passed</b>, so it starts straight away.</li>}
           </ul>
           <label className="sem-check">
             <input type="checkbox" checked={promote} onChange={(e) => setPromote(e.target.checked)} />
