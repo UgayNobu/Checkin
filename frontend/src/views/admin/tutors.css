@@ -1,0 +1,58 @@
+/* Admin → Tutors (create tutor accounts, assign modules). Colours come from base.css variables. */
+.tut { display: flex; flex-direction: column; gap: 20px; }
+.tut-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.tut-title { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+.tut-sub { margin: 0; color: var(--muted); font-size: 14px; }
+.tut .stats { margin-bottom: 0; }
+
+.tut-ok {
+  margin: 0; padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  background: var(--present-bg); color: var(--present-text); border: 1px solid var(--present-bg);
+}
+.tut .err { margin: 0; }
+
+.tut-bar { display: flex; gap: 12px; flex-wrap: wrap; }
+.tut-search { max-width: 420px; }
+
+.tut-mail { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.tut-mut { color: var(--muted); }
+.tut-empty { text-align: center; color: var(--muted); padding: 32px 16px !important; }
+.tut-mods { display: flex; flex-wrap: wrap; gap: 6px; }
+.tut-mod {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--primary-tint); color: var(--primary-dark);
+}
+.tut-cell { display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.tut-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.tut-pill.warn { background: var(--late-bg); color: var(--late-text); }
+.tut-pill.ok { background: var(--present-bg); color: var(--present-text); }
+.tut-pill.free { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+.tut-actions { display: inline-flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.tut-btn {
+  min-height: 36px; padding: 6px 14px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600;
+  background: var(--card); color: var(--primary); border: 1px solid var(--border); cursor: pointer; white-space: nowrap;
+}
+.tut-btn:hover:not(:disabled) { background: var(--primary-tint); border-color: var(--primary-soft); }
+.tut-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Assign modules dialog */
+.tut-assign { max-width: 560px; }
+.tut-assign .tut-search { max-width: none; margin-top: 14px; }
+.tut-list { margin-top: 12px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.tut-opt {
+  display: flex !important; align-items: center; gap: 12px; margin: 0 !important; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--card); cursor: pointer; font-weight: 400 !important;
+}
+.tut-opt:hover { border-color: var(--primary-soft); }
+.tut-opt.on { border-color: var(--primary); background: var(--primary-tint); }
+.tut-opt.mine { background: var(--bg); cursor: default; }
+.tut-opt input { flex: 0 0 auto; margin: 0; }
+.tut-opt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tut-opt-main b { font-size: 14px; color: var(--text); }
+.tut-opt-main small { font-size: 12px; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .tut-head .btn { width: 100%; }
+  .tut-search { max-width: none; }
+}

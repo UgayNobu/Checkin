@@ -1,0 +1,40 @@
+.prof{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}.pcard,.pform,.setbox{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow)}.pcard{width:240px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;text-align:center}
+.bigav{width:60px;height:60px;border-radius:50%;background:var(--primary-tint);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:18px}.pcard small{color:var(--muted)}
+/* Secondary button (outline) */
+.ghost{min-height:40px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--primary);font:inherit;font-size:13px;font-weight:600;cursor:pointer}.ghost:hover{background:var(--primary-tint);border-color:var(--primary-soft)}.pcard .ghost{width:100%;margin:8px 0}
+.kv{display:flex;justify-content:space-between;width:100%;font-size:13px}.pform{flex:1;min-width:360px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px 30px}.fld small{color:var(--muted);font-size:12px;font-weight:600}.fld input{border:1px solid var(--border);border-radius:8px;padding:9px 12px}
+.pform .pbtn{margin:18px 10px 0 0;padding:10px 18px}.setbox{max-width:860px}.tabs{display:flex;gap:30px;border-bottom:1px solid var(--border);margin-bottom:6px}.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:12px 4px;font:inherit;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer}.tabs .on{color:var(--primary);border-bottom:2px solid var(--primary)}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)}.srow small{display:block;color:var(--muted);font-size:12px}
+.sw{width:30px;height:16px;border-radius:10px;background:var(--border);border:0;position:relative;cursor:pointer}.sw:after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--card);transition:.15s}.sw.on{background:var(--primary)}.sw.on:after{left:16px}
+
+/* Profile view / edit */
+.bigav.img{object-fit:cover;padding:0}
+.linkb{background:none;border:0;color:var(--absent-text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:0 0 6px}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.ph h3{margin:0;font-size:16px}
+.ph .pbtn{margin:0}
+.prof .pv{display:flex;flex-direction:column;gap:3px;padding:12px 0;border-bottom:1px solid var(--border);min-width:0}
+.prof .pv small{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.01em}
+.prof .pv b{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.prof .pv b .mut{font-weight:400;color:var(--muted)}
+.prof .pv em{font-style:normal;color:var(--muted);font-size:12px}
+.pe{display:flex;flex-direction:column;gap:4px;padding:6px 0}
+.pe label{font-size:13px;font-weight:600;color:var(--text);margin:8px 0 2px}
+.pe input{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:inherit;font-size:14px;min-height:44px}
+.pe input:focus{outline:2px solid var(--primary);outline-offset:0;border-color:var(--primary)}
+.pe.bad input{border-color:var(--absent-solid)}
+.pe-err{color:var(--absent-text);font-size:12px}
+.pactions{display:flex;gap:10px;align-items:center;margin-top:14px}
+.pactions .pbtn{margin:0}
+.pok{color:var(--present-text);font-size:13px;margin:0 0 10px}
+.pwform{max-width:380px;display:flex;flex-direction:column;padding:8px 0}
+.pwform h4{margin:6px 0 6px;font-size:14px}
+.pwform label{font-size:12px;font-weight:700;margin:10px 0 4px}
+.pwform input[type=password],.pwform input[type=text]{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:inherit;font-size:14px;min-height:44px}
+.pwform .pwshow{display:flex;align-items:center;gap:6px;font-weight:500;margin:10px 0 6px}
+.pwform .pwshow input{width:auto;min-height:0}
+.pwrules{list-style:none;margin:4px 0 0;padding:0;font-size:12px;color:var(--muted);line-height:1.7}
+.pwrules li.ok{color:var(--present-text)}
+.pwform .pbtn{margin-top:14px;align-self:flex-start;padding:10px 18px}
+.pwform .pbtn:disabled{opacity:.5;cursor:default}
+@media (max-width:560px){.pcard{width:100%}.pform{min-width:0}}

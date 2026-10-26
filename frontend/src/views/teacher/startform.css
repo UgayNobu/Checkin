@@ -1,0 +1,27 @@
+/* Start Attendance: the session form in two columns (one on phones) */
+.sa-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 20px; }
+.sa-f { display: flex; flex-direction: column; min-width: 0; }
+.sa-f label { margin-top: 8px; }
+.sa-f input, .sa-f select { width: 100%; box-sizing: border-box; }
+.sa-wide { grid-column: 1 / -1; }
+.sa-ok { display: block; color: var(--present-text); font-size: 12px; margin: 4px 0 6px; }
+.sa-help { display: block; color: var(--muted); font-size: 12px; margin: 4px 0 6px; }
+@media (max-width: 640px) { .sa-grid { grid-template-columns: 1fr; } }
+
+/* Start Attendance: the 4-step flow bar (done = green, current = purple) */
+.sa-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; padding: 0; list-style: none; counter-reset: sa; }
+.sa-flow li {
+  counter-increment: sa; position: relative; display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 16px 14px 52px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+}
+.sa-flow li::before {
+  content: counter(sa); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+}
+.sa-flow b { font-size: 14px; color: var(--text); }
+.sa-flow small { font-size: 12px; color: var(--muted); }
+.sa-flow li.now { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.sa-flow li.now::before { background: var(--primary); color: #fff; border-color: var(--primary); }
+.sa-flow li.done::before { content: '✓'; background: var(--present-bg); color: var(--present-text); border-color: var(--present-bg); }
+@media (max-width: 900px) { .sa-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .sa-flow { grid-template-columns: 1fr; } }

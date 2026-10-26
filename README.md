@@ -262,3 +262,12 @@ The project proposal and weekly sprint reports are in [`docs/`](./docs).
 ## License
 
 No license has been applied yet. This is a supervised college capstone project, not intended for external reuse at this stage.
+
+## Changes in October 2026 (admin / tutor notes)
+
+- **Frontend is now Next.js 14** (it was Vite). Run it the same way: `cd frontend`, `npm install`, `npm run dev`, then open **http://localhost:3000** (was 5173).
+  - Settings go in `frontend/.env.local`: `NEXT_PUBLIC_API=http://localhost:5001/api` (was `VITE_API`). See `frontend/.env.example`.
+  - Phone demo through one tunnel: set `NEXT_PUBLIC_API=/api` and `BACKEND_URL=http://localhost:5001`; `next.config.mjs` forwards `/api` and `/uploads` to the backend. Tunnel to port 3000.
+  - Images moved from `frontend/photo` to `frontend/public` (Next serves that folder). Screens moved from `src/pages` to `src/views` (Next reserves the name `pages`). The old Vite files are kept in `frontend/_old-vite/` and can be deleted.
+- **Tutor accounts are created by the admin** (Admin › Tutors): staff ID, name, email, department and a default password (`DEFAULT_TUTOR_PASSWORD` in `backend/.env`). There is no tutor sign-up or approval any more. The admin then assigns the tutor's modules.
+- **Notifications** are emailed to the account's email and, if SMS is set up and turned on, texted. Password changes are always emailed and texted. See `backend/.env.example` for the SMS settings.
