@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, logout } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
@@ -20,6 +20,47 @@ const Back = ({ to = '/settings', label = 'Settings' }) => {
     </button>
   );
 };
+
+/* Profile circle: shows the photo if there is one, otherwise the initials */
+const Avatar = ({ name, photo, className = 'av' }) => (
+  <div className={className} style={{ overflow: 'hidden' }}>
+    {photo ? (
+      <img
+        src={photo}
+        alt="Profile"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+      />
+    ) : (
+      initials(name)
+    )}
+  </div>
+);
+
+/* Shrinks a picked image to a small square (160 x 160) so it is quick to save and load */
+const shrinkImage = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a valid image.'));
+      img.onload = () => {
+        const size = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // crop the middle square of the image so it fills the circle
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 
 /* =========================================================
    Settings (main page)
@@ -90,7 +131,7 @@ export default function Settings() {
           <hr />
 
           <div className="who">
-            <div className="av">{initials(me.name)}</div>
+            <Avatar name={me.name} photo={prefs.photo} />
             <div>
               <b>{me.name}</b> <span className="tag">ACTIVE STUDENT</span>
               <br />
@@ -102,7 +143,6 @@ export default function Settings() {
 
           {links.map(([t, s, to]) => (
             <div className="link" key={to} onClick={() => nav(to)}>
-              <span className="ic" />
               <div>
                 <b>{t}</b>
                 <small>{s}</small>
@@ -146,28 +186,83 @@ export default function Settings() {
 }
 
 /* =========================================================
-   Edit profile
+   Edit profile (now with a working Change photo button)
    ========================================================= */
 export function EditProfile() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
+  const [photo, setPhoto] = useState(null);
+  const [photoMsg, setPhotoMsg] = useState('');
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
-    api('/me').then(setMe);
+    api('/me').then((u) => {
+      setMe(u);
+      setPhoto(u.prefs?.photo || null);
+    });
   }, []);
 
   if (!me) return null;
 
   const set = (k) => (e) => setMe({ ...me, [k]: e.target.value });
 
+  // Runs after the student picks a file
+  const pickPhoto = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // lets the same file be picked again later
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return setPhotoMsg('Please choose an image file (JPG or PNG).');
+    if (file.size > 5 * 1024 * 1024) return setPhotoMsg('That image is too big. Choose one under 5 MB.');
+    shrinkImage(file)
+      .then((url) => {
+        setPhoto(url);
+        setPhotoMsg('New photo ready. Click "Save changes" to keep it.');
+      })
+      .catch((err) => setPhotoMsg(err.message));
+  };
+
+  const removePhoto = () => {
+    setPhoto(null);
+    setPhotoMsg('Photo removed. Click "Save changes" to keep this.');
+  };
+
+  const save = () => {
+    setSaving(true);
+    const prefs = { ...(me.prefs || {}) };
+    if (photo) prefs.photo = photo;
+    else delete prefs.photo;
+    api('/me', { name: me.name, phone: me.phone, prefs }, 'PUT')
+      .then(() => nav('/settings'))
+      .catch((err) => setPhotoMsg(err.message || 'Could not save. Try again.'))
+      .finally(() => setSaving(false));
+  };
+
   return (
     <div className="sub1">
       <Back />
 
       <div className="who2">
-        <div className="av dark">{initials(me.name)}</div>
-        <button className="ghost">Change photo</button>
+        <Avatar name={me.name} photo={photo} className="av dark" />
+
+        {/* Hidden file picker, opened by the button */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={pickPhoto}
+        />
+        <button className="ghost" onClick={() => fileRef.current && fileRef.current.click()}>
+          Change photo
+        </button>
+        {photo && (
+          <button className="ghost" onClick={removePhoto}>
+            Remove
+          </button>
+        )}
       </div>
+      {photoMsg && <p style={{ fontSize: 12, color: '#64748b', margin: '6px 0 0' }}>{photoMsg}</p>}
 
       <div className="card1">
         <label>Full name</label>
@@ -187,13 +282,8 @@ export function EditProfile() {
           <button className="ghost" onClick={() => nav('/settings')}>
             Cancel
           </button>
-          <button
-            className="ghost"
-            onClick={() =>
-              api('/me', { name: me.name, phone: me.phone }, 'PUT').then(() => nav('/settings'))
-            }
-          >
-            Save changes
+          <button className="ghost" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>

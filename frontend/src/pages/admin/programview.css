@@ -4,6 +4,9 @@
 .pv { max-width: 1000px; }
 
 .pv-back {
+  display: block;
+  width: fit-content;
+  margin: 0 0 0 auto;   /* pushes Back to the top right */
   padding: 0;
   background: none;
   border: none;

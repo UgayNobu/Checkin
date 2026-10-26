@@ -455,3 +455,133 @@
   border-color: #2f6df0 !important;
   box-shadow: 0 0 0 3px rgba(47, 109, 240, 0.15) !important;
 }
+
+/* =========================================================
+   MODULES PAGE: CENTRED + CLEAN DESIGN
+   Only affects the page that has the "Year: Semester" tab.
+   ========================================================= */
+
+/* Layout: Back on the right, everything else in a centred 720px column */
+.adm:has(> .tabx) {
+  display: grid !important;
+  grid-template-columns: 1fr minmax(0, 720px) 1fr;
+  column-gap: 16px;
+}
+.adm:has(> .tabx) > .topbtn {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  float: none !important;
+}
+
+/* Search bar: same width as the card */
+.adm:has(> .tabx) > .search {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0 0 24px !important;
+}
+.adm:has(> .tabx) > .search input {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 12px 18px !important;
+  font-size: 14px !important;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Year / Semester tab sits on the card's top-left corner */
+.adm:has(> .tabx) > .tabx {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: start;
+  padding: 10px 22px !important;
+  font-size: 13px !important;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+/* Modules card */
+.adm:has(> .tabx) > .pbox {
+  grid-column: 2;
+  grid-row: 4;
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+  padding: 22px 24px !important;
+  border-radius: 0 14px 14px 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+}
+.adm:has(> .tabx) > .pbox h4 {
+  margin: 0 0 12px !important;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Each module row: code | name | tutor badge */
+.adm:has(> .tabx) .mod {
+  display: grid !important;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 14px 12px !important;
+  border-bottom: 1px solid #eef0f6;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  transition: background 0.15s;
+}
+.adm:has(> .tabx) .mod:last-of-type { border-bottom: none; }
+.adm:has(> .tabx) .mod:hover {
+  background: #f5f7ff !important;
+  padding-left: 12px !important;
+}
+.adm:has(> .tabx) .mod b {
+  color: #2f6df0;
+  font-weight: 600;
+  min-width: 0;
+}
+
+/* Tutor status as a small coloured badge (orange = none, green = assigned) */
+.adm:has(> .tabx) .mod small {
+  display: inline-block !important;
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* "+ Add New Module" button */
+.adm:has(> .tabx) .dash {
+  margin-top: 16px !important;
+  padding: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #2f6df0;
+  border: 1.5px dashed #b9c8f5 !important;
+  border-radius: 10px !important;
+  background: #fff;
+  transition: background 0.15s;
+}
+.adm:has(> .tabx) .dash:hover { background: #f5f7ff; }
+
+/* Phones: one column, badge goes under the name */
+@media (max-width: 640px) {
+  .adm:has(> .tabx) {
+    grid-template-columns: 0 1fr 0;
+    column-gap: 0;
+  }
+  .adm:has(> .tabx) > .topbtn { grid-column: 2; }
+  .adm:has(> .tabx) .mod {
+    grid-template-columns: 80px 1fr;
+    row-gap: 6px;
+  }
+  .adm:has(> .tabx) .mod small {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
