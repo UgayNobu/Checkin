@@ -123,6 +123,14 @@ export default function Timetable() {
   const off = (x) => cancelled(x) || unassigned(x);
   const next = isToday ? classes.find((x) => x.start > now && !off(x)) : null;
   const count = (i) => itemsOn(i).filter((x) => !off(x)).length;
+  // Tutor view: which class it is for (programme + year) instead of the tutor's own name
+  const forWhom = (x) => {
+    if (x.kind === 'slot') {
+      const prog = (x.programme || '').replace(/^(B\.?E\.?|Bachelor of)\s*/i, '');
+      return [prog, x.year && `Year ${x.year}`].filter(Boolean).join(' · ');
+    }
+    return x.change?.cohort ? x.change.cohort.replace(/ Year (\d+)$/, ' · Year $1') : '';
+  };
   const over = (x) => x.date < today || (x.date === today && x.end <= now);
   const open = (x) => x.date === today && mins(now) >= mins(x.start) - EARLY && now < x.end;
 
@@ -275,8 +283,9 @@ export default function Timetable() {
                   <b className="tt-mod">{x.module.code} · {x.module.name}</b>
                   <small className="mut">
                     {x.room ? `Room ${x.room.name}${unassigned(x) ? ' (free to book)' : ''}` : 'Room not set'}
-                    {x.kind === 'slot' && x.tutors && !c && !unassigned(x) ? ` · ${x.tutors}` : ''}
-                    {!teacher && x.year ? ` · Year ${x.year}` : ''}
+                    {teacher
+                      ? (forWhom(x) ? ` · ${forWhom(x)}` : '')
+                      : `${x.kind === 'slot' && x.tutors && !c && !unassigned(x) ? ` · ${x.tutors}` : ''}${x.year ? ` · Year ${x.year}` : ''}`}
                   </small>
                   {unassigned(x) ? <small className="tt-why">No tutor is assigned to this module yet, so this class doesn't run.</small> : changeInfo(x)}
                   {x.session?.takenBy && c?.type !== 'cover' && <small className="mut">Taken by {x.session.takenBy}</small>}
