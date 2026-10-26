@@ -56,7 +56,7 @@ export function History() {
           placeholder="Student ID / Name"
           value={f.q}
           onChange={set('q')}
-          style={{ borderRadius: 20, background: '#ece6f1', border: 0, width: 230 }}
+          style={{ borderRadius: 20, background: '#dee2e6', border: 0, width: 230 }}
         />
         <select value={f.year} onChange={set('year')}>
           <option value="">Year</option>

@@ -105,6 +105,7 @@ async function changePassword(userId, { current, next }) {
   if (!u?.passwordHash || !(await verifyPassword(current, u.passwordHash))) throw BadRequest('Current password is wrong', 'WRONG_CURRENT_PASSWORD');
   if (await verifyPassword(next, u.passwordHash)) throw BadRequest('New password must be different from the current one', 'PASSWORD_UNCHANGED');
   await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next) } });
+  await notify(u.id, 'Your CheckIn password was changed. If this wasn\'t you, reset it with "Forgot password" and contact ICT Services.', 'System', { email: 'Your CheckIn password was changed' });
   return { message: 'Password updated' };
 }
 
@@ -162,7 +163,7 @@ async function resetPassword({ userId, code, password }) {
     prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } }),
     prisma.passwordReset.update({ where: { id: r.id }, data: { usedAt: new Date() } }),
   ]);
-  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System');
+  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System', { email: 'Your CheckIn password was reset' });
   return { message: 'Password changed. You can log in with your new password.' };
 }
 

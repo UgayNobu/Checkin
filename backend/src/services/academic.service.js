@@ -12,6 +12,7 @@ const { writeAuditLog } = require('./audit.service');
 const { clearAcademicSessionCache } = require('../lib/academicSession');
 
 const day = (d) => d.toISOString().slice(0, 10);
+const nice = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const out = (a, counts) => ({
   code: a.code, name: a.name, term: a.term, startDate: day(a.startDate), endDate: day(a.endDate), isCurrent: a.isCurrent,
   ...(counts && { tutorAssignments: counts.sections, enrolments: counts.enrollments, timetableSlots: counts.slots }),
@@ -31,6 +32,11 @@ async function create(adminId, { code, name, startDate, endDate }) {
   const term = code.startsWith('AS') ? 'autumn' : 'spring';
   if (new Date(endDate) <= new Date(startDate)) throw BadRequest('The end date must be after the start date', 'BAD_DATES');
   if (await prisma.academicSession.findUnique({ where: { code } })) throw Conflict(`${code} already exists`, 'SESSION_EXISTS');
+  // Two semesters can't run at the same time
+  const clash = await prisma.academicSession.findFirst({
+    where: { startDate: { lte: new Date(endDate) }, endDate: { gte: new Date(startDate) } },
+  });
+  if (clash) throw Conflict(`These dates overlap ${clash.name} (${nice(clash.startDate)} – ${nice(clash.endDate)}). Pick dates after it ends.`, 'SESSION_OVERLAP');
   const a = await prisma.academicSession.create({
     data: {
       code, term, startDate: new Date(startDate), endDate: new Date(endDate),

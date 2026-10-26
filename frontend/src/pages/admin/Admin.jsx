@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { StatusPill, StatusButton } from './AccountStatus';
 import '../teacher/staff.css';
 import './admin.css';
+import './programpage.css';
 
 /* =========================================================
    Admin pages
@@ -14,7 +15,7 @@ import './admin.css';
 
 /* ---------- Helpers ---------- */
 const E = encodeURIComponent;
-const ROMAN = ['I', 'II', 'III', 'IV'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 function Back({ label = '< Back' }) {
   const nav = useNavigate();
@@ -98,7 +99,6 @@ export function Programs() {
   const [p, setP] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newProg, setNewProg] = useState('');
-  const [editProg, setEditProg] = useState({ old: '', new: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -122,7 +122,6 @@ export function Programs() {
   // Show the message and re-load the list (other pages load fresh data when opened)
   const refreshAll = (msg) => {
     setSuccess(msg);
-    setEditProg({ old: '', new: '' });
     load();
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -143,21 +142,6 @@ export function Programs() {
         setError(err.message || 'Failed to add program.');
       })
       .finally(() => setIsAdding(false));
-  };
-
-  // --- RENAME (saves immediately, no popup) ---
-  const saveEdit = () => {
-    if (!editProg.new.trim() || editProg.new === editProg.old) {
-      setEditProg({ old: '', new: '' });
-      return;
-    }
-    setError('');
-    setSuccess('');
-    api('/admin/programs', { from: editProg.old, to: editProg.new.trim() }, 'PUT')
-      .then(() => {
-        refreshAll(`Renamed to "${editProg.new.trim()}"`);
-      })
-      .catch((err) => setError(err.message || 'Failed to rename program.'));
   };
 
   return (
@@ -181,8 +165,8 @@ export function Programs() {
           </button>
         </div>
 
-        {error && <p className="err" style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#fef2f2', borderRadius: 6 }}>⚠️ {error}</p>}
-        {success && <p style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#d1fae5', color: '#047857', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>✓ {success}</p>}
+        {error && <p className="err" style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#f4d6d2', borderRadius: 6 }}>⚠️ {error}</p>}
+        {success && <p style={{ textAlign: 'left', marginTop: 12, padding: 10, background: '#d7e6d7', color: '#2b6328', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>✓ {success}</p>}
 
         {/* Program List */}
         {loading ? (
@@ -192,25 +176,10 @@ export function Programs() {
         ) : (
           <div style={{ marginTop: 16 }}>
             {p.map((x) => (
-              <div className="prow2" key={x}>
-                {editProg.old === x ? (
-                  <div className="edit-row">
-                    <input
-                      value={editProg.new}
-                      onChange={(e) => setEditProg({ ...editProg, new: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                      autoFocus
-                    />
-                    <button className="eb save" onClick={saveEdit}>Save</button>
-                    <button className="eb" onClick={() => setEditProg({ old: '', new: '' })}>Cancel</button>
-                  </div>
-                ) : (
-                  <>
-                    <b onClick={() => nav('/programs/' + E(x))}>{x}</b>
-                    <button className="eb" onClick={() => setEditProg({ old: x, new: x })}>Edit</button>
-                  </>
-                )}
-              </div>
+              <button type="button" className="prow2 pgo" key={x} onClick={() => nav('/programs/' + E(x))}>
+                <b>{x}</b>
+                <span className="pgo-arrow" aria-hidden="true">›</span>
+              </button>
             ))}
           </div>
         )}
@@ -226,35 +195,104 @@ export function Programs() {
 export function ProgramYears() {
   const { program } = useParams();
   const nav = useNavigate();
-  const [open, setOpen] = useState(0);
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
+  const [rename, setRename] = useState(null); // new name while renaming
+  const [busy, setBusy] = useState(false);
+
+  const load = () => api(`/admin/programs/${E(program)}/structure`).then(setD).catch((x) => setErr(x.message));
+  useEffect(() => { setD(null); setErr(''); load(); }, [program]);
+
+  const ok = (t) => { setMsg(t); setErr(''); setTimeout(() => setMsg(''), 4000); };
+  const saveName = () => {
+    const to = (rename || '').trim();
+    if (!to || to === program) return setRename(null);
+    setBusy(true);
+    api('/admin/programs', { from: program, to }, 'PUT')
+      .then(() => { setRename(null); nav('/programs/' + E(to), { replace: true }); ok(`Renamed to ${to}.`); })
+      .catch((x) => setErr(x.message))
+      .finally(() => setBusy(false));
+  };
+  const removeProgram = () => {
+    if (!window.confirm(`Remove the programme "${program}"?\n\nThis only works when it has no modules, students or timetable classes.`)) return;
+    api(`/admin/programs/${E(program)}`, null, 'DELETE')
+      .then(() => nav('/programs', { replace: true }))
+      .catch((x) => setErr(x.message));
+  };
+  const removeModule = (m) => {
+    if (!window.confirm(`Remove ${m.code} – ${m.name} from Year ${ROMAN[m.year - 1]}, Semester ${ROMAN[m.semester - 1]}?`)) return;
+    api(`/admin/programs/${E(program)}/modules/${m._id}`, null, 'DELETE')
+      .then((r) => { ok(r.deleted ? `${m.code} removed.` : `${m.code} removed from this programme (kept for its attendance history).`); load(); })
+      .catch((x) => setErr(x.message));
+  };
+  const moduleUrl = (y, sem, id) => `/programs/${E(program)}/${y}/${sem}/module/${id}`;
 
   return (
-    <div className="adm">
-      <Back />
-      <h2 className="ttl">{program}</h2>
+    <div className="adm pg">
+      <button className="pg-back" onClick={() => nav('/programs')}>← All programmes</button>
 
-      <div className="plist">
-        {ROMAN.map((r, i) => {
-          const year = i + 1;
-          return (
-            <div key={r}>
-              <div className="prow" onClick={() => setOpen(open === year ? 0 : year)}>
-                Year {r}
-              </div>
-
-              {open === year &&
-                [1, 2].map((s) => (
-                  <div className="sem" key={s}>
-                    Semester {ROMAN[s - 1]}
-                    <button className="eb" onClick={() => nav(`/programs/${E(program)}/${year}/${s}`)}>
-                      Edit
-                    </button>
-                  </div>
-                ))}
-            </div>
-          );
-        })}
+      <div className="pg-head">
+        {rename == null ? (
+          <h2 className="ttl">{program}</h2>
+        ) : (
+          <div className="pg-rename">
+            <input value={rename} onChange={(e) => setRename(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveName()} autoFocus aria-label="Programme name" />
+            <button className="pg-btn primary" onClick={saveName} disabled={busy}>Save name</button>
+            <button className="pg-btn" onClick={() => setRename(null)}>Cancel</button>
+          </div>
+        )}
+        {rename == null && (
+          <div className="pg-actions">
+            <button className="pg-btn" onClick={() => setRename(program)}>Rename</button>
+            <button className="pg-btn danger" onClick={removeProgram}>Remove programme</button>
+          </div>
+        )}
       </div>
+      {d && <p className="pg-sub">{d.modules.length} module{d.modules.length === 1 ? '' : 's'} · {d.students} student{d.students === 1 ? '' : 's'}</p>}
+
+      {err && <p className="pg-msg bad" role="alert">{err}</p>}
+      {msg && <p className="pg-msg good" role="status">{msg}</p>}
+
+      {!d ? (!err && <p className="mut">Loading…</p>) : (
+        <div className="pg-years">
+          {Array.from({ length: d.years }, (_, i) => i + 1).map((y) => (
+            <section className="pg-year" key={y}>
+              <h3>Year {ROMAN[y - 1]}</h3>
+              <div className="pg-sems">
+                {[1, 2].map((sem) => {
+                  const list = d.modules.filter((m) => m.year === y && m.semester === sem);
+                  return (
+                    <div className="pg-sem" key={sem}>
+                      <div className="pg-sem-head">
+                        <b>Semester {ROMAN[sem - 1]}</b>
+                        <small>{list.length} module{list.length === 1 ? '' : 's'}</small>
+                      </div>
+                      {list.length === 0 && <p className="pg-none">No modules yet</p>}
+                      {list.map((m) => (
+                        <div className="pg-mod" key={m._id}>
+                          <div className="pg-mod-main">
+                            <b>{m.code}</b> <span>{m.name}</span>
+                            <small className={m.tutor && m.tutor.active !== false ? 'ok' : 'warn'}>
+                              {m.tutor ? `Tutor: ${m.tutor.name}${m.tutor.active === false ? ' (deactivated – assign someone else)' : ''}` : 'No tutor assigned yet'}
+                              {` · ${m.students} student${m.students === 1 ? '' : 's'}`}
+                            </small>
+                          </div>
+                          <div className="pg-mod-acts">
+                            <button className="pg-link" onClick={() => nav(moduleUrl(y, sem, m._id))}>Edit</button>
+                            <button className="pg-link danger" onClick={() => removeModule(m)}>Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                      <button className="pg-add" onClick={() => nav(moduleUrl(y, sem, 'new'))}>+ Add module</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -296,7 +334,7 @@ export function SemesterModules() {
         {shown.map((x) => (
           <div className="mod" key={x._id} onClick={() => go(x._id)}>
             <b>{x.code} -</b> {x.name}
-            <small style={{ display: 'block', color: x.tutor ? '#16a34a' : '#b45309' }}>
+            <small style={{ display: 'block', color: x.tutor ? '#357a32' : '#8a5a00' }}>
               {x.tutor ? `Tutor: ${x.tutor.name}${x.tutor.active === false ? " (deactivated, assign a new tutor)" : ""}` : 'No tutor assigned yet'}
             </small>
           </div>
@@ -379,7 +417,7 @@ export function ModuleForm() {
             </optgroup>
           )}
         </select>
-        <small style={{ color: '#64748b' }}>The tutor will see this module and can then set its enrolment key.</small>
+        <small style={{ color: '#6a737b' }}>The tutor will see this module and can then set its enrolment key.</small>
 
         <p className="err">{err}</p>
         <button className="save" onClick={save}>Save</button>

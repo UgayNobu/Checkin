@@ -7,7 +7,7 @@
   padding:18px;
   background:#f2f2f2;
   border:1px solid var(--line);
-  border-radius:14px;
+  border-radius:8px;
   box-shadow:0 4px 8px #0002;
 }
 .record small{color:var(--muted);font-size:11px}
@@ -42,7 +42,7 @@
   padding:14px 10px;
   background:#fff;
   border:2px solid transparent;
-  border-radius:12px;
+  border-radius:8px;
   box-shadow:0 1px 3px #0003;
   font:inherit;
   cursor:pointer;
@@ -58,7 +58,7 @@
 .place .outline .dot{fill:#fff}
 .pname{font-weight:700;font-size:13px;text-align:center}
 .pinfo{font-size:11px;color:var(--muted)}
-.place:not(:disabled) .pinfo{color:#047857;font-weight:600}
+.place:not(:disabled) .pinfo{color:#2b6328;font-weight:600}
 
 /* ===== Choose class + enter code ===== */
 .step{display:flex;flex-direction:column;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
@@ -71,7 +71,7 @@
   padding:10px 12px;
   background:#fff;
   border:2px solid transparent;
-  border-radius:10px;
+  border-radius:8px;
   box-shadow:0 1px 3px #0002;
   font:inherit;
   text-align:left;
@@ -85,8 +85,8 @@
 .calbox{
   padding:18px;
   background:#fff;
-  border:1px solid var(--ink);
-  border-radius:16px;
+  border:1px solid var(--line);
+  border-radius:8px;
 }
 .calhead{
   display:flex;
@@ -123,8 +123,8 @@
 }
 
 /* Present = green box, Absent = red box */
-.day.present{background:#d1fae5;border-color:#10b981;color:#065f46}
-.day.absent{background:#fee2e2;border-color:#ef4444;color:#991b1b}
+.day.present{background:#d7e6d7;border-color:#357a32;color:#2b6328}
+.day.absent{background:#f4d6d2;border-color:#ca3120;color:#ca3120}
 
 /* ===== Legend ===== */
 .legend{display:flex;gap:16px;margin-top:14px;font-size:10px}
@@ -135,28 +135,28 @@
   margin-right:5px;
   border-radius:50%;
 }
-.g{background:#10b981}
-.r{background:#ef4444}
+.g{background:#357a32}
+.r{background:#ca3120}
 
 /* Clickable calendar days + the day's classes */
 .day.click{cursor:pointer;font:inherit;font-weight:600;transition:transform .1s}
 .day.click:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.day.click:focus-visible{outline:2px solid #2f6df0;outline-offset:2px}
-.day.sel{outline:2px solid #2f6df0;outline-offset:1px}
+.day.click:focus-visible{outline:2px solid #0f6cbf;outline-offset:2px}
+.day.sel{outline:2px solid #0f6cbf;outline-offset:1px}
 .day.out{opacity:.35}
-.legend .hint{margin-left:auto;color:#6b7280}
-.dayinfo{margin-top:16px;border:1px solid #e3e7f0;border-radius:12px;padding:14px 16px;background:#fff}
+.legend .hint{margin-left:auto;color:#6a737b}
+.dayinfo{margin-top:16px;border:1px solid #dee2e6;border-radius:8px;padding:14px 16px;background:#fff}
 .dayinfo-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.dayinfo-h button{background:none;border:0;font-size:14px;cursor:pointer;color:#6b7280;padding:4px 8px;border-radius:6px}
-.dayinfo-h button:hover{background:#f3f4f6}
+.dayinfo-h button{background:none;border:0;font-size:14px;cursor:pointer;color:#6a737b;padding:4px 8px;border-radius:6px}
+.dayinfo-h button:hover{background:#f8f9fa}
 .dayinfo ul{list-style:none;margin:0;padding:0}
-.dayinfo li{display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #eef0f6}
+.dayinfo li{display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #dee2e6}
 .dayinfo .dt{font-weight:700;font-size:13px;width:46px;flex-shrink:0}
 .dayinfo .dm{flex:1;min-width:0;font-size:13px}
-.dayinfo .dm small{display:block;color:#6b7280;font-size:11px;margin-top:2px}
-.dayinfo .ds{font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap}
-.dayinfo .ds.present{background:#d1fae5;color:#047857}
-.dayinfo .ds.absent{background:#fee2e2;color:#b91c1c}
-.dayinfo .ds.flagged{background:#fef3c7;color:#b45309}
-.dayinfo .ds.not_attended{background:#f3f4f6;color:#4b5563}
-.dayinfo .mutd{color:#6b7280}
+.dayinfo .dm small{display:block;color:#6a737b;font-size:11px;margin-top:2px}
+.dayinfo .ds{font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;white-space:nowrap}
+.dayinfo .ds.present{background:#d7e6d7;color:#2b6328}
+.dayinfo .ds.absent{background:#f4d6d2;color:#ca3120}
+.dayinfo .ds.flagged{background:#fcefdc;color:#8a5a00}
+.dayinfo .ds.not_attended{background:#f8f9fa;color:#495057}
+.dayinfo .mutd{color:#6a737b}

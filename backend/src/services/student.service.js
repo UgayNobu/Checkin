@@ -39,6 +39,7 @@ async function moduleRecords(studentId, moduleId) {
   if (!enrolled) throw Forbidden('You are not enrolled in this module', 'NOT_ENROLLED');
   const m = await loadMatrix([moduleId], [studentId]);
   const rows = m.sessionsOf(moduleId)
+    .filter((s) => m.wasIn(studentId, s.id)) // classes held before they enrolled don't count
     .map((s) => ({ date: sessionStart(s), hours: s.duration / 60, type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }))
     .reverse();
   const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) }); // null = none held

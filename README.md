@@ -34,7 +34,8 @@ to decide. Students, tutors, admins and management each get their own dashboard.
 
 **Admins**
 - Programmes, modules and tutor assignments.
-- Tutor requests on the Admin home page: approve or reject new tutor sign-ups. New tutors also show in their programme's Tutors view before they get a module.
+- Add tutor (Admin home → Tutors view → + Add tutor): creates a tutor account that works straight away with the default password (`DEFAULT_TUTOR_PASSWORD`, default `Tutor@2026`); the tutor can change it in Settings → Account.
+- Tutor requests on the Admin home page: approve or reject tutors who signed up themselves and aren't in the system yet. New tutors also show in their programme's Tutors view before they get a module.
 - Activate/deactivate students and tutors with a reason (graduated, resigned …); accounts are never deleted.
 - Semesters: add the next semester and start it; past semesters stay viewable.
 

@@ -13,6 +13,7 @@ const roomKey = (t) => {
   const m = squash(t).match(/^(ITL|IT|CR|LT|DS|DRAWINGSTUDIO|STUDIO)(\d+)$/);
   return m ? `${/STUDIO/.test(m[1]) ? 'DS' : m[1]}|${Number(m[2])}` : null;
 };
+const sameRoom = (r, room) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room)) || squash(r.name) === squash(room);
 const buildingOfRoom = (room, buildings) =>
   buildings.find((b) => b.rooms?.some((r) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room))));
 
@@ -166,6 +167,18 @@ export default function StartAttendance() {
   };
   const workshop = f.where === 'WORKSHOP';
   const roomBuilding = buildingOfRoom(f.room, buildings);
+  const chosen = buildings.find((b) => b.key === f.where); // the building picked under "Where students must be"
+  // Picking a building keeps the room only if it is in that building; otherwise choose again from its list
+  const setWhere = (e) => {
+    const where = e.target.value;
+    const b = buildings.find((x) => x.key === where);
+    setF((x) => ({ ...x, where, room: b && !(b.rooms || []).some((rm) => sameRoom(rm, x.room)) ? '' : x.room }));
+  };
+  useEffect(() => {
+    // a room filled in from the timetable ("IT-05") is matched to the list entry ("IT 05")
+    const canon = chosen?.rooms?.find((rm) => sameRoom(rm, f.room));
+    if (canon && canon.name !== f.room) setF((x) => ({ ...x, room: canon.name }));
+  }, [f.room, f.where, buildings]);
   useEffect(() => {
     if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
     // rooms that aren't inside a mapped building → Workshop around the tutor:
@@ -239,12 +252,12 @@ export default function StartAttendance() {
       <div className="panel" style={{ flex: 1, marginTop: 0 }}>
         <h3>Session details</h3>
         {slot && (
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#2f6df0' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#0f6cbf' }}>
             From your timetable: {slot.day} {slot.start}–{slot.end}{slot.group ? ` · Group ${slot.group}` : ''}
           </p>
         )}
         {chg && (
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: chg.counts ? '#047857' : '#475569' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: chg.counts ? '#2b6328' : '#495057' }}>
             {chg.type === 'cover'
               ? `Covering for ${chg.by?.name || 'another tutor'}: ${chg.start}–${chg.end}`
               : `${chg.counts ? 'Extra class' : 'Optional class (doesn’t count toward attendance)'}: ${chg.start}–${chg.end}`}
@@ -280,18 +293,14 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-room">Room</label>
-            <input id="sa-room" value={f.room} onChange={set('room')} disabled={open} list="cst-rooms" placeholder="e.g. ITL 06" />
-            <datalist id="cst-rooms">
-              {buildings.flatMap((b) =>
-                (b.rooms || []).map((r) => (
-                  <option key={r.name} value={r.name}>{r.label ? `${r.label} · ${b.name}` : b.name}</option>
-                ))
-              )}
-            </datalist>
-            {roomBuilding && !workshop && (
-              <small className="sa-ok">{f.room} is in the {roomBuilding.name}, so it’s selected below.</small>
-            )}
+            <label htmlFor="sa-where">Where students must be</label>
+            <select id="sa-where" value={f.where} onChange={setWhere} disabled={open}>
+              <option value="">Select location</option>
+              {buildings.map((b) => (
+                <option key={b.key} value={b.key}>{b.name}</option>
+              ))}
+              <option value="WORKSHOP">Workshop – around my location</option>
+            </select>
           </div>
 
           <div className="sa-f">
@@ -303,14 +312,20 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-where">Where students must be</label>
-            <select id="sa-where" value={f.where} onChange={set('where')} disabled={open}>
-              <option value="">Select location</option>
-              {buildings.map((b) => (
-                <option key={b.key} value={b.key}>{b.name}</option>
-              ))}
-              <option value="WORKSHOP">Workshop – around my location</option>
-            </select>
+            <label htmlFor="sa-room">Room</label>
+            {chosen ? (
+              <select id="sa-room" value={f.room} onChange={set('room')} disabled={open}>
+                <option value="">Select a room in the {chosen.name}</option>
+                {(chosen.rooms || []).map((rm) => (
+                  <option key={rm.name} value={rm.name}>{rm.label ? `${rm.name} · ${rm.label}` : rm.name}</option>
+                ))}
+                {/* a timetable room that isn't in the list still shows */}
+                {f.room && !(chosen.rooms || []).some((rm) => rm.name === f.room) && <option value={f.room}>{f.room}</option>}
+              </select>
+            ) : (
+              <input id="sa-room" value={f.room} onChange={set('room')} disabled={open || !f.where}
+                placeholder={workshop ? 'e.g. EG Lab, Robotics Lab' : 'Choose where students must be first'} />
+            )}
           </div>
 
           <div className="sa-f">
@@ -340,7 +355,7 @@ export default function StartAttendance() {
           <button
             type="button"
             onClick={() => nav(`/timetable?extra=1&module=${encodeURIComponent(f.module)}`)}
-            style={{ background: 'none', border: 0, padding: 0, margin: '0 0 10px', color: '#2f6df0', fontWeight: 700, cursor: 'pointer', font: 'inherit', fontSize: 13 }}
+            style={{ background: 'none', border: 0, padding: 0, margin: '0 0 10px', color: '#0f6cbf', fontWeight: 700, cursor: 'pointer', font: 'inherit', fontSize: 13 }}
           >
             Book an extra class →
           </button>
@@ -365,17 +380,17 @@ export default function StartAttendance() {
       {/* Live code panel */}
       {sid && (
         <div className="panel" style={{ flex: 1, marginTop: 0, textAlign: 'center' }}>
-          <small style={{ display: 'block', color: '#6b7280', marginBottom: 4 }}>{todayText()}</small>
+          <small style={{ display: 'block', color: '#6a737b', marginBottom: 4 }}>{todayText()}</small>
 
           {open ? (
             <>
               <h2 style={{ fontSize: 40, letterSpacing: 6, margin: '8px 0' }}>{live?.code || '……'}</h2>
-              <p style={{ fontSize: 22, fontWeight: 700, color: left <= 30 ? '#ef4444' : '#2f6df0', margin: 0 }}>
+              <p style={{ fontSize: 22, fontWeight: 700, color: left <= 30 ? '#ca3120' : '#0f6cbf', margin: 0 }}>
                 {mmss(left)}
               </p>
               <small>Students enter this code in the CheckIn app before the timer runs out.</small>
               {live?.location && (
-                <small style={{ display: 'block', marginTop: 4, color: '#2f6df0', fontWeight: 600 }}>
+                <small style={{ display: 'block', marginTop: 4, color: '#0f6cbf', fontWeight: 600 }}>
                   {live.location.mode === 'building'
                     ? `📍 Inside the ${live.location.name}`
                     : `📍 Workshop · within ${Math.round(live.location.radius)} m of you`}
@@ -385,7 +400,7 @@ export default function StartAttendance() {
           ) : reviewing ? (
             <>
               <h3 style={{ margin: '8px 0' }}>Check-in closed</h3>
-              <p style={{ fontSize: 22, fontWeight: 700, color: reviewLeft <= 30 ? '#ef4444' : '#d97706', margin: 0 }}>
+              <p style={{ fontSize: 22, fontWeight: 700, color: reviewLeft <= 30 ? '#ca3120' : '#f0ad4e', margin: 0 }}>
                 {mmss(reviewLeft)}
               </p>
               <small>Time left to mark the flagged students below. Anyone not decided is marked absent.</small>
@@ -411,15 +426,15 @@ export default function StartAttendance() {
                 disabled={!flagged.length}
                 title={flagged.length ? 'Click to see flagged students' : 'No flagged students'}
                 style={{
-                  background: showFlags ? '#fef3c7' : 'none',
-                  border: flagged.length ? '1px solid #f59e0b' : '1px solid transparent',
+                  background: showFlags ? '#fcefdc' : 'none',
+                  border: flagged.length ? '1px solid #f0ad4e' : '1px solid transparent',
                   borderRadius: 10,
                   padding: '4px 14px',
                   cursor: flagged.length ? 'pointer' : 'default',
                   font: 'inherit',
                 }}
               >
-                <b style={{ fontSize: 22, color: '#d97706' }}>{flagged.length}</b>
+                <b style={{ fontSize: 22, color: '#f0ad4e' }}>{flagged.length}</b>
                 <br />
                 <small>Flagged {flagged.length > 0 && (showFlags ? '▲' : '▼')}</small>
               </button>
@@ -429,7 +444,7 @@ export default function StartAttendance() {
           {/* Flagged students: teacher decides Present or Absent */}
           {showFlags && flagged.length > 0 && (
             <div style={{ marginTop: 16, textAlign: 'left', borderTop: '1px solid #eee', paddingTop: 12 }}>
-              <small style={{ color: '#6b7280' }}>
+              <small style={{ color: '#6a737b' }}>
                 {open || reviewing
                   ? 'Ask the student, then mark them. Anyone not decided before the review time ends becomes absent.'
                   : 'The session has closed.'}
@@ -445,26 +460,26 @@ export default function StartAttendance() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '10px 0',
-                      borderBottom: '1px solid #f1f1f1',
+                      borderBottom: '1px solid #f8f9fa',
                     }}
                   >
                     <div>
                       <b style={{ fontSize: 14 }}>{s.name}</b>
                       <br />
-                      <small style={{ color: '#b45309' }}>⚑ {s.reason || 'Weak GPS accuracy'}</small>
+                      <small style={{ color: '#8a5a00' }}>⚑ {s.reason || 'Weak GPS accuracy'}</small>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => decide(s, true)}
                         disabled={!(open || reviewing) || deciding === aid}
-                        style={{ padding: '6px 14px', background: '#059669', color: '#fff', border: 0, borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
+                        style={{ padding: '6px 14px', background: '#357a32', color: '#fff', border: 0, borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
                       >
                         Present
                       </button>
                       <button
                         onClick={() => decide(s, false)}
                         disabled={!(open || reviewing) || deciding === aid}
-                        style={{ padding: '6px 14px', background: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
+                        style={{ padding: '6px 14px', background: '#fff', color: '#ca3120', border: '1px solid #ca3120', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
                       >
                         Absent
                       </button>

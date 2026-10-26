@@ -16,6 +16,9 @@ router.get('/overview', both, c.overview);
 router.get('/programs', both, c.programs);
 router.post('/programs', admin, validateBody(v.programNameSchema), c.createProgram);
 router.put('/programs', admin, validateBody(v.programRenameSchema), c.renameProgram);
+router.get('/programs/:name/structure', both, validateParams(v.programParamSchema), c.programStructure);
+router.delete('/programs/:name', admin, validateParams(v.programParamSchema), c.removeProgram);
+router.delete('/programs/:name/modules/:id', admin, validateParams(v.programModuleParamSchema), c.removeModuleFromProgram);
 router.get('/programmes/:name/report', both, validateParams(v.programParamSchema), c.programmeReport);
 router.get('/programmes/:name/export.csv', both, validateParams(v.programParamSchema), c.programmeCsv);
 
@@ -29,6 +32,7 @@ router.post('/modules', admin, validateBody(v.moduleBodySchema), c.createModule)
 router.put('/modules/:id', admin, validateParams(v.moduleIdParamSchema), validateBody(v.moduleBodySchema), c.updateModule);
 
 // Tutor approvals
+router.post('/tutors', admin, validateBody(v.createTutorSchema), c.createTutor); // admin creates a tutor account
 router.get('/tutors/pending', both, c.pendingTutors);
 router.post('/tutors/:id/approve', admin, validateParams(v.userIdParamSchema), c.approveTutor);
 router.post('/tutors/:id/reject', admin, validateParams(v.userIdParamSchema), c.rejectTutor);

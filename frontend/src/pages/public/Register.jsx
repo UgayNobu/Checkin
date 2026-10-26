@@ -106,7 +106,7 @@ export default function Register() {
   );
 
   return (
-    <div className="login">
+    <div className={'login ' + (tutor ? 'tutor' : 'student')}>
       {/* Left side */}
             <div className={'hero ' + (tutor ? 'teacherhero' : 'studenthero')}>
         <div className="herologo">
@@ -114,16 +114,18 @@ export default function Register() {
           <span>CheckIn</span>
         </div>
         <div>
+          <span className="hero-eyebrow">{tutor ? 'TUTOR SIGN UP' : 'STUDENT SIGN UP'}</span>
           <h1>
             {tutor
-              ? 'Join the academic verification network'
-              : 'Your digital gateway to campus life'}
+              ? <>Join CheckIn as a <span>tutor.</span></>
+              : <>Your digital gateway to <span>campus life.</span></>}
           </h1>
           <p>
             {tutor
               ? 'Request a tutor account. An admin will approve it before you can sign in.'
               : 'Track attendance, register for core modules, and easily manage absence requests from one centralized student dashboard.'}
           </p>
+          <div className="hero-bar" />
         </div>
         <small>College of Science and Technology · Royal University of Bhutan</small>
       </div>
@@ -139,7 +141,7 @@ export default function Register() {
         </a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
-        <h2>{tutor ? 'Tutor Sign in' : 'Student sign up'}</h2>
+        <h2>{tutor ? 'Tutor sign up' : 'Student sign up'}</h2>
 
         {inp('Full name', 'name', 'text', 'e.g. Karma Wangmo')}
         {inp(tutor ? 'Staff ID' : 'Student ID', 'userId', 'text', tutor ? 'CST-0142' : '02250368')}
