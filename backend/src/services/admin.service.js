@@ -45,10 +45,85 @@ async function renameProgram(adminId, from, to) {
   const r = await prisma.$transaction([
     prisma.program.updateMany({ where: { name: from }, data: { name: to } }),
     prisma.user.updateMany({ where: { department: from }, data: { department: to } }),
+    prisma.user.updateMany({ where: { programme: from }, data: { programme: to } }), // students of the programme
   ]);
   if (!r[0].count) throw NotFound('Programme not found');
   await writeAuditLog(adminId, 'Renamed program', `${from} -> ${to}`);
   return { message: 'Renamed' };
+}
+
+/**
+ * One programme's structure for the admin: every year and semester with its modules
+ * (from program_modules), each module's tutor this semester and how many students joined.
+ */
+async function programStructure(name) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const academicSession = await currentAcademicSession();
+  const [rows, students] = await Promise.all([
+    prisma.programModule.findMany({
+      where: { programId: p.id },
+      include: { module: { include: {
+        sections: { where: { academicSession }, include: { tutor: true }, take: 1 },
+        _count: { select: { enrollments: { where: { academicSession, student: { isActive: true } } } } },
+      } } },
+      orderBy: [{ year: 'asc' }, { semester: 'asc' }, { module: { code: 'asc' } }],
+    }),
+    prisma.user.count({ where: { role: 'student', programme: name, isActive: true } }),
+  ]);
+  const modules = rows.map((r) => ({
+    _id: r.module.id, code: r.module.code, name: r.module.name, year: r.year, semester: r.semester, students: r.module._count.enrollments,
+    tutor: r.module.sections[0] ? { userId: r.module.sections[0].tutor.id, name: r.module.sections[0].tutor.name, active: r.module.sections[0].tutor.isActive } : null,
+  }));
+  const years = Math.max(4, ...modules.map((m) => m.year || 0));
+  return { name: p.name, students, years, modules };
+}
+
+/** Removes a programme. Refused while it still has modules, students or timetable classes. */
+async function removeProgram(adminId, name) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const [mods, students, slots] = await Promise.all([
+    prisma.programModule.count({ where: { programId: p.id } }),
+    prisma.user.count({ where: { role: 'student', programme: name } }),
+    prisma.timetableSlot.count({ where: { programId: p.id } }),
+  ]);
+  if (mods || students || slots) {
+    const why = [mods && `${mods} module${mods > 1 ? 's' : ''}`, students && `${students} student${students > 1 ? 's' : ''}`, slots && `${slots} timetable classes`].filter(Boolean).join(', ');
+    throw Conflict(`${name} still has ${why}. Remove its modules and move its students first.`, 'PROGRAM_IN_USE');
+  }
+  if (await prisma.module.count({ where: { programId: p.id } }))
+    throw Conflict(`Some modules still belong to ${name}. Remove them first.`, 'PROGRAM_IN_USE');
+  await prisma.program.delete({ where: { id: p.id } });
+  await writeAuditLog(adminId, 'Removed program', name);
+  return { removed: name };
+}
+
+/**
+ * Takes a module out of one programme's semester. If no other programme uses it and it has
+ * no attendance history, the module itself is deleted too; otherwise it is kept for the records.
+ */
+async function removeModuleFromProgram(adminId, name, moduleId) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const link = await prisma.programModule.findUnique({ where: { programId_moduleId: { programId: p.id, moduleId } }, include: { module: true } });
+  if (!link) throw NotFound('That module is not in this programme');
+  await prisma.programModule.delete({ where: { programId_moduleId: { programId: p.id, moduleId } } });
+  const [otherLinks, sessions, evidence] = await Promise.all([
+    prisma.programModule.count({ where: { moduleId } }),
+    prisma.classSession.count({ where: { section: { moduleId } } }),
+    prisma.evidenceDocument.count({ where: { moduleId } }),
+  ]);
+  let deleted = false;
+  if (!otherLinks && !sessions && !evidence) {
+    await prisma.$transaction([
+      prisma.section.deleteMany({ where: { moduleId } }),
+      prisma.module.delete({ where: { id: moduleId } }), // enrolments and class changes go with it
+    ]);
+    deleted = true;
+  }
+  await writeAuditLog(adminId, 'Removed module from program', `${link.module.code} from ${name}${deleted ? ' (module deleted)' : ''}`);
+  return { removed: link.module.code, deleted };
 }
 
 // ── Users ─────────────────────────────────────────────────────
@@ -297,6 +372,6 @@ async function runLowAttendanceJob(adminId) {
 }
 
 module.exports = {
-  overview, listPrograms, createProgram, renameProgram, listUsers, patchUser, listModules, saveModule,
+  overview, listPrograms, createProgram, renameProgram, programStructure, removeProgram, removeModuleFromProgram, listUsers, patchUser, listModules, saveModule,
   pendingTutors, approveTutor, rejectTutor, createTutor, atRisk, programmeReport, runLowAttendanceJob,
 };

@@ -16,6 +16,9 @@ router.get('/overview', both, c.overview);
 router.get('/programs', both, c.programs);
 router.post('/programs', admin, validateBody(v.programNameSchema), c.createProgram);
 router.put('/programs', admin, validateBody(v.programRenameSchema), c.renameProgram);
+router.get('/programs/:name/structure', both, validateParams(v.programParamSchema), c.programStructure);
+router.delete('/programs/:name', admin, validateParams(v.programParamSchema), c.removeProgram);
+router.delete('/programs/:name/modules/:id', admin, validateParams(v.programModuleParamSchema), c.removeModuleFromProgram);
 router.get('/programmes/:name/report', both, validateParams(v.programParamSchema), c.programmeReport);
 router.get('/programmes/:name/export.csv', both, validateParams(v.programParamSchema), c.programmeCsv);
 

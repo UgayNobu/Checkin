@@ -3,6 +3,7 @@ const { z, id, optionalText, optionalNumber, isoDate } = require('./common');
 const programNameSchema = z.object({ name: z.string().trim().min(2).max(100) });
 const programRenameSchema = z.object({ from: z.string().trim().min(1), to: z.string().trim().min(2).max(100) });
 const programParamSchema = z.object({ name: z.string().trim().min(1) });
+const programModuleParamSchema = z.object({ name: z.string().trim().min(1), id: z.string().trim().min(1).max(10) });
 
 const usersQuerySchema = z.object({
   role: z.enum(['student', 'teacher', 'admin', 'management']).default('student'),
@@ -48,7 +49,7 @@ const auditQuerySchema = z.object({
 });
 
 module.exports = {
-  programNameSchema, programRenameSchema, programParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
+  programNameSchema, programRenameSchema, programParamSchema, programModuleParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
   modulesQuerySchema, moduleBodySchema, moduleIdParamSchema, atRiskQuerySchema, auditQuerySchema,
 };
 
