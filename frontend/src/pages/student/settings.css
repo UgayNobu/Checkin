@@ -116,11 +116,14 @@
 }
 
 .ic {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #eee;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e7f1fa;
+  color: #0f6cbf;
 }
 
 /* ---------- Notifications ---------- */
