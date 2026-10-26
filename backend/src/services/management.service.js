@@ -113,7 +113,7 @@ async function moduleView(id, { term } = {}) {
 async function studentView(studentId, moduleId, { term } = {}) {
   const [st, m] = await Promise.all([prisma.user.findUnique({ where: { id: studentId } }), loadMatrix([moduleId], [studentId], { term })]);
   if (!st) throw NotFound('Student not found');
-  const history = m.sessionsOf(moduleId).map((s) => ({ date: sessionStart(s), type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }));
+  const history = m.sessionsOf(moduleId).filter((s) => m.wasIn(studentId, s.id)).map((s) => ({ date: sessionStart(s), type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }));
   const present = history.filter((h) => h.status === 'present').length;
   return { student: { userId: st.id, name: st.name }, present, absent: history.length - present, total: history.length, pct: m.pct(studentId, moduleId), history };
 }

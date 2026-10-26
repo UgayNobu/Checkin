@@ -93,7 +93,8 @@ async function studentRecord(moduleId, studentId, tutorId, { term } = {}) {
   const RANK = { absent: 0, flagged: 1, present: 2 }; // best result wins if there are 2 sessions of a type on one day
   for (const s of ses) {
     const d = s.date.toISOString().slice(0, 10), a = bySession.get(s.id);
-    const status = a ? apiStatus(a.status) : 'absent';
+    if (!a) continue; // class held before the student enrolled
+    const status = apiStatus(a.status);
     rows[d] = rows[d] || { date: d };
     const prev = rows[d][s.sessionType];
     if (!prev || RANK[status] > RANK[prev]) {
