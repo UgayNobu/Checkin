@@ -277,9 +277,19 @@ function Shell({ user, children, title, sub }) {
   const [pend, setPend] = useState(0);
   const [menu, setMenu] = useState(false); // phone: sidebar drawer open?
 
+  // Latest profile (name + photo). Reloaded on every page change,
+  // so a new photo or name shows in the top bar right after saving.
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    api('/me').then(setMe).catch(() => {});
+  }, [loc.pathname]);
+
+  const name = me?.name || user.name;
+  const photo = me?.prefs?.photo || me?.avatarUrl || null;
+
   // Phone: close the menu after moving to another page
   useEffect(() => setMenu(false), [loc.pathname]);
-  const ini = user.name
+  const ini = name
     .split(' ')
     .map((w) => w[0])
     .join('')
@@ -365,9 +375,20 @@ function Shell({ user, children, title, sub }) {
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 title="View Profile"
               >
-                <div className="avatar">{ini}</div>
+                {/* Photo if the user has one, otherwise their initials */}
+                <div className="avatar" style={{ overflow: 'hidden' }}>
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt="Profile"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+                    />
+                  ) : (
+                    ini
+                  )}
+                </div>
                 <div>
-                  <b>{user.name}</b>
+                  <b>{name}</b>
                   <br />
                   <small>{(SUB[user.role] || SUB.student)(user)}</small>
                 </div>

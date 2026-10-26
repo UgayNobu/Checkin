@@ -20,6 +20,7 @@ async function updateProfile(userId, { name, email, phone, designation, prefs })
     if (taken) throw BadRequest('That email is already used by another account', 'EMAIL_TAKEN');
   }
   if (prefs) data.prefs = { ...(u.prefs || {}), ...prefs }; // merge, keep the other toggles
+  if (data.prefs?.photo === '') delete data.prefs.photo; // "Remove photo"
   return withAvatar(await prisma.user.update({ where: { id: userId }, data }));
 }
 

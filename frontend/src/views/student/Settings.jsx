@@ -24,6 +24,31 @@ const Back = ({ to = '/settings', label = 'Settings' }) => {
 /* =========================================================
    Settings (main page)
    ========================================================= */
+/* Profile photo (Sanskar's version): the picked image is shrunk to 160 x 160 in the
+   browser and saved with the profile (prefs.photo) when the student clicks Save changes. */
+const shrinkImage = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a valid image.'));
+      img.onload = () => {
+        const size = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // crop the middle square of the image so it fills the circle
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
 export default function Settings() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
@@ -111,7 +136,7 @@ export default function Settings() {
           <hr />
 
           <div className="who">
-            {me.avatarUrl ? <img className="av img" src={me.avatarUrl} alt="" /> : <div className="av">{initials(me.name)}</div>}
+            {me.prefs?.photo ? <img className="av img" src={me.prefs.photo} alt="" /> : <div className="av">{initials(me.name)}</div>}
             <div>
               <b>{me.name}</b> <span className="tag">ACTIVE STUDENT</span>
               <br />
@@ -181,44 +206,39 @@ export function EditProfile() {
   const [me, setMe] = useState(null);
   const [busy, setBusy] = useState(''); // 'photo' | 'save' while saving
   const [msg, setMsg] = useState({ text: '', ok: true });
+  const [photo, setPhoto] = useState(null);
   const file = useRef(null);
 
   useEffect(() => {
-    api('/me').then(setMe);
+    api('/me').then((u) => { setMe(u); setPhoto(u.prefs?.photo || null); });
   }, []);
 
   if (!me) return null;
 
   const set = (k) => (e) => { setMe({ ...me, [k]: e.target.value }); setMsg({ text: '', ok: true }); };
 
-  // Photo: choose a file → upload straight away → the new photo shows here and in Settings
+  // Photo: choose a file → shrink it → shows here; kept when "Save changes" is clicked
   const upload = (e) => {
     const pic = e.target.files?.[0];
-    e.target.value = '';
+    e.target.value = ''; // lets the same file be picked again later
     if (!pic) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(pic.type)) return setMsg({ text: 'Choose a PNG, JPG or WebP image.', ok: false });
-    if (pic.size > 2 * 1024 * 1024) return setMsg({ text: 'The photo must be 2 MB or smaller.', ok: false });
-    const fd = new FormData();
-    fd.append('file', pic);
-    setBusy('photo');
-    api('/me/avatar', fd)
-      .then((u) => { setMe({ ...me, avatarUrl: u.avatarUrl }); setMsg({ text: 'Photo updated.', ok: true }); })
-      .catch((x) => setMsg({ text: x.message, ok: false }))
-      .finally(() => setBusy(''));
+    if (!pic.type.startsWith('image/')) return setMsg({ text: 'Please choose an image file (JPG or PNG).', ok: false });
+    if (pic.size > 5 * 1024 * 1024) return setMsg({ text: 'That image is too big. Choose one under 5 MB.', ok: false });
+    shrinkImage(pic)
+      .then((url) => { setPhoto(url); setMsg({ text: 'New photo ready. Click "Save changes" to keep it.', ok: true }); })
+      .catch((x) => setMsg({ text: x.message, ok: false }));
   };
   const removePhoto = () => {
-    if (!window.confirm('Remove your profile photo?')) return;
-    setBusy('photo');
-    api('/me/avatar', null, 'DELETE')
-      .then(() => { setMe({ ...me, avatarUrl: null }); setMsg({ text: 'Photo removed.', ok: true }); })
-      .catch((x) => setMsg({ text: x.message, ok: false }))
-      .finally(() => setBusy(''));
+    setPhoto(null);
+    setMsg({ text: 'Photo removed. Click "Save changes" to keep this.', ok: true });
   };
   const save = () => {
     if (!me.name || me.name.trim().length < 2) return setMsg({ text: 'Enter your full name.', ok: false });
     if (me.phone && !/^\+?[\d\s-]{8,15}$/.test(me.phone)) return setMsg({ text: 'Phone number looks like 17123456 or +97517123456.', ok: false });
     setBusy('save');
-    api('/me', { name: me.name.trim(), phone: me.phone || '' }, 'PUT')
+    const prefs = { ...(me.prefs || {}) };
+    prefs.photo = photo || ''; // '' tells the server to remove the photo
+    api('/me', { name: me.name.trim(), phone: me.phone || '', prefs }, 'PUT')
       .then(() => { setMsg({ text: 'Changes saved.', ok: true }); setTimeout(() => nav('/settings'), 800); })
       .catch((x) => setMsg({ text: x.message, ok: false }))
       .finally(() => setBusy(''));
@@ -229,16 +249,16 @@ export function EditProfile() {
       <Back />
 
       <div className="who2">
-        {me.avatarUrl ? <img className="av dark img" src={me.avatarUrl} alt="Your profile photo" /> : <div className="av dark">{initials(me.name)}</div>}
-        <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
+        {photo ? <img className="av dark img" src={photo} alt="Your profile photo" /> : <div className="av dark">{initials(me.name)}</div>}
+        <input ref={file} type="file" accept="image/*" hidden onChange={upload} />
         <button className="ghost" onClick={() => file.current?.click()} disabled={!!busy}>
-          {busy === 'photo' ? 'Uploading…' : me.avatarUrl ? 'Change photo' : 'Add photo'}
+          {photo ? 'Change photo' : 'Add photo'}
         </button>
-        {me.avatarUrl && (
+        {photo && (
           <button className="plain danger" onClick={removePhoto} disabled={!!busy}>Remove photo</button>
         )}
       </div>
-      <small className="hint">PNG, JPG or WebP, up to 2 MB.</small>
+      <small className="hint">Any image up to 5 MB. Click “Save changes” to keep it.</small>
 
       <div className="card1">
         <label>Full name</label>
