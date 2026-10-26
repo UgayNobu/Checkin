@@ -29,6 +29,7 @@ router.post('/modules', admin, validateBody(v.moduleBodySchema), c.createModule)
 router.put('/modules/:id', admin, validateParams(v.moduleIdParamSchema), validateBody(v.moduleBodySchema), c.updateModule);
 
 // Tutor approvals
+router.post('/tutors', admin, validateBody(v.createTutorSchema), c.createTutor); // admin creates a tutor account
 router.get('/tutors/pending', both, c.pendingTutors);
 router.post('/tutors/:id/approve', admin, validateParams(v.userIdParamSchema), c.approveTutor);
 router.post('/tutors/:id/reject', admin, validateParams(v.userIdParamSchema), c.rejectTutor);

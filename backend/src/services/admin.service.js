@@ -12,6 +12,8 @@ const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
 const { notify } = require('./notifications.service');
 const { currentAcademicSession } = require('../lib/academicSession');
+const { hashPassword } = require('../utils/password');
+const { isSmtpConfigured } = require('../lib/mailer');
 
 // ── Overview ──────────────────────────────────────────────────
 async function overview() {
@@ -186,6 +188,35 @@ async function approveTutor(adminId, id) {
   return { userId: u.id, status: 'active' };
 }
 
+/**
+ * Admin creates a tutor account directly (no sign-up needed). The account is active
+ * straight away with the default password (DEFAULT_TUTOR_PASSWORD); the tutor can
+ * change it in Settings → Account. Tutors who are not in the system can still sign
+ * up themselves and wait for approval (Tutor requests).
+ */
+async function createTutor(adminId, { userId, name, email, department }) {
+  const id = userId.toUpperCase();
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (existing) {
+    const pending = existing.role === 'tutor' && !existing.isActive && existing.status === 'active' && existing.passwordHash;
+    throw Conflict(pending
+      ? `${existing.name} (${id}) already signed up and is waiting in Tutor requests. Approve them there instead.`
+      : `${id} already has an account (${existing.name}).`, 'USER_EXISTS');
+  }
+  if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } }))
+    throw Conflict('Another account already uses this email.', 'EMAIL_TAKEN');
+  const u = await prisma.user.create({
+    data: { id, name, email, role: 'tutor', department, passwordHash: await hashPassword(env.defaultTutorPassword), isActive: true, status: 'active' },
+  });
+  await writeAuditLog(adminId, 'Tutor Created', `${u.name} (${u.id})`);
+  await notify(u.id, `Welcome to CheckIn. Your tutor account is ready: log in with your staff ID ${u.id} and the password ${env.defaultTutorPassword}, then change the password in Settings → Account.`, 'System', {
+    email: 'Your CheckIn tutor account is ready',
+  });
+  return {
+    ...userOut(u), defaultPassword: env.defaultTutorPassword, emailed: isSmtpConfigured(),
+  };
+}
+
 async function rejectTutor(adminId, id) {
   const u = await prisma.user.findFirst({ where: { id, ...pendingWhere } });
   if (!u) throw NotFound('Only pending tutor requests can be rejected');
@@ -267,5 +298,5 @@ async function runLowAttendanceJob(adminId) {
 
 module.exports = {
   overview, listPrograms, createProgram, renameProgram, listUsers, patchUser, listModules, saveModule,
-  pendingTutors, approveTutor, rejectTutor, atRisk, programmeReport, runLowAttendanceJob,
+  pendingTutors, approveTutor, rejectTutor, createTutor, atRisk, programmeReport, runLowAttendanceJob,
 };

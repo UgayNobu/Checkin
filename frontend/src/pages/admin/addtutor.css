@@ -1,0 +1,25 @@
+.at { margin-top: 24px; padding: 20px 24px; background: #fff; border: 1px solid #dee2e6; border-top: 4px solid #0f6cbf; border-radius: 8px; }
+.at-head { display: flex; align-items: center; justify-content: space-between; }
+.at-head h3 { margin: 0; font-size: 18px; color: #1d2125; }
+.at-x { width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; font-size: 22px; line-height: 1; color: #6a737b; cursor: pointer; }
+.at-x:hover { background: #f8f9fa; }
+.at-sub { margin: 6px 0 16px; color: #6a737b; font-size: 14px; }
+.at-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.at-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: #1d2125; }
+.at-grid input, .at-grid select { padding: 9px 12px; font: inherit; font-weight: 400; font-size: 15px; }
+.at-grid small.err { font-weight: 400; font-size: 12px; }
+.at-msg { grid-column: 1 / -1; margin: 0; font-size: 14px; }
+.at-acts { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; }
+.at-cancel { padding: 9px 18px; border: 1px solid #ced4da; border-radius: 8px; background: #fff; font: inherit; cursor: pointer; }
+.at-save { padding: 9px 18px; border: 1px solid #0f6cbf; border-radius: 8px; background: #0f6cbf; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.at-save:disabled { opacity: .6; cursor: default; }
+.at-ok { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; padding: 12px 14px; background: #d7e6d7; border: 1px solid #b5d3b4; border-radius: 8px; color: #1d2125; font-size: 14px; }
+.at-ok code { padding: 1px 6px; background: #fff; border-radius: 4px; font-size: 14px; }
+.at-ok small { color: #2b6328; }
+.ao-addbtn { padding: 6px 12px; border: 1px solid #0f6cbf; border-radius: 8px; background: #fff; color: #0f6cbf; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ao-addbtn:hover { background: #0f6cbf; color: #fff; }
+@media (max-width: 760px) {
+  .at { padding: 16px; }
+  .at-grid { grid-template-columns: 1fr; }
+}
+.ao-vhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
