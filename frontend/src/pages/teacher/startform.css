@@ -1,0 +1,9 @@
+/* Start Attendance: the session form in two columns (one on phones) */
+.sa-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 20px; }
+.sa-f { display: flex; flex-direction: column; min-width: 0; }
+.sa-f label { margin-top: 8px; }
+.sa-f input, .sa-f select { width: 100%; box-sizing: border-box; }
+.sa-wide { grid-column: 1 / -1; }
+.sa-ok { display: block; color: #047857; font-size: 11px; margin: 4px 0 6px; }
+.sa-help { display: block; color: #6b7280; font-size: 11px; margin: 4px 0 6px; }
+@media (max-width: 640px) { .sa-grid { grid-template-columns: 1fr; } }

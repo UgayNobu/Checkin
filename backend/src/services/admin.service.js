@@ -7,13 +7,10 @@ const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { DAY_MS } = require('../config/constants');
 const { roleIn, roleOut, userOut, monthStart, round1 } = require('../utils/format');
-const { hashPassword, isStrongPassword, PASSWORD_RULE } = require('../utils/password');
-const { normalizeId } = require('../utils/id-format');
 const { BadRequest, NotFound, Conflict } = require('../utils/errors');
 const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
 const { notify } = require('./notifications.service');
-const { sendSmsInBackground } = require('../lib/sms');
 const { currentAcademicSession } = require('../lib/academicSession');
 
 // ── Overview ──────────────────────────────────────────────────
@@ -174,114 +171,7 @@ async function saveModule(adminId, id, b) {
   return { _id: m.id };
 }
 
-// ── Tutor accounts (created by the admin — no sign-up, no approval) ──
-// Flow: admin creates the tutor (staff ID, name, email, department, default password)
-//   → the tutor gets an email (+ SMS if set up) with the login details
-//   → admin assigns the tutor's modules for this semester
-//   → tutor logs in, is asked to change the default password, sees their modules.
-const STAFF_ID = /^CST-[A-Z0-9]{2,6}$/;
-
-async function createTutor(adminId, { userId, name, email, phone, department, programme, password }) {
-  const id = normalizeId(userId);
-  if (!STAFF_ID.test(id)) throw BadRequest('Staff ID looks like CST-0142', 'BAD_STAFF_ID');
-  const pw = password || env.defaultTutorPassword;
-  if (!isStrongPassword(pw)) throw BadRequest(`Default password: ${PASSWORD_RULE}`, 'WEAK_PASSWORD');
-  if (await prisma.user.findUnique({ where: { id } })) throw Conflict('An account with this staff ID already exists', 'ID_TAKEN');
-  if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } })) throw Conflict('An account with this email already exists', 'EMAIL_TAKEN');
-
-  const u = await prisma.user.create({
-    data: {
-      id, name, email, phone: phone || null, department: department || null, programme: programme || null,
-      role: 'tutor', isActive: true, status: 'active', passwordHash: await hashPassword(pw),
-      prefs: { mustChangePassword: true },
-    },
-  });
-  await writeAuditLog(adminId, 'Created tutor', `${u.name} (${u.id})`);
-  await notify(u.id,
-    `Welcome to CheckIn, ${u.name}. Your tutor account is ready.\nStaff ID: ${u.id}\nDefault password: ${pw}\nPlease log in and change your password. Your modules will appear once the admin assigns them.`,
-    'System', { email: 'Your CheckIn tutor account', sms: false });
-  // Short text so the login details fit in one SMS (160 characters)
-  if (u.phone) sendSmsInBackground({ to: u.phone, text: `Tutor account ready. ID ${u.id}, password ${pw}. Log in and change it.` });
-  return { ...userOut(u), defaultPassword: pw };
-}
-
-/** The tutor's modules this semester (ids), for the "Assign modules" screen. */
-async function tutorModules(tutorId) {
-  const secs = await prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, include: { module: true } });
-  const seen = new Set();
-  return secs.filter((s) => (seen.has(s.moduleId) ? false : seen.add(s.moduleId)))
-    .map((s) => ({ id: s.moduleId, code: s.module.code, name: s.module.name }));
-}
-
-/**
- * Admin assigns modules to a tutor for this semester (moduleIds = modules to give this tutor).
- * A module that already has a tutor this semester moves to this tutor; past semesters keep
- * the tutor who taught them. A module always needs a tutor (sections.tutor_id is required),
- * so a module is "taken away" by assigning it to another tutor, never left empty.
- */
-async function assignTutorModules(adminId, tutorId, moduleIds) {
-  const tutor = await prisma.user.findFirst({ where: { id: tutorId, role: 'tutor' } });
-  if (!tutor) throw NotFound('Tutor not found', 'TUTOR_NOT_FOUND');
-  if (!tutor.isActive) throw BadRequest('Activate this tutor before assigning modules', 'TUTOR_INACTIVE');
-  const academicSession = await currentAcademicSession();
-  const wanted = [...new Set(moduleIds)];
-  const mods = await prisma.module.findMany({ where: { id: { in: wanted } } });
-  if (mods.length !== wanted.length) throw NotFound('One of the modules was not found', 'MODULE_NOT_FOUND');
-
-  const before = (await tutorModules(tutorId)).map((m) => m.id);
-  const added = wanted.filter((m) => !before.includes(m));
-  const movedFrom = [];
-
-  await prisma.$transaction(async (tx) => {
-    for (const moduleId of added) {
-      const sec = await tx.section.findFirst({ where: { moduleId, academicSession } });
-      if (sec) {
-        if (sec.tutorId !== tutorId) movedFrom.push({ moduleId, from: sec.tutorId });
-        await tx.section.update({ where: { id: sec.id }, data: { tutorId } });
-      } else {
-        await tx.section.create({ data: { moduleId, tutorId, name: 'A', academicSession } });
-      }
-    }
-  });
-
-  const label = (id) => { const m = mods.find((x) => x.id === id); return `${m.code} – ${m.name}`; };
-  if (added.length) {
-    await notify(tutorId, `You were assigned to teach: ${added.map(label).join(', ')}.`, 'System', { email: 'New modules assigned to you' });
-  }
-  for (const mv of movedFrom) {
-    await notify(mv.from, `${label(mv.moduleId)} was moved to another tutor by the admin.`, 'System');
-  }
-  await writeAuditLog(adminId, 'Assigned tutor modules', `${tutor.name} (${tutor.id}): ${added.map(label).join(', ') || 'no change'}`);
-  return { tutorId, modules: await tutorModules(tutorId), added: added.length };
-}
-
-/** Admin sets a tutor's password back to the default (e.g. they forgot it and email isn't set up). */
-async function resetTutorPassword(adminId, tutorId) {
-  const u = await prisma.user.findFirst({ where: { id: tutorId, role: 'tutor' } });
-  if (!u) throw NotFound('Tutor not found', 'TUTOR_NOT_FOUND');
-  const pw = env.defaultTutorPassword;
-  await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(pw), prefs: { ...(u.prefs || {}), mustChangePassword: true } } });
-  await writeAuditLog(adminId, 'Reset tutor password', `${u.name} (${u.id})`);
-  await notify(u.id, `Your CheckIn password was reset by the admin. Default password: ${pw}. Please log in and change it.`, 'System', { email: 'Your CheckIn password was reset', sms: 'always' });
-  return { userId: u.id, defaultPassword: pw };
-}
-
-/** Admin screen: every tutor with the modules they teach this semester. */
-async function listTutors() {
-  const academicSession = await currentAcademicSession();
-  const tutors = await prisma.user.findMany({
-    where: { role: 'tutor' }, orderBy: { name: 'asc' },
-    include: { sections: { where: { academicSession }, include: { module: { select: { id: true, code: true, name: true } } } } },
-  });
-  return tutors.map((t) => {
-    const seen = new Set();
-    const modules = t.sections.filter((s) => (seen.has(s.moduleId) ? false : seen.add(s.moduleId))).map((s) => s.module);
-    return { ...userOut(t), modules, mustChangePassword: Boolean(t.prefs?.mustChangePassword) };
-  });
-}
-
-// ── Tutor approvals (old sign-up requests only) ──────────────
-// Tutors no longer sign up; these routes stay so requests made before the change can still be cleared.
+// ── Tutor approvals ───────────────────────────────────────────
 // Pending tutor = signed up (has a password), not active, not rejected.
 const pendingWhere = { role: 'tutor', isActive: false, status: 'active', passwordHash: { not: null } };
 
@@ -364,6 +254,5 @@ async function runLowAttendanceJob(adminId) {
 
 module.exports = {
   overview, listPrograms, createProgram, renameProgram, listUsers, patchUser, listModules, saveModule,
-  createTutor, tutorModules, assignTutorModules, resetTutorPassword, listTutors,
   pendingTutors, approveTutor, rejectTutor, atRisk, programmeReport, runLowAttendanceJob,
 };
