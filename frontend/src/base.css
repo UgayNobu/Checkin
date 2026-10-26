@@ -1,24 +1,66 @@
 /* =========================================================
-   base.css
-   Colours are read from the screenshots - replace with exact Figma hex values
+   base.css — CheckIn theme (purple)
+   Every colour in the app comes from the variables in section 1.
+   Page CSS files only use var(--...) so the theme can be changed here.
    ========================================================= */
 
-/* ---------- 1. Variables ---------- */
+/* ---------- 1. Theme variables ---------- */
 :root {
-  --navy-student: #13143f;
-  --navy-staff: #0b1f3a;
-  --active: #1b2c63;
-  --blue: #2f6df0;
-  --blue-text: #4f8cff;
-  --green: #17c28a;
-  --red: #e5484d;
-  --orange: #f59e0b;
-  --purple: #8b45f0;
-  --ink: #111;
-  --muted: #8a8fa3;
-  --line: #d6d6dc;
-  --bg-student: #fdfcfa;
-  --bg-staff: #f8faff;
+  /* Brand */
+  --primary: #7C3AED;
+  --primary-dark: #6D28D9;        /* button hover */
+  --sidebar: #2E1065;
+  --sidebar-hover: #4C1D95;
+  --sidebar-text: #E9D5FF;
+
+  /* Text + surfaces */
+  --text: #1F2937;
+  --muted: #6B5B7B;
+  --bg: #FAF5FF;                  /* page background */
+  --card: #FFFFFF;
+  --border: #E9D5FF;
+  --table-head: #F3E8FF;
+  --table-head-text: #581C87;
+
+  /* Small helpers built from the brand colour (tints for selected / hover states) */
+  --primary-tint: #F3E8FF;
+  --primary-soft: #C4B5FD;
+  --focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.18);
+
+  /* Attendance status (same meaning everywhere) */
+  --present-text: #166534;
+  --present-bg: #DCFCE7;
+  --absent-text: #991B1B;
+  --absent-bg: #FEE2E2;
+  --late-text: #92400E;           /* also used for Flagged / warnings */
+  --late-bg: #FEF3C7;
+  /* Solid / outline versions of the status colours (chart bars, dots, outlined buttons) */
+  --present-solid: #16A34A;
+  --absent-solid: #DC2626;
+  --absent-border: #FCA5A5;
+  --late-solid: #D97706;
+  --late-border: #FCD34D;
+
+  /* Shape */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 50px rgba(46, 16, 101, 0.25);
+
+  /* Old variable names, kept so nothing that still uses them breaks */
+  --navy-student: var(--sidebar);
+  --navy-staff: var(--sidebar);
+  --active: var(--primary);
+  --blue: var(--primary);
+  --blue-text: var(--primary);
+  --purple: var(--primary);
+  --green: var(--present-solid);
+  --red: var(--absent-text);
+  --orange: var(--late-text);
+  --ink: var(--text);
+  --line: var(--border);
+  --bg-student: var(--bg);
+  --bg-staff: var(--bg);
 }
 
 /* ---------- 2. Reset / base ---------- */
@@ -26,10 +68,38 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  background: var(--bg);
+}
+
 body {
   margin: 0;
-  font-family: Inter, sans-serif;
-  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 400;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 700;
+  color: var(--text);
+}
+
+a {
+  color: var(--primary);
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* ---------- 3. Layout shell ---------- */
@@ -41,93 +111,117 @@ body {
 .main {
   flex: 1;
   min-width: 0;
+  background: var(--bg);
 }
 
 .page {
-  padding: 20px 24px;
+  padding: 24px;
 }
 
 /* ---------- 4. Sidebar ---------- */
 .side {
-  width: 200px;
-  color: #fff;
+  width: 220px;
+  flex-shrink: 0;
+  color: var(--sidebar-text);
+  background: var(--sidebar);
   display: flex;
   flex-direction: column;
-  padding: 14px 10px;
+  padding: 16px 12px;
 }
 
 .side nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
 }
 
 .side a {
-  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  color: var(--sidebar-text);
   text-decoration: none;
-  font-size: 13px;
-  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 12px;
   border-radius: 8px;
+  border: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.side a:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
 }
 
 .side a.active {
-  background: var(--active);
-  color: var(--blue-text);
-  border: 1px solid #2d4a9a;
+  background: var(--primary);
+  color: #fff;
+  border: 0;
 }
 
 .side small {
   font-size: 11px;
-  padding: 8px;
+  padding: 8px 12px;
+  color: var(--sidebar-text);
+  opacity: 0.8;
 }
 
 .side button {
   background: none;
   border: 0;
-  color: #fff;
+  border-radius: 8px;
+  color: var(--sidebar-text);
   text-align: left;
-  padding: 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 42px;
+  padding: 10px 12px;
   cursor: pointer;
+}
+
+.side button:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
 }
 
 /* Brand / logo in sidebar */
 .brand {
   font-weight: 700;
   font-size: 18px;
-  padding: 6px 8px 22px;
+  color: #fff;
+  padding: 6px 10px 22px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
 .brand .logo {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   object-fit: cover;
   background: #fff;
 }
 
-/* ---------- 5. Role themes ---------- */
-.student .side {
-  background: var(--navy-student);
-}
-
-.student .main {
-  background: var(--bg-student);
-}
-
+/* ---------- 5. Role themes (all roles share the purple theme) ---------- */
+.student .side,
 .teacher .side,
 .admin .side,
 .management .side {
-  background: var(--navy-staff);
+  background: var(--sidebar);
 }
 
+.student .main,
 .teacher .main,
 .admin .main,
 .management .main {
-  background: var(--bg-staff);
+  background: var(--bg);
 }
 
 /* ---------- 6. Top bar ---------- */
@@ -135,120 +229,153 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--ink);
+  gap: 16px;
+  padding: 16px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .top h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .top p {
-  margin: 2px 0 0;
-  font-size: 11px;
+  margin: 4px 0 0;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .me {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
+}
+
+.me small {
+  color: var(--muted);
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--navy-student);
+  background: var(--primary);
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .hsearch {
-  width: 130px;
-  background: #f0f3fb;
-  border: 1px solid #dfe5f3;
+  width: 160px;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* ---------- 7. Notifications (bell) ---------- */
+/* The bell is drawn with CSS (an outline icon) instead of an emoji */
 .bell {
   position: relative;
-  width: 34px;
-  height: 34px;
-  border: 1px solid #000;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
   border-radius: 50%;
-  background: #fff;
+  background: var(--card);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0;            /* hides the emoji text inside the button */
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.bell::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/%3E%3Cpath d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/%3E%3Cpath d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.bell:hover {
+  background: var(--primary-tint);
 }
 
 .dot {
   position: absolute;
-  top: 5px;
-  right: 6px;
-  width: 7px;
-  height: 7px;
+  top: 6px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--red);
+  background: var(--absent-solid);
+  border: 2px solid var(--card);
 }
 
 .bellpanel {
   position: absolute;
   right: 0;
-  top: 42px;
-  width: 290px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 8px 20px #0003;
+  top: 46px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 28px rgba(46, 16, 101, 0.16);
   z-index: 30;
-  max-height: 300px;
+  max-height: 320px;
   overflow: auto;
 }
 
 .bellpanel p {
   margin: 0;
-  padding: 10px 12px;
-  font-size: 12px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 
+.bellpanel p:hover {
+  background: var(--bg);
+}
+
 .bellpanel p.unread {
-  background: #eef3ff;
+  background: var(--primary-tint);
 }
 
 .bellpanel small {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 2px;
 }
 
 .nbadge {
   float: right;
-  background: #ef4444;
+  background: var(--absent-solid);
   color: #fff;
-  border-radius: 9px;
-  font-size: 9px;
-  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
 }
 
 /* ---------- 8. Cards & panels ---------- */
 .card,
 .panel {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 20px;
+  box-shadow: var(--shadow);
 }
 
 .card {
@@ -259,32 +386,44 @@ body {
 }
 
 .panel {
-  margin-top: 22px;
+  margin-top: 24px;
 }
 
-/* ---------- 9. Stats ---------- */
+.panel h3,
+.panel h4 {
+  margin-top: 0;
+}
+
+/* ---------- 9. Summary (stat) cards: big number, small muted label ---------- */
 .stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .stat {
-  background: #fff;
-  border: 1px solid #e5e8f0;
-  border-radius: 12px;
-  padding: 14px 18px;
-  min-width: 150px;
+  flex: 1;
+  min-width: 160px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
 }
 
 .stat b {
   display: block;
-  font-size: 26px;
-  font-weight: 500;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
 }
 
 .stat small {
+  display: block;
   color: var(--muted);
+  font-size: 13px;
 }
 
 /* ---------- 10. Forms & buttons ---------- */
@@ -292,137 +431,318 @@ input,
 select,
 textarea {
   width: 100%;
-  padding: 11px;
-  border: 1px solid var(--ink);
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
-  font-size: 13px;
-  background: #fff;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--card);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+textarea {
+  min-height: 88px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 0;
+  border-color: var(--primary);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--bg);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+input[type='file'] {
+  min-height: 0;
 }
 
 label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  margin: 12px 0 5px;
+  color: var(--text);
+  margin: 14px 0 6px;
 }
 
+/* Primary button — only the main action on a page */
 .btn {
-  background: var(--blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  background: var(--primary);
   color: #fff;
   border: 0;
   border-radius: 8px;
-  padding: 11px 18px;
+  padding: 10px 20px;
+  font: inherit;
   font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
-  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn.purple {
-  background: var(--purple);
+  background: var(--primary);
 }
 
-/* ---------- 11. Tables ---------- */
+.btn.purple:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+/* ---------- 11. Tables ----------
+   Same look on every page: purple header row, light row lines,
+   alternating row colour, roomy padding. */
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 th {
   text-align: left;
-  font-size: 11px;
-  color: var(--muted);
-  padding: 10px;
+  padding: 12px 16px;
 }
 
 td {
-  padding: 12px 10px;
-  border-top: 1px solid #e5e8f0;
+  padding: 14px 16px;
 }
 
-/* ---------- 12. Utilities ---------- */
+.shell .page table th,
+.shell .page table thead th {
+  background: var(--table-head);
+  color: var(--table-head-text);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.shell .page table td,
+.shell .page table tbody td {
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+/* text colour is set on the table (not each cell) so coloured cells like
+   "present" counts keep their own colour */
+.shell .page table {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.shell .page table tbody tr:nth-child(even) td {
+  background: var(--bg);
+}
+
+.shell .page table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.shell .page table tbody tr:hover td {
+  background: var(--primary-tint);
+}
+
+/* Any box that wraps a table scrolls sideways when the table is wider than the screen */
+.tbl,
+.ao-tbl,
+.pv-tbl,
+.sem-tbl,
+.ccm-tbl,
+.rec-tbl,
+.sdm-tbl,
+.tch-tbl {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- 12. Status badges (pills) ----------
+   Present = green, Absent = red, Late / Flagged / warning = amber */
+.badge,
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-transform: capitalize;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.badge.present,
+.status-pill.present {
+  background: var(--present-bg);
+  color: var(--present-text);
+}
+
+.badge.absent,
+.status-pill.absent {
+  background: var(--absent-bg);
+  color: var(--absent-text);
+}
+
+.badge.late,
+.badge.flagged,
+.status-pill.late,
+.status-pill.flagged {
+  background: var(--late-bg);
+  color: var(--late-text);
+}
+
+/* ---------- 13. Utilities ---------- */
 .row {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   align-items: center;
 }
 
 .ok {
-  color: var(--green);
+  color: var(--present-text);
   font-size: 13px;
   font-weight: 600;
 }
 
 .err {
-  color: var(--red);
+  color: var(--absent-text);
   font-size: 13px;
+}
+
+/* Error message boxes (p.err) read as a soft red banner */
+p.err:not(:empty) {
+  background: var(--absent-bg);
+  border: 1px solid var(--absent-border);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .chip {
   display: inline-block;
 }
 
-/* ---------- 13. Login / public pages ---------- */
+/* ---------- 14. Login / public pages ---------- */
 .login {
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
+  background: var(--bg);
 }
 
 .hero {
   background:
-    linear-gradient(160deg, #1a2550cc, #0b1f3acc),
+    linear-gradient(160deg, rgba(76, 29, 149, 0.82), rgba(46, 16, 101, 0.9)),
     url(/login-bg.jpg) center/cover,
-    #0b1f3a;
+    var(--sidebar);
   color: #fff;
-  padding: 36px;
+  padding: 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
 .hero h1 {
-  font-size: 34px;
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
   margin: 0;
 }
 
 .hero p {
-  font-size: 13px;
-  opacity: 0.8;
-  max-width: 380px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--sidebar-text);
+  max-width: 400px;
+}
+
+.hero small {
+  color: var(--sidebar-text);
 }
 
 .lcard {
   margin: auto;
-  width: 340px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 22px;
-  box-shadow: 0 6px 16px #0002;
+  width: 380px;
+  max-width: calc(100% - 32px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
 }
 
 .lcard h2 {
   text-align: center;
+  font-size: 24px;
   margin: 4px 0;
 }
 
 .lcard .sub {
   text-align: center;
-  font-size: 12px;
-  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 16px;
 }
 
 .fgt {
   display: block;
   text-align: right;
-  color: var(--red);
-  font-size: 11px;
-  margin: 6px 0 12px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 14px;
+}
+
+.alt {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .alt a {
-  color: #2f6df0;
+  color: var(--primary);
 }
 
 /* Logo on login / sign-up pages */
@@ -435,8 +755,8 @@ td {
 }
 
 .herologo img {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #fff;
   object-fit: cover;
@@ -449,9 +769,10 @@ td {
   border-radius: 50%;
   object-fit: cover;
   margin: 0 auto 8px;
+  border: 1px solid var(--border);
 }
 
-/* ---------- 14. Responsive ---------- */
+/* ---------- 15. Responsive ---------- */
 /* Phone top bar and drawer: hidden on wider screens */
 .mbar,
 .mshade {
@@ -461,6 +782,7 @@ td {
 @media (max-width: 760px) {
   .login {
     grid-template-columns: 1fr;
+    padding: 24px 0;
   }
 
   .hero {
@@ -479,19 +801,19 @@ td {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 10px 16px;
     padding-top: max(10px, env(safe-area-inset-top));
     color: #fff;
-    background: var(--navy-staff);
+    background: var(--sidebar);
   }
 
   .student .mbar {
-    background: var(--navy-student);
+    background: var(--sidebar);
   }
 
   .mbar .logo {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: #fff;
     object-fit: cover;
@@ -500,12 +822,12 @@ td {
   .mbar-btn {
     display: grid;
     gap: 4px;
-    width: 38px;
-    height: 38px;
-    padding: 10px 9px;
+    width: 44px;
+    height: 44px;
+    padding: 12px 11px;
     border: 0;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1);
     cursor: pointer;
   }
 
@@ -522,17 +844,17 @@ td {
     left: 0;
     bottom: 0;
     z-index: 60;
-    width: 250px;
+    width: 260px;
     max-width: 82vw;
     overflow-y: auto;
-    padding-top: max(14px, env(safe-area-inset-top));
+    padding-top: max(16px, env(safe-area-inset-top));
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
 
   .menu-open .side {
     transform: none;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+    box-shadow: 4px 0 24px rgba(46, 16, 101, 0.35);
   }
 
   .side a {
@@ -544,7 +866,7 @@ td {
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: rgba(10, 15, 30, 0.45);
+    background: rgba(46, 16, 101, 0.45);
   }
 
   .menu-open .mshade {
@@ -552,14 +874,14 @@ td {
   }
 
   .main {
-    min-height: calc(100vh - 58px);
+    min-height: calc(100vh - 64px);
   }
 
   /* Page header: title on top, the person underneath */
   .top {
     flex-wrap: wrap;
     gap: 10px;
-    padding: 12px 16px;
+    padding: 14px 16px;
   }
 
   .top > div:first-child {
@@ -568,7 +890,7 @@ td {
   }
 
   .top h2 {
-    font-size: 18px;
+    font-size: 19px;
   }
 
   .me {
@@ -576,7 +898,7 @@ td {
   }
 
   .page {
-    padding: 14px 16px;
+    padding: 16px;
   }
 
   /* Wide tables scroll sideways inside their box instead of stretching the page */
@@ -612,8 +934,13 @@ td {
   }
 
   .mcards .mcard,
-  .prof .pcard {
+  .prof .pcard,
+  .card {
     width: 100%;
+  }
+
+  .stats {
+    flex-direction: column;
   }
 
   .page .ok:empty {
@@ -626,31 +953,33 @@ td {
     transition: none;
   }
 }
+
 /* Student sign-up photo */
 .studenthero {
   background:
-    linear-gradient(160deg, #1a2550cc, #0b1f3acc),
+    linear-gradient(160deg, rgba(76, 29, 149, 0.82), rgba(46, 16, 101, 0.9)),
     url(/studentsigin.jpeg) center/cover,
-    #0b1f3a;
+    var(--sidebar);
 }
 
 /* Teacher sign-up photo */
 .teacherhero {
   background:
-    linear-gradient(160deg, #1a2550cc, #0b1f3acc),
+    linear-gradient(160deg, rgba(76, 29, 149, 0.82), rgba(46, 16, 101, 0.9)),
     url(/techer1.jpg) center/cover,
-    #0b1f3a;
+    var(--sidebar);
 }
 
 /* Teacher login photo */
 .teacherlogin {
   background:
-    linear-gradient(160deg, #1a2550cc, #0b1f3acc),
+    linear-gradient(160deg, rgba(76, 29, 149, 0.82), rgba(46, 16, 101, 0.9)),
     url(/techer2.jpg) center/cover,
-    #0b1f3a;
+    var(--sidebar);
 }
+
 /* Loading bar shown at the top while data is loading (see api.js) */
-#loadbar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: #1ea7e8; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+#loadbar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--primary); z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 #loadbar.on { opacity: 1; animation: loadbar 1.2s ease-in-out infinite; }
 @keyframes loadbar { 0% { left: 0; width: 0; } 50% { left: 20%; width: 60%; } 100% { left: 100%; width: 0; } }
 
@@ -675,4 +1004,60 @@ td {
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
+}
+
+/* ---------- Simple line icons (drawn with CSS, no emoji) ---------- */
+/* Evidence leave-type icons: the emoji text is hidden and a document outline is drawn instead */
+.ev-ic,
+.ev-ico {
+  font-size: 0 !important;
+  color: var(--primary);
+}
+
+.ev-ic::before,
+.ev-ico::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.ev .ev-type.on .ev-ic {
+  color: #fff;
+}
+
+/* ---------- Same button behaviour everywhere ----------
+   1. Main action = .btn (purple). Other actions = outline buttons. Destructive = red outline.
+   2. While a request runs the button is disabled and its words say what is happening ("Saving…").
+   3. The result appears right under the form: green = done, red = something to fix (.savenote).
+   4. Anything that can't be undone asks "Are you sure?" first. */
+button:disabled,
+[role='button'][aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button {
+  cursor: pointer;
+}
+
+.savenote {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.savenote.ok {
+  background: var(--present-bg);
+  color: var(--present-text);
+}
+
+.savenote.bad {
+  background: var(--absent-bg);
+  color: var(--absent-text);
 }

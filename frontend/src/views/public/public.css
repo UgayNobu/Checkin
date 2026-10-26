@@ -1,0 +1,94 @@
+.land{min-height:100vh;background:var(--card)}.lhead{display:flex;gap:10px;align-items:center;padding:14px 40px;border-bottom:1px solid var(--border)}.lhead small{display:block;font-size:9px}
+.lbody{display:flex;gap:40px;padding:60px 50px;flex-wrap:wrap}.ltxt{flex:1;min-width:300px}.ltxt h1{font-size:44px;line-height:1.05;margin:10px 0}.ltxt p{color:var(--muted);max-width:440px;font-size:15px}.eyebrow{color:var(--primary);font-size:10px;font-weight:700}
+.pick{width:340px;max-width:100%;margin:0 auto;border:1px solid var(--border);border-radius:12px;padding:24px;background:var(--card);box-shadow:var(--shadow);text-align:center}.pick h2{margin:6px 0 0}.pick small{font-size:10px}.pick .cont{font-size:9px;font-weight:700;margin:18px 0 10px}
+.opt{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;background:var(--card)}.opt:hover{border-color:var(--primary)}.opt div{flex:1}.opt b{display:block;font-size:13px}.opt small{color:var(--muted)}
+.fgt{display:block;text-align:right;color:var(--primary);font-size:13px;font-weight:600;margin:8px 0 14px}.alt{text-align:center;font-size:13px;margin-top:12px}.alt a{color:var(--primary);cursor:pointer;text-decoration:underline}
+.logo{width:26px;height:26px;border-radius:50%;object-fit:cover}.lhead>div{display:flex;flex-direction:column}.logobox{width:54px;height:54px;border:1px solid var(--border);border-radius:12px;margin:0 auto 8px;display:grid;place-items:center}.logobox .logo{width:36px;height:36px}
+.photo{height:210px;margin-top:30px;background:var(--sidebar);position:relative;max-width:520px}.loc{position:absolute;left:4px;bottom:-34px;background:var(--sidebar);color:#fff;font-size:10px;padding:8px 12px;border-radius:6px}
+.opt.hot{border-color:var(--primary);box-shadow:var(--shadow)}
+
+/* Password checklist on the sign-up form */
+.pwrules { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
+.pwrules li { margin: 2px 0; }
+.pwrules li.ok { color: var(--present-text); }
+
+/* Form validation (sign-up, login, forgot password) */
+.lcard input.bad, .lcard select.bad { border-color: var(--absent-solid) !important; background: var(--absent-bg); }
+.ferr { display: block; color: var(--absent-text); font-size: 12px; margin: 4px 0 6px; }
+.showpw { display: flex !important; align-items: center; gap: 8px; font-size: 13px !important; font-weight: 400 !important; color: var(--muted); margin: 8px 0 2px; cursor: pointer; }
+.showpw input { width: auto !important; min-height: 0 !important; margin: 0; }
+.okmsg { color: var(--present-text); font-size: 12px; font-weight: 600; text-align: center; margin: 8px 0; }
+.lcard button[disabled] { opacity: 0.6; cursor: not-allowed; }
+.steps { font-size: 13px; color: var(--muted); text-align: center; margin: 0 0 12px; }
+
+/* ---------- Landing page (choose Student or Tutor) ----------
+   Full-screen campus photo with a dark overlay; big heading on the left and a
+   frosted "Continue as" card on the right. Stacks on phones. */
+.lx {
+  position: relative; min-height: 100vh; color: #fff; display: flex; flex-direction: column;
+  background: var(--sidebar) url(/front.jpg) center / cover no-repeat;
+}
+.lx::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(46, 16, 101, 0.88) 0%, rgba(46, 16, 101, 0.62) 55%, rgba(46, 16, 101, 0.72) 100%);
+}
+.lx > * { position: relative; }
+.lx-head { display: flex; align-items: center; gap: 12px; padding: 22px max(28px, calc((100% - 1240px) / 2)); }
+.lx-head img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: var(--card); }
+.lx-head b { display: block; font-size: 19px; }
+.lx-head small { display: block; font-size: 12px; color: var(--sidebar-text); }
+.lx-body {
+  flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 64px; align-items: center;
+  width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 28px 64px; box-sizing: border-box;
+}
+.lx-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--primary-soft); }
+.lx-text h1 { font-size: clamp(40px, 5.6vw, 84px); line-height: 1.02; margin: 14px 0 22px; font-weight: 800; letter-spacing: -0.02em; }
+.lx-text h1 span { color: var(--primary-soft); }
+.lx-text p { font-size: clamp(16px, 1.45vw, 21px); line-height: 1.5; color: var(--sidebar-text); max-width: 620px; margin: 0; }
+.lx-bar { width: 120px; height: 4px; border-radius: 4px; background: var(--primary-soft); margin-top: 28px; }
+.lx-loc { display: flex; align-items: center; gap: 8px; margin-top: 22px; font-size: 13px; color: var(--sidebar-text); }
+/* map-pin outline icon (replaces the emoji) */
+.lx-loc::before { content: ''; width: 16px; height: 16px; flex-shrink: 0; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center/contain no-repeat; }
+
+.lx-card {
+  background: rgba(46, 16, 101, 0.55); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+  padding: 34px 30px; text-align: center;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.lx-card .lx-logo { width: 72px; height: 72px; border-radius: 50%; background: var(--card); padding: 4px; object-fit: cover; }
+.lx-card h2 { margin: 14px 0 4px; font-size: 28px; letter-spacing: 0.02em; }
+.lx-card > small { color: var(--sidebar-text); font-size: 13px; }
+.lx-line { width: 56px; height: 3px; border-radius: 3px; background: var(--card); opacity: 0.8; margin: 18px auto; }
+.lx-cont { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--sidebar-text); margin-bottom: 14px; }
+.lx-opt {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+  padding: 16px 18px; margin-bottom: 12px; border-radius: 14px; font: inherit; color: #fff;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.lx-opt:hover, .lx-opt:focus-visible { background: rgba(124, 58, 237, 0.28); border-color: var(--primary); transform: translateY(-1px); outline: none; }
+.lx-opt.lx-primary { background: var(--primary); border-color: var(--primary); }
+.lx-opt.lx-primary:hover, .lx-opt.lx-primary:focus-visible { background: var(--primary-dark); border-color: var(--primary-dark); }
+.lx-opt span { flex: 1; }
+.lx-opt b { display: block; font-size: 16px; }
+.lx-opt small { display: block; font-size: 12.5px; color: var(--primary-tint); margin-top: 2px; line-height: 1.4; }
+.lx-opt i { font-style: normal; font-size: 20px; opacity: 0.85; }
+
+@media (max-width: 960px) {
+  .lx-body { grid-template-columns: 1fr; gap: 36px; padding: 16px 20px 48px; }
+  .lx-card { max-width: 440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .lx::before { background: rgba(46, 16, 101, 0.78); }
+}
+@media (max-width: 480px) {
+  .lx-head { padding: 16px; }
+  .lx-card { padding: 26px 20px; }
+}
+
+/* New tutor: how an account is set up (no sign-up or approval) */
+.steps-list { margin: 8px 0 20px; padding-left: 20px; font-size: 14px; line-height: 1.6; color: var(--text); }
+.steps-list li { margin: 6px 0; }
+.steps-list li::marker { color: var(--primary); font-weight: 700; }
+
+/* Headings on the dark landing photo stay white (base.css makes headings dark by default) */
+.lx h1, .lx h2 { color: #fff; }

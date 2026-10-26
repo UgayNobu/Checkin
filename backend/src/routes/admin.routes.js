@@ -28,7 +28,14 @@ router.get('/modules', admin, validateQuery(v.modulesQuerySchema), c.modules);
 router.post('/modules', admin, validateBody(v.moduleBodySchema), c.createModule);
 router.put('/modules/:id', admin, validateParams(v.moduleIdParamSchema), validateBody(v.moduleBodySchema), c.updateModule);
 
-// Tutor approvals
+// Tutor accounts: the admin creates them and assigns their modules (no sign-up, no approval)
+router.get('/tutors', admin, c.tutors);
+router.post('/tutors', admin, validateBody(v.tutorCreateSchema), c.createTutor);
+router.get('/tutors/:id/modules', admin, validateParams(v.userIdParamSchema), c.tutorModules);
+router.post('/tutors/:id/modules', admin, validateParams(v.userIdParamSchema), validateBody(v.assignModulesSchema), c.assignTutorModules);
+router.post('/tutors/:id/reset-password', admin, validateParams(v.userIdParamSchema), c.resetTutorPassword);
+
+// Old tutor sign-up requests (from before approval was removed)
 router.get('/tutors/pending', both, c.pendingTutors);
 router.post('/tutors/:id/approve', admin, validateParams(v.userIdParamSchema), c.approveTutor);
 router.post('/tutors/:id/reject', admin, validateParams(v.userIdParamSchema), c.rejectTutor);

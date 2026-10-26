@@ -45,6 +45,20 @@ const env = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.MAIL_FROM || 'CheckIn <no-reply@cst.edu.bt>',
   },
+
+  // Optional SMS (see src/lib/sms.js). Empty = no texts are sent.
+  sms: {
+    provider: (process.env.SMS_PROVIDER || '').toLowerCase(), // 'twilio' | 'http' | ''
+    twilioSid: process.env.TWILIO_ACCOUNT_SID || '',
+    twilioToken: process.env.TWILIO_AUTH_TOKEN || '',
+    twilioFrom: process.env.TWILIO_FROM || '',
+    httpUrl: process.env.SMS_HTTP_URL || '',
+    httpToken: process.env.SMS_HTTP_TOKEN || '',
+  },
+
+  // Password given to a tutor account the admin creates (the tutor is asked to change it after the first login).
+  // Must meet the password rule: 8+ characters with upper case, lower case, a number and a symbol.
+  defaultTutorPassword: process.env.DEFAULT_TUTOR_PASSWORD || 'CheckIn@2026',
 };
 
 if (!env.jwtSecret) {

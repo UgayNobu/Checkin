@@ -1,0 +1,31 @@
+/* Tutor dashboard. Colours come from base.css variables. */
+.tdash { display: flex; flex-direction: column; gap: 20px; }
+.tdash h3 { font-size: 24px; }
+.tdash .date { margin: 4px 0 0; }
+.tdash .stats { margin-bottom: 0; }
+.tdash .tbl { margin-top: 0; }
+.tdash-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.tdash-h { margin: 4px 0 -8px !important; font-size: 17px; }
+.tdash-cap { text-transform: capitalize; }
+.tdash-none { text-align: center; color: var(--muted); padding: 28px 16px !important; }
+
+/* amber = needs attention (flagged / warning) */
+.stat.warn { border-color: var(--late-border); background: var(--late-bg); }
+.stat.warn b, .stat.warn small { color: var(--late-text); }
+.tdash-note {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: 12px; font-size: 14px; font-weight: 600;
+}
+.tdash-note.warn { background: var(--late-bg); color: var(--late-text); border: 1px solid var(--late-border); }
+.tdash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tdash-link {
+  min-height: 36px; padding: 6px 14px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600;
+  background: var(--card); color: var(--primary); border: 1px solid var(--border); cursor: pointer;
+}
+.tdash-link:hover { background: var(--primary-tint); }
+.tdash-empty {
+  padding: 24px 20px; border: 1px dashed var(--primary-soft); border-radius: 12px; background: var(--card); text-align: center;
+}
+.tdash-empty b { font-size: 16px; }
+.tdash-empty p { margin: 6px auto 0; max-width: 560px; color: var(--muted); font-size: 14px; }
+@media (max-width: 760px) { .tdash-head .btn { width: 100%; } }

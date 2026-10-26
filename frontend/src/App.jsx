@@ -14,46 +14,47 @@ import { api, auth, logout } from './api';
 import './base.css';
 
 /* ---------- Public pages ---------- */
-import Landing from './pages/public/Landing.jsx';
-import Register from './pages/public/Register.jsx';
-import Forgot from './pages/public/Forgot.jsx';
+import Landing from './views/public/Landing.jsx';
+import Register from './views/public/Register.jsx';
+import Forgot from './views/public/Forgot.jsx';
 import { validateLogin } from './validation';
 
 /* ---------- Teacher pages ---------- */
-import TDash from './pages/teacher/Dashboard.jsx';
-import { Modules as TModules, ModuleKey } from './pages/teacher/Modules.jsx';
-import StartAttendance from './pages/teacher/StartAttendance.jsx';
-import { RecordModules, RecordStudents, RecordStudent } from './pages/teacher/Records.jsx';
-import Reports from './pages/teacher/Reports.jsx';
-import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
+import TDash from './views/teacher/Dashboard.jsx';
+import { Modules as TModules, ModuleKey } from './views/teacher/Modules.jsx';
+import StartAttendance from './views/teacher/StartAttendance.jsx';
+import { RecordModules, RecordStudents, RecordStudent } from './views/teacher/Records.jsx';
+import Reports from './views/teacher/Reports.jsx';
+import { Profile, TeacherSettings } from './views/teacher/Profile.jsx';
 
 /* ---------- Admin pages ---------- */
-import AdminOverview from './pages/admin/AdminOverview.jsx';
-import { ProgramStudents, ProgramTeachers } from './pages/admin/ProgramView.jsx';
-import * as A from './pages/admin/Admin.jsx';
-import Semesters from './pages/admin/Semesters.jsx';
+import AdminOverview from './views/admin/AdminOverview.jsx';
+import { ProgramStudents, ProgramTeachers } from './views/admin/ProgramView.jsx';
+import * as A from './views/admin/Admin.jsx';
+import Semesters from './views/admin/Semesters.jsx';
+import Tutors from './views/admin/Tutors.jsx';
 
 /* ---------- Management pages ---------- */
-import { Overview as MOverview } from './pages/management/Overview.jsx';
-import { Departments, Department, ModuleView, StudentView } from './pages/management/Module.jsx';
-import { TeacherList } from './pages/management/Teacher.jsx';
-import { History, HistoryCalendar } from './pages/management/History.jsx';
+import { Overview as MOverview } from './views/management/Overview.jsx';
+import { Departments, Department, ModuleView, StudentView } from './views/management/Module.jsx';
+import { TeacherList } from './views/management/Teacher.jsx';
+import { History, HistoryCalendar } from './views/management/History.jsx';
 
 /* ---------- Shared pages ---------- */
-import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
-import Timetable from './pages/shared/Timetable.jsx';
-import ClassChanges from './pages/management/ClassChanges.jsx';
+import SharedEvidence, { Certificate } from './views/shared/Evidence.jsx';
+import Timetable from './views/shared/Timetable.jsx';
+import ClassChanges from './views/management/ClassChanges.jsx';
 /* ---------- Student pages ---------- */
-import StudentDash from './pages/student/Dashboard.jsx';
-import StudentAttendance from './pages/student/Attendance.jsx';
-import Evidence from './pages/student/Evidence.jsx';
+import StudentDash from './views/student/Dashboard.jsx';
+import StudentAttendance from './views/student/Attendance.jsx';
+import Evidence from './views/student/Evidence.jsx';
 import Settings, {
   EditProfile,
   ChangePassword,
   MyModules,
   Enrol,
   BrowseModules,
-} from './pages/student/Settings.jsx';
+} from './views/student/Settings.jsx';
 
 /* =========================================================
    Sidebar navigation per role
@@ -79,6 +80,7 @@ const NAV = {
   ],
   admin: [
     ['/', 'Admin'],
+    ['/tutors', 'Tutors'],
     ['/programs', 'Program / Module'],
     ['/semesters', 'Semesters'],
   ],
@@ -194,10 +196,15 @@ function Login() {
           {busy ? 'Logging in…' : 'Log in'}
         </button>
 
-        <p className="alt" style={{ textAlign: 'center', fontSize: 11 }}>
-          {teacher ? 'New tutor? ' : 'No account? '}
-          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign in</Link>
-        </p>
+        {teacher ? (
+          <p className="alt" style={{ textAlign: 'center', fontSize: 13 }}>
+            New tutor? The admin creates your account and emails your staff ID and default password.
+          </p>
+        ) : (
+          <p className="alt" style={{ textAlign: 'center', fontSize: 13 }}>
+            No account? <Link to="/register">Sign up</Link>
+          </p>
+        )}
         <p className="ok" style={{ fontSize: 11, textAlign: 'center' }}>
           Routes to the right dashboard after sign-in
         </p>
@@ -270,9 +277,19 @@ function Shell({ user, children, title, sub }) {
   const [pend, setPend] = useState(0);
   const [menu, setMenu] = useState(false); // phone: sidebar drawer open?
 
+  // Latest profile (name + photo). Reloaded on every page change,
+  // so a new photo or name shows in the top bar right after saving.
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    api('/me').then(setMe).catch(() => {});
+  }, [loc.pathname]);
+
+  const name = me?.name || user.name;
+  const photo = me?.prefs?.photo || me?.avatarUrl || null;
+
   // Phone: close the menu after moving to another page
   useEffect(() => setMenu(false), [loc.pathname]);
-  const ini = user.name
+  const ini = name
     .split(' ')
     .map((w) => w[0])
     .join('')
@@ -358,9 +375,20 @@ function Shell({ user, children, title, sub }) {
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 title="View Profile"
               >
-                <div className="avatar">{ini}</div>
+                {/* Photo if the user has one, otherwise their initials */}
+                <div className="avatar" style={{ overflow: 'hidden' }}>
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt="Profile"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+                    />
+                  ) : (
+                    ini
+                  )}
+                </div>
                 <div>
-                  <b>{user.name}</b>
+                  <b>{name}</b>
                   <br />
                   <small>{(SUB[user.role] || SUB.student)(user)}</small>
                 </div>
@@ -430,6 +458,7 @@ const PAGES = {
     '/students/:program': [ProgramStudents, '', ''],
     '/students/:program/:year': [A.Students, '', ''],
     '/teachers/:program': [ProgramTeachers, '', ''],
+    '/tutors': [Tutors, '', ''],
     '/programs': [A.Programs, '', ''],
     '/semesters': [Semesters, '', ''],
     '/programs/:program': [A.ProgramYears, '', ''],
