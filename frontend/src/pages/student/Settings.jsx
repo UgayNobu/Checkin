@@ -139,7 +139,7 @@ export default function Settings() {
           <div className="box">
             <button
               className="logout"
-              onClick={() => logout().then(() => nav('/login'))}
+              onClick={() => logout().then(() => nav('/welcome'))}
             >
               ⇥ Log out
             </button>

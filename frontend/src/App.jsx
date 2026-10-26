@@ -13,6 +13,7 @@ import {
 import { api, auth, logout } from './api';
 import './base.css';
 import './vle.css';
+import './pages/public/public.css';
 
 /* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
@@ -138,15 +139,19 @@ function Login() {
   };
 
   return (
-    <div className="login">
+    <div className={'login ' + (teacher ? 'tutor' : 'student')}>
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
         <div>
-          <h1>{teacher ? 'Manage your sessions and student attendance' : 'Student Attendance System'}</h1>
-          <p>Sign in to access classes, tutor sessions, and your personal academic dashboard.</p>
+          <span className="hero-eyebrow">{teacher ? 'TUTOR PORTAL' : 'STUDENT PORTAL'}</span>
+          <h1>{teacher ? <>Take attendance <span>in seconds.</span></> : <>Your attendance, <span>on your phone.</span></>}</h1>
+          <p>{teacher
+            ? 'Start a check-in from your timetable, see who is in class live, and keep every record in one place.'
+            : 'Check in to class with a code, follow your attendance in every module and send absence requests.'}</p>
+          <div className="hero-bar" />
         </div>
         <small>College of Science and Technology</small>
       </div>
@@ -162,7 +167,7 @@ function Login() {
         </a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
-        <h2>{teacher ? 'Teacher login' : 'CheckIn'}</h2>
+        <h2>{teacher ? 'Tutor login' : 'Student login'}</h2>
         <p className="sub">College of Science and Technology</p>
 
         <label>{teacher ? 'Staff ID' : 'Student ID'}</label>
@@ -197,7 +202,7 @@ function Login() {
 
         <p className="alt" style={{ textAlign: 'center', fontSize: 11 }}>
           {teacher ? 'New tutor? ' : 'No account? '}
-          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign in</Link>
+          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign up</Link>
         </p>
         <p className="ok" style={{ fontSize: 11, textAlign: 'center' }}>
           Routes to the right dashboard after sign-in
@@ -323,7 +328,7 @@ function Shell({ user, children, title, sub }) {
   // Only students and tutors have a profile page
   const profilePath = { student: '/settings/profile', teacher: '/profile' }[user.role];
   const handleProfileClick = () => { setUserMenu(false); nav(profilePath); };
-  const doLogout = () => logout().then(() => nav('/login'));
+  const doLogout = () => logout().then(() => nav('/welcome'));
 
   const links = NAV[user.role];
   const n = PRIMARY_COUNT[user.role] || links.length;
