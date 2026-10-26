@@ -27,16 +27,55 @@ export default function Evidence() {
     </div>);
 }
 
+const fl = (d) => new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const ft = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const STATUS = { pending: ['Pending review', 'o'], approved: ['Approved', 'ok'], rejected: ['Rejected', 'red'] };
+
 export function Certificate() {
   const { id } = useParams(), nav = useNavigate(), [r, setR] = useState(null);
   useEffect(() => { api(auth.get().user.role === 'student' ? '/evidence/mine' : '/evidence').then((l) => setR(l.find((x) => x._id === id))); }, [id]);
-  if (!r) return null; const url = fileHref(r.fileUrl);
-  return (<div className="evd"><button className="back" onClick={() => nav('/evidence')} style={{ background: 'none', border: 0, cursor: 'pointer', marginBottom: 10 }}>&lt;back</button>
-    <div className="doc"><div className="meta"><div className="rtop"><span className="av">{ini(r.student?.name)}</span><div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br />{r.module?.name} · Missed {fd(r.date)}</div></div>
-      <p className="q">"{r.reason}"</p></div>
-      {url ? (
-        <div className="docview">
-          {r.fileType === 'image' ? <img src={url} alt="document" /> : <iframe src={url} title="document" />}
-          <a className="file" href={url} target="_blank" rel="noreferrer">📄 Open {r.fileName || 'document'} in a new tab</a>
-        </div>) : <small>⊘ No document attached</small>}</div></div>);
+  if (!r) return null;
+  const url = fileHref(r.fileUrl);
+  const [label, tone] = STATUS[r.status] || [r.status, 'o'];
+  const rows = [
+    ['Module', r.module?.name || 'All enrolled modules'],
+    ['Date missed', fl(r.date)],
+    r.createdAt && ['Submitted', ft(r.createdAt)],
+    r.reviewedAt && [r.status === 'rejected' ? 'Rejected' : 'Reviewed', `${ft(r.reviewedAt)}${r.reviewer?.name ? ` by ${r.reviewer.name}` : ''}`],
+  ].filter(Boolean);
+  return (
+    <div className="evd evx">
+      <button className="evx-back" onClick={() => nav('/evidence')}>← Back to absence requests</button>
+      <div className="evx-grid">
+        <section className="evx-card">
+          <div className="evx-who">
+            <span className="av">{ini(r.student?.name)}</span>
+            <div><b>{r.student?.name}</b><small>{r.student?.userId}</small></div>
+            <span className={'evx-st ' + tone}>{label}</span>
+          </div>
+          <dl className="evx-dl">
+            {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+          </dl>
+          <div className="evx-reason">
+            <h4>Reason given</h4>
+            <p>{r.reason || <span className="mut">No reason written</span>}</p>
+          </div>
+        </section>
+        <section className="evx-card evx-doc">
+          <div className="evx-doc-head">
+            <h4>Supporting document</h4>
+            {url && <a className="evx-open" href={url} target="_blank" rel="noreferrer">Open in new tab ↗</a>}
+          </div>
+          {url ? (
+            <>
+              <div className="evx-frame">
+                {r.fileType === 'image' ? <img src={url} alt={r.fileName || 'Supporting document'} /> : <iframe src={url} title="Supporting document" />}
+              </div>
+              <small className="evx-fname">{r.fileName || 'document'}</small>
+            </>
+          ) : <div className="evx-frame evx-nofile">No document attached</div>}
+        </section>
+      </div>
+    </div>
+  );
 }

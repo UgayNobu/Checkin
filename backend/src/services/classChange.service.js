@@ -3,6 +3,9 @@
 // on ONE date is saved as a change (database.sql Part 11):
 //
 //   cancelled  a timetable class is not held that day. Nobody is marked absent.
+//              A class of an assigned module that ends without the tutor starting
+//              attendance is cancelled automatically (autoCancel), so the tutor never
+//              has to cancel it by hand.
 //   cover      another tutor takes a timetable class that day (two covers = a swap).
 //   extra      a class that is not on the timetable: a make-up, an extra lecture or a
 //              free revision class. counts = false makes it OPTIONAL: attendance is
@@ -52,6 +55,7 @@ const REASONS = {
   extra_lecture: 'Extra lecture',
   revision: 'Revision class',
   swap: 'Swapped with another tutor',
+  not_started: 'Not started by the tutor',
   other: 'Other',
 };
 const reasonText = (key, note) => {
@@ -137,6 +141,7 @@ async function studentModules(studentId, term) {
  *  student → their timetable's modules; management/admin → everything.
  */
 async function listFor(user, { from, to }) {
+  await autoCancel().catch(() => {});
   const term = await currentAcademicSession();
   const where = { academicSession: term, date: { gte: dateOf(from), lte: dateOf(to) } };
   if (user.role === 'teacher') {
@@ -168,6 +173,9 @@ async function loadDay(term, date, moduleId) {
   for (const s of slots) {
     const c = bySlot.get(s.id);
     if (c?.type === 'cancelled') continue;
+    // No tutor assigned to the module this semester → the class doesn't happen, so its
+    // room, tutor and students are free (testing with only some modules assigned)
+    if (!secs.has(s.moduleId)) continue;
     const assigned = (secs.get(s.moduleId) || []).map((t) => t.tutorId);
     if (c?.type === 'cover') names.set(c.coverTutorId, c.coverTutor?.name);
     items.push({
@@ -480,11 +488,63 @@ async function planStart(tutorId, b) {
     : 'This module has no class right now. To teach now, book an extra class on your Timetable.', 'CLASS_NOT_NOW');
 }
 
+// ── automatic cancellation ───────────────────────────────────
+/** How far back autoCancel looks (covers days the server was asleep, e.g. on Render). */
+const AUTO_CANCEL_DAYS = 7;
+let autoRun = { at: 0, busy: null };
+
+/**
+ * Timetable classes of ASSIGNED modules that have ended with no attendance taken and
+ * no change saved become "cancelled — Not started by the tutor". Classes of modules with
+ * no tutor this semester are left alone (they show as "Module not assigned").
+ * Runs every few minutes from server.js and before class changes are read
+ * (at most once a minute). Returns how many classes it cancelled.
+ */
+async function autoCancel({ force = false } = {}) {
+  if (autoRun.busy) return autoRun.busy;
+  if (!force && Date.now() - autoRun.at < 60_000) return 0;
+  autoRun.busy = (async () => {
+    const term = await currentAcademicSession();
+    const sem = await semesterOf(term);
+    const today = todayStr(), now = nowHHMM();
+    const back = ymd(new Date(dateOf(today).getTime() - AUTO_CANCEL_DAYS * 86400000));
+    const from = [back, sem ? ymd(sem.startDate) : back].sort()[1];
+    const to = [today, sem ? ymd(sem.endDate) : today].sort()[0];
+    if (from > to) return 0;
+    const secs = await sectionsNow(term);
+    const modules = [...secs.keys()];
+    if (!modules.length) return 0;
+    const [slots, sessions, changes] = await Promise.all([
+      prisma.timetableSlot.findMany({ where: { academicSession: term, moduleId: { in: modules } } }),
+      prisma.classSession.findMany({ where: { slotId: { not: null }, date: { gte: dateOf(from), lte: dateOf(to) } }, select: { slotId: true, date: true } }),
+      prisma.classChange.findMany({ where: { academicSession: term, slotId: { not: null }, date: { gte: dateOf(from), lte: dateOf(to) } }, select: { slotId: true, date: true } }),
+    ]);
+    const done = new Set([...sessions, ...changes].map((x) => `${x.slotId}|${ymd(x.date)}`));
+    const data = [];
+    for (let d = dateOf(from); ymd(d) <= to; d = new Date(d.getTime() + 86400000)) {
+      const ds = ymd(d), dow = dowOf(ds);
+      for (const s of slots) {
+        if (s.dayOfWeek !== dow || done.has(`${s.id}|${ds}`)) continue;
+        if (ds === today && hhmm(s.endTime) > now) continue; // not over yet
+        data.push({
+          type: 'cancelled', date: dateOf(ds), slotId: s.id, moduleId: s.moduleId, roomId: s.roomId,
+          startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType || 'theory',
+          reason: REASONS.not_started, academicSession: term, createdBy: null,
+        });
+      }
+    }
+    if (data.length) await prisma.classChange.createMany({ data });
+    return data.length;
+  })();
+  try { return await autoRun.busy; } finally { autoRun = { at: Date.now(), busy: null }; }
+}
+
 /**
  * Management: every change between two dates, plus timetable classes of assigned modules
  * that were never taken and never cancelled ("not recorded").
  */
 async function forManagement({ from, to }) {
+  await autoCancel().catch(() => {});
   const term = await currentAcademicSession();
   const sem = await semesterOf(term);
   const rows = await prisma.classChange.findMany({
@@ -533,4 +593,4 @@ async function forManagement({ from, to }) {
   };
 }
 
-module.exports = { REASONS, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow };
+module.exports = { REASONS, autoCancel, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow };

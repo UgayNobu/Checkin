@@ -162,10 +162,9 @@ export function TeacherSettings() {
   if (!me) return null;
   const prefs = me.prefs || {};
   const tog = (k) => { const p = { ...prefs, [k]: !prefs[k] }; setMe({ ...me, prefs: p }); api('/me', { prefs: p }, 'PUT'); };
+  // Only email is real: the server sends it from backend/src/services (notify(..., { email })).
   const rows = [
-    ['email', 'Email notifications', 'Get emailed when an evidence document is approved or declined.'],
-    ['sms', 'SMS alerts', 'Receive a text message when a check-in code is about to expire.'],
-    ['push', 'Push notifications', 'Show alerts on this device for new relief requests.'],
+    ['email', 'Email notifications', `Emails go to ${me.email || 'your sign-in email'}. You are emailed when your password is changed, when an absence request from a student in your modules is approved or declined, and when students in your modules fall below 90% attendance (checked once a day).`],
   ];
 
   const setP = (k) => (e) => { setPw({ ...pw, [k]: e.target.value }); setErr(''); setMsg(''); };
@@ -188,7 +187,7 @@ export function TeacherSettings() {
   return (
     <div className="setbox">
       <div className="tabs">
-        <button className={tab === 'n' ? 'on' : ''} onClick={() => setTab('n')}>Notification Settings</button>
+        <button className={tab === 'n' ? 'on' : ''} onClick={() => setTab('n')}>Notifications</button>
         <button className={tab === 'a' ? 'on' : ''} onClick={() => setTab('a')}>Account</button>
       </div>
       {tab === 'n' ? (

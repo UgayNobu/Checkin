@@ -39,7 +39,7 @@
   grid-template-columns: 1fr 1fr;
 }
 /* ----- History: empty rows ----- */
-.hx-empty{text-align:center;color:#6b7280;padding:24px}
+.hx-empty{text-align:center;color:#6a737b;padding:24px}
 
 /* ----- Student summary above the calendar ----- */
 .hx-sum{
@@ -51,17 +51,17 @@
   margin-bottom:16px;
   padding:16px 20px;
   background:#fff;
-  border:1px solid #e3e7f0;
-  border-radius:12px;
+  border:1px solid #dee2e6;
+  border-radius:8px;
 }
 .hx-who b{display:block;font-size:18px}
-.hx-who small{color:#6b7280}
+.hx-who small{color:#6a737b}
 .hx-stats{display:flex;gap:22px}
 .hx-stats div{text-align:center}
 .hx-stats b{display:block;font-size:22px}
-.hx-stats small{font-size:11px;color:#6b7280}
-.hx-stats .g b{color:#059669}
-.hx-stats .r b{color:#dc2626}
+.hx-stats small{font-size:11px;color:#6a737b}
+.hx-stats .g b{color:#357a32}
+.hx-stats .r b{color:#ca3120}
 
 /* ----- "All classes" table ----- */
 .hx-head{
@@ -73,7 +73,7 @@
 .hx-head h3{margin:0}
 .hx-dl{
   padding:6px 16px;
-  background:#0f1b3d;
+  background:#0f6cbf;
   color:#fff;
   border:0;
   border-radius:999px;
@@ -88,7 +88,7 @@
   font-size:12px;
   font-weight:600;
 }
-.hx-st.present{background:#d1fae5;color:#065f46}
-.hx-st.absent{background:#fee2e2;color:#991b1b}
+.hx-st.present{background:#d7e6d7;color:#2b6328}
+.hx-st.absent{background:#f4d6d2;color:#ca3120}
 .hx-stats .g,
 .hx-stats .r{background:none}

@@ -1,3 +1,4 @@
+import { pattern } from '../teacher/Modules.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
@@ -129,6 +130,13 @@ function Dropdown({ value, onChange, options, placeholder }) {
 /* =========================================================
    Programs list
    ========================================================= */
+// Short label for the card banner: "B.E. Civil Engineering" → "CE"
+const abbr = (name) => { const w = name.replace(/^(B\.?E\.?|Bachelor of|Master of (Science in|Engineering in)?|Master in)\s*/i, '')
+  .replace(/\(.*?\)/g, '').split(/\s+/).filter((x) => /^[A-Z]/.test(x));
+  const a = w.map((x) => x[0]).join('').slice(0, 4);
+  return a.length > 1 ? a : (w[0] || name).slice(0, 4).toUpperCase();
+};
+
 export function Departments() {
   const nav = useNavigate();
   const [p, setP] = useState([]);
@@ -150,14 +158,18 @@ export function Departments() {
     <div className="mg">
       <h2 className="ttl">Programs</h2>
       {loading ? (
-        <p style={{ color: '#64748b', fontSize: 13 }}>Loading programs...</p>
+        <p style={{ color: '#6a737b', fontSize: 13 }}>Loading programs...</p>
       ) : p.length === 0 ? (
-        <p style={{ color: '#64748b', fontSize: 13 }}>No programs found.</p>
+        <p style={{ color: '#6a737b', fontSize: 13 }}>No programs found.</p>
       ) : (
         <div className="dept-grid">
           {p.map((x) => (
-            <div className="dept" key={x} onClick={() => nav('/department/' + E(x))}>
-              {x}
+            <div className="dept pcard" key={x} role="link" tabIndex={0} onClick={() => nav('/department/' + E(x))} onKeyDown={(e) => e.key === 'Enter' && nav('/department/' + E(x))}>
+              <div className="pcard-img" style={{ backgroundImage: pattern(x) }}><b>{abbr(x)}</b></div>
+              <div className="pcard-body">
+                <small>{/^master/i.test(x) ? "Master's programme" : "Bachelor's programme"}</small>
+                <span>{x}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -286,12 +298,12 @@ export function Department() {
             >
               <defs>
                 <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#93c5fd" />
+                  <stop offset="0%" stopColor="#0f6cbf" />
+                  <stop offset="100%" stopColor="#e7f1fa" />
                 </linearGradient>
                 <linearGradient id="barGradBelow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#fcd34d" />
+                  <stop offset="0%" stopColor="#f0ad4e" />
+                  <stop offset="100%" stopColor="#f0ad4e" />
                 </linearGradient>
               </defs>
 
@@ -304,7 +316,7 @@ export function Department() {
                       x2={W - PAD.right}
                       y1={y}
                       y2={y}
-                      stroke="#e5e9f2"
+                      stroke="#dee2e6"
                       strokeWidth="1"
                       strokeDasharray={tick === 0 ? '0' : '3 4'}
                     />
@@ -313,7 +325,7 @@ export function Department() {
                       y={y + 4}
                       textAnchor="end"
                       fontSize="11"
-                      fill="#94a3b8"
+                      fill="#6a737b"
                       fontWeight="500"
                     >
                       {tick}%
@@ -327,7 +339,7 @@ export function Department() {
                 x2={W - PAD.right}
                 y1={yOf(90)}
                 y2={yOf(90)}
-                stroke="#f59e0b"
+                stroke="#f0ad4e"
                 strokeWidth="1.5"
                 strokeDasharray="6 4"
               />
@@ -336,7 +348,7 @@ export function Department() {
                 y={yOf(90) - 6}
                 textAnchor="end"
                 fontSize="10"
-                fill="#d97706"
+                fill="#f0ad4e"
                 fontWeight="600"
               >
                 Goal 90%
@@ -382,7 +394,7 @@ export function Department() {
                         y={y - 8}
                         textAnchor="middle"
                         fontSize="12"
-                        fill="#1b2745"
+                        fill="#1d2125"
                         fontWeight="700"
                       >
                         {val}%
@@ -393,7 +405,7 @@ export function Department() {
                       y={H - 12}
                       textAnchor="middle"
                       fontSize="11"
-                      fill="#64748b"
+                      fill="#6a737b"
                       fontWeight="500"
                     >
                       Week {i + 1}

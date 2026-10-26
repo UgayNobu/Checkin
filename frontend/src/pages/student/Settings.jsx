@@ -24,6 +24,16 @@ const Back = ({ to = '/settings', label = 'Settings' }) => {
 /* =========================================================
    Settings (main page)
    ========================================================= */
+// Small line icons for the Settings links
+const svg = (d) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+);
+const ICONS = {
+  person: svg(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></>),
+  lock: svg(<><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>),
+  book: svg(<><path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /><path d="M9 7h7" /></>),
+};
+
 export default function Settings() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
@@ -36,45 +46,41 @@ export default function Settings() {
 
   const prefs = me.prefs || {};
 
+  // Email is on unless the student turned it off (prefs.email === false)
+  const isOn = (k) => (k === 'email' ? prefs.email !== false : !!prefs[k]);
   const tog = (k) => {
-    const p = { ...prefs, [k]: !prefs[k] };
+    const p = { ...prefs, [k]: !isOn(k) };
     setMe({ ...me, prefs: p });
     api('/me', { prefs: p }, 'PUT');
   };
 
   const links = [
     [
+      'person',
       'Edit profile details',
       'Update your display name, contact information, and academic bio.',
       '/settings/profile',
     ],
     [
+      'lock',
       'Change passkey & password',
       'Ensure your secure student portal remains locked and secure.',
       '/settings/password',
     ],
     [
+      'book',
       'My enrolled module',
       'View and adjust registration for active academic courses.',
       '/settings/modules',
     ],
   ];
 
+  // Only email can be switched off; in-app notifications (the bell) always arrive
   const notes = [
     [
-      'low',
-      'Low Attendance Alerts',
-      'Instant notification if attendance slips below critical 85% requirement.',
-    ],
-    [
-      'evidence',
-      'Update Evidence Details',
-      'Get updates as soon as your submitted absence requests are processed.',
-    ],
-    [
-      'reminders',
-      'Check-in Reminders',
-      'Receive class start notifications for real-time mobile check-ins.',
+      'email',
+      'Email notifications',
+      `Sent to ${me.email || 'your college email'}: attendance below 90%, absence request approved or rejected, and password changes.`,
     ],
   ];
 
@@ -100,9 +106,9 @@ export default function Settings() {
             </div>
           </div>
 
-          {links.map(([t, s, to]) => (
+          {links.map(([icon, t, s, to]) => (
             <div className="link" key={to} onClick={() => nav(to)}>
-              <span className="ic" />
+              <span className="ic" aria-hidden="true">{ICONS[icon]}</span>
               <div>
                 <b>{t}</b>
                 <small>{s}</small>
@@ -125,16 +131,15 @@ export default function Settings() {
                   <b>{t}</b>
                   <small>{s}</small>
                 </div>
-                <button className={'tog ' + (prefs[k] ? 'on' : '')} onClick={() => tog(k)} />
+                <button className={'tog ' + (isOn(k) ? 'on' : '')} onClick={() => tog(k)} aria-label={t} aria-pressed={isOn(k)} />
               </div>
             ))}
           </div>
 
           <div className="box">
-            <hr className="blue" />
             <button
               className="logout"
-              onClick={() => logout().then(() => nav('/login'))}
+              onClick={() => logout().then(() => nav('/welcome'))}
             >
               ⇥ Log out
             </button>
@@ -419,7 +424,7 @@ export function Enrol() {
             </small>
           </p>
 
-          {chosen.enrolled && <p className="foot" style={{ color: '#16a34a', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
+          {chosen.enrolled && <p className="foot" style={{ color: '#357a32', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
           {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
           {!chosen.enrolled && (<>
           <label>Enrolment Key</label>
@@ -445,7 +450,7 @@ export function Enrol() {
         </div>
       )}
 
-      {msg.text && <p className="foot" style={{ color: msg.ok ? '#16a34a' : '#b42318', fontWeight: 600 }}>{msg.text}</p>}
+      {msg.text && <p className="foot" style={{ color: msg.ok ? '#357a32' : '#ca3120', fontWeight: 600 }}>{msg.text}</p>}
     </div>
   );
 }
@@ -473,7 +478,7 @@ export function BrowseModules() {
       (!f.module || m.id === f.module)
   );
 
-  const icons = ['#ede9fe', '#dbeafe', '#d1fae5'];
+  const icons = ['#e7f1fa', '#e7f1fa', '#d7e6d7'];
 
   return (
     <div className="sub1" style={{ maxWidth: 760 }}>

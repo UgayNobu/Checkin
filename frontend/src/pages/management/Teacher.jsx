@@ -4,6 +4,10 @@ import '../teacher/staff.css';
 import '../student/attendance.css';
 import './Teacher.css';
 
+// One steady colour per person (same name → same colour)
+const AV = ['#0f6cbf', '#12867a', '#e07b16', '#7b4fbf', '#c2410c', '#2563a8'];
+const avatarColor = (n) => AV[[...n].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 0) % AV.length];
+
 export function TeacherList() {
   const [d, setD] = useState(null);
   const [q, setQ] = useState('');
@@ -25,7 +29,7 @@ export function TeacherList() {
     return (
       <div className="mg">
         <h2 className="ttl">Teacher</h2>
-        <p style={{ color: '#64748b', fontSize: 13 }}>Loading teachers...</p>
+        <p style={{ color: '#6a737b', fontSize: 13 }}>Loading teachers...</p>
       </div>
     );
   }
@@ -34,7 +38,7 @@ export function TeacherList() {
     return (
       <div className="mg">
         <h2 className="ttl">Teacher</h2>
-        <p style={{ color: '#ef4444', fontSize: 13 }}>Failed to load teacher data.</p>
+        <p style={{ color: '#ca3120', fontSize: 13 }}>Failed to load teacher data.</p>
       </div>
     );
   }
@@ -82,8 +86,8 @@ export function TeacherList() {
             <tr>
               <th style={{ width: '40%' }}>MODULE</th>
               <th style={{ width: '30%' }}>TEACHER</th>
-              <th style={{ width: '15%' }}>CLASS</th>
-              <th style={{ width: '15%' }}>HOURS</th>
+              <th style={{ width: '15%' }}>STUDENTS</th>
+              <th style={{ width: '15%' }}>HOURS TAUGHT</th>
             </tr>
           </thead>
           <tbody>
@@ -99,23 +103,20 @@ export function TeacherList() {
                   <td className="tch-module">{r.module}</td>
                   <td>
                     <div className="tch-person">
-                      <div className="tch-avatar">{initials(r.name || '?')}</div>
+                      <div className="tch-avatar" style={{ background: avatarColor(r.name || '') }}>{initials(r.name || '?')}</div>
                       <div>
                         <b>{r.name}</b>
                       </div>
                     </div>
                   </td>
                   <td>
-                    {r.cls ? (
-                      <span className="tch-badge">{r.cls}</span>
-                    ) : (
-                      <span className="tch-muted">—</span>
-                    )}
+                    <span className="tch-badge">{r.students}</span>
                   </td>
                   <td>
                     <span className={'tch-hours ' + (r.hours > 0 ? 'has' : '')}>
                       {r.hours} hr
                     </span>
+                    <small className="tch-muted"> · {r.classes} class{r.classes === 1 ? '' : 'es'}</small>
                   </td>
                 </tr>
               ))

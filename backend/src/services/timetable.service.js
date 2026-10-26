@@ -22,8 +22,17 @@ const slotOut = (x) => ({
 const include = { program: true, module: true, room: true };
 const orderBy = [{ dayOfWeek: 'asc' }, { startTime: 'asc' }];
 // Only the current semester's timetable (each year's timetable is loaded with its own academic_session)
-const slots = async (where) =>
-  (await prisma.timetableSlot.findMany({ where: { AND: [where, { academicSession: await currentAcademicSession() }] }, include, orderBy })).map(slotOut);
+// assigned = false when no tutor is assigned to the module this semester: the class
+// doesn't happen and its room is free to book.
+const slots = async (where) => {
+  const term = await currentAcademicSession();
+  const [rows, secs] = await Promise.all([
+    prisma.timetableSlot.findMany({ where: { AND: [where, { academicSession: term }] }, include, orderBy }),
+    prisma.section.findMany({ where: { academicSession: term }, select: { moduleId: true }, distinct: ['moduleId'] }),
+  ]);
+  const assigned = new Set(secs.map((x) => x.moduleId));
+  return rows.map((x) => ({ ...slotOut(x), assigned: assigned.has(x.moduleId) }));
+};
 
 const listRooms = () => prisma.room.findMany({ orderBy: { name: 'asc' } });
 

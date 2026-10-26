@@ -82,3 +82,92 @@
   .lx-head { padding: 16px; }
   .lx-card { padding: 26px 20px; }
 }
+
+/* =========================================================
+   Login, sign-up and forgot password (student + tutor)
+   Same feel as the landing page: the photo fills the whole screen under a dark
+   overlay, heading on the left, frosted card with the form on the right.
+   Student pages use blue accents, tutor pages teal.
+   ========================================================= */
+.login.student { --acc: #60a5fa; --acc-strong: #2563eb; --acc-hover: #1d4ed8; }
+.login.tutor   { --acc: #5eead4; --acc-strong: #0f766e; --acc-hover: #115e59; }
+
+.login {
+  position: relative; display: grid; min-height: 100vh;
+  grid-template-columns: minmax(0, 1fr) 420px; grid-template-rows: auto;
+  column-gap: 64px; align-items: center;
+  padding: 0 max(28px, calc((100% - 1240px) / 2)); box-sizing: border-box;
+  background: #0b1f3a; color: #fff;
+}
+/* the photo panel becomes the full-screen background, its text stays in the left column */
+.login .hero {
+  grid-area: 1 / 1 / 2 / 3; align-self: stretch;
+  margin: 0 calc(-1 * max(28px, calc((100vw - 1240px) / 2)));
+  padding: 22px max(28px, calc((100vw - 1240px) / 2)) 28px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 24px; min-height: 100vh; box-sizing: border-box;
+  background-size: cover !important; background-position: center !important;
+}
+.login .hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(8, 18, 38, 0.9) 0%, rgba(8, 18, 38, 0.66) 55%, rgba(8, 18, 38, 0.78) 100%);
+}
+.login .hero > * { position: relative; max-width: calc(100% - 484px); }
+.login .herologo { font-size: 19px; }
+.login .herologo img { width: 42px; height: 42px; }
+.login .hero-eyebrow { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--acc); }
+.login .hero h1 { font-size: clamp(36px, 4.6vw, 68px); line-height: 1.04; margin: 14px 0 20px; font-weight: 800; letter-spacing: -0.02em; }
+.login .hero h1 span { color: var(--acc); }
+.login .hero p { font-size: clamp(15px, 1.3vw, 19px); line-height: 1.5; color: #e2e8f0; max-width: 560px; opacity: 1; margin: 0; }
+.login .hero-bar { width: 120px; height: 4px; border-radius: 4px; background: var(--acc-strong); margin-top: 26px; }
+.login .hero > small { color: #cbd5e1; font-size: 13px; }
+
+/* frosted form card */
+.login .lcard {
+  grid-area: 1 / 2 / 2 / 3; position: relative; z-index: 1; width: 100% !important; box-sizing: border-box;
+  margin: 40px 0; padding: 30px 30px 24px; color: #fff;
+  background: rgba(15, 30, 55, 0.58); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.login .lcard .cardlogo { width: 72px; height: 72px; background: #fff; padding: 4px; box-sizing: border-box; }
+.login .lcard h2 { font-size: 26px; margin: 12px 0 4px; }
+.login .lcard .sub { color: #cbd5e1; font-size: 13px; margin-bottom: 18px; }
+.login .lcard label { display: block; margin: 12px 0 6px; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+.login .lcard input:not([type='checkbox']), .login .lcard select {
+  width: 100%; box-sizing: border-box; padding: 11px 13px; font: inherit; font-size: 15px;
+  color: #fff; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 10px;
+}
+.login .lcard select option { color: #1d2125; }
+.login .lcard input::placeholder { color: #94a3b8; }
+.login .lcard input:focus, .login .lcard select:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25); }
+.login .lcard input.bad, .login .lcard select.bad { border-color: #f87171 !important; background: rgba(248, 113, 113, 0.12); }
+.login .lcard .showpw { color: #cbd5e1; }
+.login .lcard .btn, .login .lcard .btn.purple {
+  margin-top: 6px; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-size: 16px; font-weight: 700;
+  background: var(--acc-strong); color: #fff; cursor: pointer;
+}
+.login .lcard .btn:hover { background: var(--acc-hover); }
+.login .lcard .alt, .login .lcard .alt a { color: #cbd5e1; font-size: 13px !important; }
+.login .lcard .alt a { color: var(--acc); }
+.login .lcard > a.alt:first-child { color: #cbd5e1; margin-bottom: 4px; }
+.login .lcard > a.alt:first-child:hover { color: #fff; }
+.login .lcard .fgt { color: var(--acc); font-size: 13px; }
+.login .lcard .err, .login .lcard .ferr { color: #fca5a5; }
+.login .lcard .ok, .login .lcard .okmsg { color: #86efac; }
+.login .lcard .steps, .login .lcard small { color: #cbd5e1; }
+.login .lcard .pwrules { color: #94a3b8; }
+.login .lcard .pwrules li.ok { color: #86efac; }
+
+@media (max-width: 960px) {
+  .login { grid-template-columns: 1fr; padding: 0 16px; }
+  .login .hero { grid-area: 1 / 1 / 2 / 2; display: flex; margin: 0 -16px; padding: 16px; }
+  .login .hero > div:not(.herologo), .login .hero > small { display: none; }       /* phones: logo + photo only, the form is the focus */
+  .login .hero > * { max-width: none; }
+  .login .hero::before { background: rgba(8, 18, 38, 0.8); }
+  .login .lcard { grid-area: 1 / 1 / 2 / 2; max-width: 440px; margin: 84px auto 32px; }
+}
+@media (max-width: 480px) { .login .lcard { padding: 24px 18px 20px; } }
+/* one overlay only (the ::before above), so the photos show like on the landing page */
+.login .hero { background: #0b1f3a url(/login-bg.jpg) center / cover no-repeat !important; }
+.login .hero.teacherlogin { background-image: url(/techer2.jpg) !important; }
+.login .hero.studenthero { background-image: url(/studentsigin.jpeg) !important; }
+.login .hero.teacherhero { background-image: url(/techer1.jpg) !important; }

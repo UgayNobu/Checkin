@@ -11,7 +11,7 @@
 .tt-week { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
 .tt-week b { margin-right: 4px; }
 .tt-wk {
-  width: 30px; height: 30px; border: 1px solid #e3e7f0; border-radius: 8px; background: #fff;
+  width: 30px; height: 30px; border: 1px solid #dee2e6; border-radius: 8px; background: #fff;
   font: inherit; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink);
 }
 .tt-link { background: none; border: 0; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px; }
@@ -19,7 +19,7 @@
 .tt-days { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
 .tt-day {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  min-width: 70px; padding: 8px 12px; border: 1px solid #e3e7f0; border-radius: 10px;
+  min-width: 70px; padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 8px;
   background: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink);
 }
 .tt-day span { font-size: 10px; font-weight: 500; color: var(--muted); }
@@ -34,31 +34,34 @@
 .tt-list { display: flex; flex-direction: column; gap: 10px; }
 .tt-card {
   display: flex; gap: 16px; align-items: center;
-  border: 1px solid #e3e7f0; border-left: 4px solid #c9d6f3; border-radius: 12px;
+  border: 1px solid #dee2e6; border-left: 4px solid #c9d6f3; border-radius: 8px;
   background: #fff; padding: 12px 16px;
 }
 .tt-card.live { border-left-color: var(--blue); box-shadow: 0 2px 10px rgba(47, 109, 240, 0.12); }
-.tt-card.done { opacity: 0.6; }
-.tt-card.off { background: #fafafa; border-left-color: #f3b4b4; }
-.tt-card.off .tt-mod, .tt-card.off .tt-time b { text-decoration: line-through; color: #6b7280; }
-.tt-card.extra { border-left-color: #10b981; }
+.tt-card.done { opacity: 0.85; }
+/* cancelled: no strike-through, just dimmed so the classes that run stand out */
+.tt-card.off { background: #f8f9fa; border-left-color: #f3b4b4; opacity: 0.5; }
+.tt-card.off .tt-mod, .tt-card.off .tt-time b { color: #6a737b; }
+.tt-card.na { border-left-color: #ced4da; }
+.tt-card.na .tt-mod, .tt-card.na .tt-time b { text-decoration: none; }
+.tt-card.extra { border-left-color: #357a32; }
 .tt-card.cover { border-left-color: #8b5cf6; }
-.tt-why { font-size: 11px; color: #4b5563; }
-.tt-why.red { color: #b42318; }
-.tt-ok { color: #047857; font-size: 13px; margin: 0 0 10px; }
+.tt-why { font-size: 11px; color: #495057; }
+.tt-why.red { color: #ca3120; }
+.tt-ok { color: #2b6328; font-size: 13px; margin: 0 0 10px; }
 .tt-foot { color: var(--muted); font-size: 11px; margin: 16px 0 0; }
 
 .tt-act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .tt-menu { position: relative; }
 .tt-dots {
-  width: 30px; height: 28px; border: 1px solid #e3e7f0; border-radius: 8px; background: #fff;
-  font: inherit; font-size: 16px; line-height: 1; cursor: pointer; color: #374151;
+  width: 30px; height: 28px; border: 1px solid #dee2e6; border-radius: 8px; background: #fff;
+  font: inherit; font-size: 16px; line-height: 1; cursor: pointer; color: #495057;
 }
 .tt-dots:hover, .tt-dots[aria-expanded="true"] { background: #f3f6fc; }
 .tt-pop {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px;
   display: flex; flex-direction: column; padding: 4px; background: #fff;
-  border: 1px solid #e3e7f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 .tt-pop button {
   text-align: left; background: none; border: 0; border-radius: 6px; padding: 8px 10px;
@@ -76,27 +79,27 @@
 .tt-body small { font-size: 11px; }
 .tt .mut { color: var(--muted); }
 
-.tt-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
-.tt-type.practical { color: #7c3aed; }
+.tt-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #495057; }
+.tt-type.practical { color: #0f6cbf; }
 .tt-type.tutorial { color: #0f766e; }
 .tt-grp { font-size: 10px; color: var(--muted); }
 
 .tt-act { flex-shrink: 0; text-align: right; }
-.tt .pill.v { background: #ede9fe; color: #6d28d9; }
-.tt .pill.g { background: #d9f5e8; color: #047857; }
-.tt .pill.gr { background: #eef2f6; color: #475569; }
-.tt .pill { width: auto; min-height: 0; display: inline-block; flex-shrink: 0; line-height: 1.4; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.tt .pill.b { background: #e6efff; color: var(--blue); }
-.tt .pill.o { background: #fdf0d8; color: #c77d0a; }
-.tt .pill.ok { background: #d9f5e8; color: #0a8f5b; }
-.tt .pill.red { background: #fdecec; color: var(--red); }
+.tt .pill.v { background: #e7f1fa; color: #0f6cbf; }
+.tt .pill.g { background: #d7e6d7; color: #2b6328; }
+.tt .pill.gr { background: #eef2f6; color: #495057; }
+.tt .pill { width: auto; min-height: 0; display: inline-block; flex-shrink: 0; line-height: 1.4; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.tt .pill.b { background: #e7f1fa; color: var(--blue); }
+.tt .pill.o { background: #fcefdc; color: #c77d0a; }
+.tt .pill.ok { background: #d7e6d7; color: #0a8f5b; }
+.tt .pill.red { background: #f4d6d2; color: var(--red); }
 .tt .pbtn {
   background: var(--blue); color: #fff; border: 0; border-radius: 6px;
   padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
 }
 
 .tt-empty {
-  border: 1px dashed #d6dbe6; border-radius: 12px; padding: 24px; text-align: center;
+  border: 1px dashed #dee2e6; border-radius: 8px; padding: 24px; text-align: center;
   color: var(--muted); font-size: 13px; background: #fff;
 }
 

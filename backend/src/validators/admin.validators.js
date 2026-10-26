@@ -3,6 +3,7 @@ const { z, id, optionalText, optionalNumber, isoDate } = require('./common');
 const programNameSchema = z.object({ name: z.string().trim().min(2).max(100) });
 const programRenameSchema = z.object({ from: z.string().trim().min(1), to: z.string().trim().min(2).max(100) });
 const programParamSchema = z.object({ name: z.string().trim().min(1) });
+const programModuleParamSchema = z.object({ name: z.string().trim().min(1), id: z.string().trim().min(1).max(10) });
 
 const usersQuerySchema = z.object({
   role: z.enum(['student', 'teacher', 'admin', 'management']).default('student'),
@@ -48,7 +49,7 @@ const auditQuerySchema = z.object({
 });
 
 module.exports = {
-  programNameSchema, programRenameSchema, programParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
+  programNameSchema, programRenameSchema, programParamSchema, programModuleParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
   modulesQuerySchema, moduleBodySchema, moduleIdParamSchema, atRiskQuerySchema, auditQuerySchema,
 };
 
@@ -62,3 +63,13 @@ const semesterBodySchema = z.object({
 });
 const makeCurrentSchema = z.object({ promoteYears: z.boolean().default(false) });
 module.exports = { ...module.exports, semesterParamSchema, semesterBodySchema, makeCurrentSchema };
+
+// Admin creates a tutor account (staff ID, name, college email, department)
+const createTutorSchema = z.object({
+  userId: z.string().trim().regex(/^CST-[A-Z0-9]{2,6}$/i, 'must be a staff ID, e.g. CST-0142'),
+  name: z.string().trim().min(2, 'must be at least 2 characters').max(100)
+    .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'can only contain letters, spaces, dots, hyphens and apostrophes'),
+  email: z.string().trim().toLowerCase().email('must be a valid email').regex(/@rub\.edu\.bt$/i, 'must be a college email (@rub.edu.bt)'),
+  department: z.string().trim().min(2, 'Choose a department').max(100),
+});
+module.exports = { ...module.exports, createTutorSchema };

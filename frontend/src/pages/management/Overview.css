@@ -4,14 +4,14 @@
 .mg h2.ttl {
   font-size: 22px;
   font-weight: 600;
-  color: #1b2745;
+  color: #1d2125;
   margin: 0 0 20px 0;
 }
 .mg h4 {
   font-weight: 600;
   font-size: 15px;
   margin: 32px 0 12px 0;
-  color: #1b2745;
+  color: #1d2125;
 }
 
 /* Stats */
@@ -24,21 +24,21 @@
   flex: 1;
   min-width: 180px;
   background: #fff;
-  border: 1px solid #e3e7f0;
-  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 .stat small {
   display: block;
-  color: #64748b;
+  color: #6a737b;
   font-size: 13px;
   margin-bottom: 10px;
 }
 .stat b {
   display: block;
   font-size: 30px;
-  color: #1b2745;
+  color: #1d2125;
   margin-bottom: 8px;
   min-height: 30px;
 }
@@ -47,16 +47,16 @@
   font-size: 11px;
   font-weight: 600;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
-.chip.g { background: #dff5e7; color: #1b8a4c; }
-.chip.o { background: #fdecc8; color: #b7791f; }
+.chip.g { background: #d7e6d7; color: #357a32; }
+.chip.o { background: #fcefdc; color: #b7791f; }
 
 /* Table */
 .tbl {
   background: #fff;
-  border: 1px solid #e3e7f0;
-  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
@@ -66,25 +66,25 @@
   text-align: left;
 }
 .tbl th {
-  background: #f8fafc;
+  background: #f8f9fa;
   padding: 14px 20px;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: #6a737b;
   text-transform: uppercase;
-  border-bottom: 1px solid #e3e7f0;
+  border-bottom: 1px solid #dee2e6;
 }
 .tbl td {
   padding: 16px 20px;
   font-size: 13px;
   color: #333;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f8f9fa;
 }
 .tbl tr:last-child td { border-bottom: none; }
-.tbl td b { color: #1b2745; font-weight: 600; }
+.tbl td b { color: #1d2125; font-weight: 600; }
 
 .view {
-  color: #2f6df0;
+  color: #0f6cbf;
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;

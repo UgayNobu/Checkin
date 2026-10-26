@@ -171,6 +171,16 @@ async function review(user, id, { status, note }) {
 
   const day = r.date.toISOString().slice(0, 10);
   await notify(r.studentId, `Your absence request for ${day} was ${status}.${note ? ` Note: ${note}` : ''}`, 'Evidence Documents', { email: `Absence request ${status}` });
+  // Tell the student's tutors too (each once), with an email if they have email notifications on
+  const mods = await studentModules(r.studentId);
+  const secs = await prisma.section.findMany({
+    where: { moduleId: { in: mods.map((m) => m.id) }, academicSession: await currentAcademicSession() },
+    select: { tutorId: true },
+  });
+  for (const tutorId of new Set(secs.map((s) => s.tutorId))) {
+    await notify(tutorId, `${r.student.name} (${r.studentId})'s absence request for ${day} was ${status} by management.${approved ? ' Their classes on that day are now marked Present.' : ''}`,
+      'Evidence Documents', { email: `Absence request ${status}: ${r.student.name}` });
+  }
   await writeAuditLog(user.id, approved ? 'Evidence approved' : 'Evidence rejected', `${r.student.name} (${r.studentId}) ${day}`);
   return { _id: r.id, status };
 }

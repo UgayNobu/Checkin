@@ -1,3 +1,4 @@
+import { pattern } from '../teacher/Modules.jsx';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import './dashboard.css';
@@ -84,6 +85,7 @@ export default function Dashboard() {
       <div className="courses">
         {modules.map((m) => (
           <div className="course" key={m.id}>
+            <div className="course-img" style={{ backgroundImage: pattern(m.code) }} aria-hidden="true" />
             <b>{m.name}</b>
             <small>{m.code}</small>
             <a onClick={() => open(m)}>view attendance</a>

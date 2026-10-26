@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -12,6 +12,8 @@ import {
 } from 'react-router-dom';
 import { api, auth, logout } from './api';
 import './base.css';
+import './vle.css';
+import './pages/public/public.css';
 
 /* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
@@ -137,15 +139,19 @@ function Login() {
   };
 
   return (
-    <div className="login">
+    <div className={'login ' + (teacher ? 'tutor' : 'student')}>
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
         <div>
-          <h1>{teacher ? 'Manage your sessions and student attendance' : 'Student Attendance System'}</h1>
-          <p>Sign in to access classes, tutor sessions, and your personal academic dashboard.</p>
+          <span className="hero-eyebrow">{teacher ? 'TUTOR PORTAL' : 'STUDENT PORTAL'}</span>
+          <h1>{teacher ? <>Take attendance <span>in seconds.</span></> : <>Your attendance, <span>on your phone.</span></>}</h1>
+          <p>{teacher
+            ? 'Start a check-in from your timetable, see who is in class live, and keep every record in one place.'
+            : 'Check in to class with a code, follow your attendance in every module and send absence requests.'}</p>
+          <div className="hero-bar" />
         </div>
         <small>College of Science and Technology</small>
       </div>
@@ -161,7 +167,7 @@ function Login() {
         </a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
-        <h2>{teacher ? 'Teacher login' : 'CheckIn'}</h2>
+        <h2>{teacher ? 'Tutor login' : 'Student login'}</h2>
         <p className="sub">College of Science and Technology</p>
 
         <label>{teacher ? 'Staff ID' : 'Student ID'}</label>
@@ -196,7 +202,7 @@ function Login() {
 
         <p className="alt" style={{ textAlign: 'center', fontSize: 11 }}>
           {teacher ? 'New tutor? ' : 'No account? '}
-          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign in</Link>
+          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign up</Link>
         </p>
         <p className="ok" style={{ fontSize: 11, textAlign: 'center' }}>
           Routes to the right dashboard after sign-in
@@ -212,42 +218,59 @@ function Login() {
 function Bell() {
   const [open, setOpen] = useState(false);
   const [list, setList] = useState([]);
+  const [fresh, setFresh] = useState(new Set()); // ids that were unread when the panel opened (kept highlighted)
+  const closeTimer = useRef(null);
+  const loc = useLocation();
 
-  const load = () => api('/notifications').then(setList).catch(() => {});
-
-  useEffect(() => {
-    load();
-  }, []);
+  const load = () => api('/notifications').then((l) => setList(Array.isArray(l) ? l : [])).catch(() => {});
+  // check for new notifications on every page change and every 30 seconds
+  useEffect(() => { load(); }, [loc.pathname]);
+  useEffect(() => { const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   const unread = list.filter((n) => !n.isRead).length;
 
+  const show = () => {
+    clearTimeout(closeTimer.current);
+    if (open) return;
+    setOpen(true);
+    // opening = viewed: remember which ones were new, then mark them all read so the red dot goes
+    const ids = list.filter((n) => !n.isRead).map((n) => n.id);
+    setFresh(new Set(ids));
+    if (ids.length) {
+      setList((l) => l.map((n) => ({ ...n, isRead: true })));
+      api('/notifications/read-all', {}).catch(() => {});
+    }
+  };
+  // a short delay lets the mouse move from the bell down into the panel without it closing
+  const hide = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => { setOpen(false); setFresh(new Set()); }, 250);
+  };
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="bellwrap" onMouseEnter={show} onMouseLeave={hide}>
       <button
         className="bell"
-        onClick={() => {
-          setOpen(!open);
-          load();
-        }}
+        aria-label={unread ? `Notifications, ${unread} new` : 'Notifications'}
+        aria-expanded={open}
+        onClick={() => (open ? (clearTimeout(closeTimer.current), setOpen(false)) : show())}
       >
         🔔{unread > 0 && <i className="dot" />}
       </button>
 
       {open && (
-        <div className="bellpanel">
+        <div className="bellpanel" role="dialog" aria-label="Notifications">
+          <div className="bellhead">Notifications</div>
           {list.length ? (
             list.map((n) => (
-              <p
-                key={n.id}
-                className={n.isRead ? '' : 'unread'}
-                onClick={() => api(`/notifications/${n.id}/read`, {}, 'PUT').then(load)}
-              >
+              <p key={n.id} className={fresh.has(n.id) ? 'unread' : ''}>
                 {n.message}
                 <small>{n.category}</small>
               </p>
             ))
           ) : (
-            <p>No notifications yet</p>
+            <p className="bellempty">No notifications yet</p>
           )}
         </div>
       )}
@@ -264,14 +287,29 @@ const SUB = {
   management: () => 'Management',
 };
 
+// VLE (Moodle-style) layout: top navbar with the main links (the rest under "More"),
+// user menu on the right, page title under the navbar. Below 1100px the links move
+// into a drawer opened by the menu button. Same pages and links as before.
+const PRIMARY_COUNT = { student: 5, teacher: 5, admin: 3, management: 6 };
+
 function Shell({ user, children, title, sub }) {
   const nav = useNavigate();
   const loc = useLocation();
   const [pend, setPend] = useState(0);
-  const [menu, setMenu] = useState(false); // phone: sidebar drawer open?
+  const [menu, setMenu] = useState(false); // drawer (small screens)
+  const [more, setMore] = useState(false); // "More" dropdown
+  const [userMenu, setUserMenu] = useState(false);
 
-  // Phone: close the menu after moving to another page
-  useEffect(() => setMenu(false), [loc.pathname]);
+  // Close menus after moving to another page
+  useEffect(() => { setMenu(false); setMore(false); setUserMenu(false); }, [loc.pathname]);
+  // Close dropdowns when clicking anywhere else
+  useEffect(() => {
+    if (!more && !userMenu) return;
+    const close = (e) => { if (!e.target.closest?.('.vnav-more, .vuser')) { setMore(false); setUserMenu(false); } };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [more, userMenu]);
+
   const ini = user.name
     .split(' ')
     .map((w) => w[0])
@@ -287,89 +325,83 @@ function Shell({ user, children, title, sub }) {
     }
   }, [title]);
 
-  const handleProfileClick = () => {
-    if (user.role === 'student') nav('/settings/profile');
-    else if (user.role === 'teacher') nav('/profile');
-    else nav('/');
-  };
+  // Only students and tutors have a profile page
+  const profilePath = { student: '/settings/profile', teacher: '/profile' }[user.role];
+  const handleProfileClick = () => { setUserMenu(false); nav(profilePath); };
+  const doLogout = () => logout().then(() => nav('/welcome'));
+
+  const links = NAV[user.role];
+  const n = PRIMARY_COUNT[user.role] || links.length;
+  const primary = links.slice(0, n), extra = links.slice(n);
+  const moreActive = extra.some(([to]) => loc.pathname === to || loc.pathname.startsWith(to + '/'));
+  const link = ([to, label]) => (
+    <NavLink key={to} to={to} end={to === '/'}>
+      {label}
+      {to === '/evidence' && pend > 0 && <span className="nbadge">{pend}</span>}
+    </NavLink>
+  );
 
   return (
-    <div className={'shell ' + user.role + (menu ? ' menu-open' : '')}>
-      {/* Phone only: top bar with the menu button (the sidebar becomes a drawer) */}
-      <div className="mbar">
-        <button className="mbar-btn" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>
+    <div className={'shell vle ' + user.role + (menu ? ' menu-open' : '')}>
+      <header className="vnav">
+        <button className="vnav-burger" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>
           <span /><span /><span />
         </button>
-        <img className="logo" src="/logo.jpg" alt="" />
-        <b>CheckIn</b>
-      </div>
-      <div className="mshade" onClick={() => setMenu(false)} aria-hidden="true" />
+        <NavLink to="/" end className="vbrand">
+          <img className="logo" src="/logo.jpg" alt="" />
+          <span>CheckIn</span>
+        </NavLink>
 
-      <aside className="side">
-        <div className="brand">
-          <img className="logo" src="/logo.jpg" alt="" /> CheckIn
-          {user.role === 'admin' && (
-            <small style={{ display: 'block', fontSize: 9, opacity: 0.5, fontWeight: 400, padding: 0 }}>
-              Admin Panel
-            </small>
+        <nav className="vnav-links" aria-label="Main">
+          {primary.map(link)}
+          {extra.length > 0 && (
+            <div className="vnav-more">
+              <button className={moreActive ? 'active' : ''} aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(!more)}>
+                More <i className="caret" />
+              </button>
+              {more && <div className="vmenu" role="menu">{extra.map(link)}</div>}
+            </div>
           )}
-        </div>
-
-        <nav>
-          {NAV[user.role].map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'}>
-              {label}
-              {to === '/evidence' && pend > 0 && <span className="nbadge">{pend}</span>}
-            </NavLink>
-          ))}
         </nav>
 
-        <button
-          onClick={() => logout().then(() => nav('/login'))}
-        >
-          Log out
-        </button>
-        <small>{FOOT[user.role]}</small>
+        <div className="vnav-right">
+          {user.role === 'student' && <Bell />}
+          <div className="vuser">
+            <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={user.name}>
+              <span className="avatar">{ini}</span>
+              <span className="vuser-name">{user.name}<small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></span>
+              <i className="caret" />
+            </button>
+            {userMenu && (
+              <div className="vmenu right" role="menu">
+                {profilePath && <button role="menuitem" onClick={handleProfileClick}>Profile</button>}
+                <button role="menuitem" onClick={doLogout}>Log out</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Small screens: the links in a drawer */}
+      <div className="vshade" onClick={() => setMenu(false)} aria-hidden="true" />
+      <aside className="vdrawer" aria-label="Menu">
+        <div className="vdrawer-head">
+          <span className="avatar">{ini}</span>
+          <div><b>{user.name}</b><small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></div>
+        </div>
+        <nav>{links.map(link)}</nav>
+        <button className="vdrawer-out" onClick={doLogout}>Log out</button>
       </aside>
 
       <div className="main">
         {user.role !== 'admin' && title && (
-          <header className="top">
-            <div>
-              <h2>{title}</h2>
-              <p>{sub}</p>
-            </div>
-
-            <div className="me">
-              {user.role === 'student' && title === 'Dashboard' && <Bell />}
-
-              <div
-                onClick={handleProfileClick}
-                style={{
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                title="View Profile"
-              >
-                <div className="avatar">{ini}</div>
-                <div>
-                  <b>{user.name}</b>
-                  <br />
-                  <small>{(SUB[user.role] || SUB.student)(user)}</small>
-                </div>
-              </div>
-            </div>
-          </header>
+          <div className="vhead">
+            <h1>{title}</h1>
+            {sub && <p>{sub}</p>}
+          </div>
         )}
-
         <div className="page">{children}</div>
+        <footer className="vfoot">{FOOT[user.role]}</footer>
       </div>
     </div>
   );

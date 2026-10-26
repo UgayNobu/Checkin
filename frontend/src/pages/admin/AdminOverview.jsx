@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import AddTutor from './AddTutor.jsx';
 import TutorRequests from './TutorRequests.jsx';
 import './adminoverview.css';
 
@@ -105,6 +106,7 @@ export default function AdminOverview() {
   const [mods, setMods] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [q, setQ] = useState('');
+  const [adding, setAdding] = useState(false); // "Add tutor" form open?
 
   // Load overview totals
   useEffect(() => {
@@ -215,6 +217,9 @@ export default function AdminOverview() {
         ))}
       </div>
 
+      {/* Admin creates a tutor account with the default password */}
+      {adding && <AddTutor onClose={() => setAdding(false)} onCreated={() => api('/admin/overview').then(setO).catch(() => {})} />}
+
       {/* Tutors who signed up and wait for approval (hidden when there are none) */}
       <TutorRequests />
       {/* Middle: Students view + Tutors view */}
@@ -223,6 +228,9 @@ export default function AdminOverview() {
           <div className="ao-view" key={v.base}>
             <div className="ao-vhead">
               <h3>{v.title}</h3>
+              {v.base === 'teachers' && (
+                <button type="button" className="ao-addbtn" onClick={() => setAdding(true)}>+ Add tutor</button>
+              )}
             </div>
             <p>{v.text}</p>
             <Dropdown

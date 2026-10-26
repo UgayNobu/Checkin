@@ -113,20 +113,25 @@ async function moduleView(id, { term } = {}) {
 async function studentView(studentId, moduleId, { term } = {}) {
   const [st, m] = await Promise.all([prisma.user.findUnique({ where: { id: studentId } }), loadMatrix([moduleId], [studentId], { term })]);
   if (!st) throw NotFound('Student not found');
-  const history = m.sessionsOf(moduleId).map((s) => ({ date: sessionStart(s), type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }));
+  const history = m.sessionsOf(moduleId).filter((s) => m.wasIn(studentId, s.id)).map((s) => ({ date: sessionStart(s), type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }));
   const present = history.filter((h) => h.status === 'present').length;
   return { student: { userId: st.id, name: st.name }, present, absent: history.length - present, total: history.length, pct: m.pct(studentId, moduleId), history };
 }
 
 async function teachers({ term } = {}) {
   term = await sessionOrCurrent(term);
-  const [secs, total] = await Promise.all([
+  const [secs, total, enrolled] = await Promise.all([
     prisma.section.findMany({ where: { academicSession: term }, include: { module: true, tutor: true, sessions: { select: { duration: true } } }, orderBy: { module: { code: 'asc' } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
+    prisma.enrollment.groupBy({ by: ['moduleId'], where: { academicSession: term, student: { isActive: true } }, _count: { _all: true } }),
   ]);
+  const students = new Map(enrolled.map((e) => [e.moduleId, e._count._all]));
   return {
     total,
-    rows: secs.map((x) => ({ module: `${x.module.code} – ${x.module.name}`, name: x.tutor.name, cls: x.name, hours: round1(x.sessions.reduce((a, y) => a + y.duration / 60, 0)) })),
+    rows: secs.map((x) => ({
+      module: `${x.module.code} – ${x.module.name}`, name: x.tutor.name, students: students.get(x.moduleId) || 0,
+      classes: x.sessions.length, hours: round1(x.sessions.reduce((a, y) => a + y.duration / 60, 0)),
+    })),
   };
 }
 

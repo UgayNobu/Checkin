@@ -12,6 +12,8 @@ const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
 const { notify } = require('./notifications.service');
 const { currentAcademicSession } = require('../lib/academicSession');
+const { hashPassword } = require('../utils/password');
+const { isSmtpConfigured } = require('../lib/mailer');
 
 // ── Overview ──────────────────────────────────────────────────
 async function overview() {
@@ -43,10 +45,85 @@ async function renameProgram(adminId, from, to) {
   const r = await prisma.$transaction([
     prisma.program.updateMany({ where: { name: from }, data: { name: to } }),
     prisma.user.updateMany({ where: { department: from }, data: { department: to } }),
+    prisma.user.updateMany({ where: { programme: from }, data: { programme: to } }), // students of the programme
   ]);
   if (!r[0].count) throw NotFound('Programme not found');
   await writeAuditLog(adminId, 'Renamed program', `${from} -> ${to}`);
   return { message: 'Renamed' };
+}
+
+/**
+ * One programme's structure for the admin: every year and semester with its modules
+ * (from program_modules), each module's tutor this semester and how many students joined.
+ */
+async function programStructure(name) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const academicSession = await currentAcademicSession();
+  const [rows, students] = await Promise.all([
+    prisma.programModule.findMany({
+      where: { programId: p.id },
+      include: { module: { include: {
+        sections: { where: { academicSession }, include: { tutor: true }, take: 1 },
+        _count: { select: { enrollments: { where: { academicSession, student: { isActive: true } } } } },
+      } } },
+      orderBy: [{ year: 'asc' }, { semester: 'asc' }, { module: { code: 'asc' } }],
+    }),
+    prisma.user.count({ where: { role: 'student', programme: name, isActive: true } }),
+  ]);
+  const modules = rows.map((r) => ({
+    _id: r.module.id, code: r.module.code, name: r.module.name, year: r.year, semester: r.semester, students: r.module._count.enrollments,
+    tutor: r.module.sections[0] ? { userId: r.module.sections[0].tutor.id, name: r.module.sections[0].tutor.name, active: r.module.sections[0].tutor.isActive } : null,
+  }));
+  const years = Math.max(4, ...modules.map((m) => m.year || 0));
+  return { name: p.name, students, years, modules };
+}
+
+/** Removes a programme. Refused while it still has modules, students or timetable classes. */
+async function removeProgram(adminId, name) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const [mods, students, slots] = await Promise.all([
+    prisma.programModule.count({ where: { programId: p.id } }),
+    prisma.user.count({ where: { role: 'student', programme: name } }),
+    prisma.timetableSlot.count({ where: { programId: p.id } }),
+  ]);
+  if (mods || students || slots) {
+    const why = [mods && `${mods} module${mods > 1 ? 's' : ''}`, students && `${students} student${students > 1 ? 's' : ''}`, slots && `${slots} timetable classes`].filter(Boolean).join(', ');
+    throw Conflict(`${name} still has ${why}. Remove its modules and move its students first.`, 'PROGRAM_IN_USE');
+  }
+  if (await prisma.module.count({ where: { programId: p.id } }))
+    throw Conflict(`Some modules still belong to ${name}. Remove them first.`, 'PROGRAM_IN_USE');
+  await prisma.program.delete({ where: { id: p.id } });
+  await writeAuditLog(adminId, 'Removed program', name);
+  return { removed: name };
+}
+
+/**
+ * Takes a module out of one programme's semester. If no other programme uses it and it has
+ * no attendance history, the module itself is deleted too; otherwise it is kept for the records.
+ */
+async function removeModuleFromProgram(adminId, name, moduleId) {
+  const p = await prisma.program.findFirst({ where: { name } });
+  if (!p) throw NotFound('Programme not found');
+  const link = await prisma.programModule.findUnique({ where: { programId_moduleId: { programId: p.id, moduleId } }, include: { module: true } });
+  if (!link) throw NotFound('That module is not in this programme');
+  await prisma.programModule.delete({ where: { programId_moduleId: { programId: p.id, moduleId } } });
+  const [otherLinks, sessions, evidence] = await Promise.all([
+    prisma.programModule.count({ where: { moduleId } }),
+    prisma.classSession.count({ where: { section: { moduleId } } }),
+    prisma.evidenceDocument.count({ where: { moduleId } }),
+  ]);
+  let deleted = false;
+  if (!otherLinks && !sessions && !evidence) {
+    await prisma.$transaction([
+      prisma.section.deleteMany({ where: { moduleId } }),
+      prisma.module.delete({ where: { id: moduleId } }), // enrolments and class changes go with it
+    ]);
+    deleted = true;
+  }
+  await writeAuditLog(adminId, 'Removed module from program', `${link.module.code} from ${name}${deleted ? ' (module deleted)' : ''}`);
+  return { removed: link.module.code, deleted };
 }
 
 // ── Users ─────────────────────────────────────────────────────
@@ -186,6 +263,35 @@ async function approveTutor(adminId, id) {
   return { userId: u.id, status: 'active' };
 }
 
+/**
+ * Admin creates a tutor account directly (no sign-up needed). The account is active
+ * straight away with the default password (DEFAULT_TUTOR_PASSWORD); the tutor can
+ * change it in Settings → Account. Tutors who are not in the system can still sign
+ * up themselves and wait for approval (Tutor requests).
+ */
+async function createTutor(adminId, { userId, name, email, department }) {
+  const id = userId.toUpperCase();
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (existing) {
+    const pending = existing.role === 'tutor' && !existing.isActive && existing.status === 'active' && existing.passwordHash;
+    throw Conflict(pending
+      ? `${existing.name} (${id}) already signed up and is waiting in Tutor requests. Approve them there instead.`
+      : `${id} already has an account (${existing.name}).`, 'USER_EXISTS');
+  }
+  if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } }))
+    throw Conflict('Another account already uses this email.', 'EMAIL_TAKEN');
+  const u = await prisma.user.create({
+    data: { id, name, email, role: 'tutor', department, passwordHash: await hashPassword(env.defaultTutorPassword), isActive: true, status: 'active' },
+  });
+  await writeAuditLog(adminId, 'Tutor Created', `${u.name} (${u.id})`);
+  await notify(u.id, `Welcome to CheckIn. Your tutor account is ready: log in with your staff ID ${u.id} and the password ${env.defaultTutorPassword}, then change the password in Settings → Account.`, 'System', {
+    email: 'Your CheckIn tutor account is ready',
+  });
+  return {
+    ...userOut(u), defaultPassword: env.defaultTutorPassword, emailed: isSmtpConfigured(),
+  };
+}
+
 async function rejectTutor(adminId, id) {
   const u = await prisma.user.findFirst({ where: { id, ...pendingWhere } });
   if (!u) throw NotFound('Only pending tutor requests can be rejected');
@@ -235,7 +341,8 @@ async function programmeReport(name) {
  */
 async function runLowAttendanceJob(adminId) {
   const cutoff = new Date(Date.now() - env.realertDays * DAY_MS), res = { scanned: 0, alerts: 0, skipped: 0 };
-  const en = await prisma.enrollment.findMany({ where: { academicSession: await currentAcademicSession(), student: { role: 'student', isActive: true } }, include: { module: true } });
+  const term = await currentAcademicSession(), newlyLow = new Map(); // moduleId → { module, rows }
+  const en = await prisma.enrollment.findMany({ where: { academicSession: term, student: { role: 'student', isActive: true } }, include: { module: true } });
   const m = await loadMatrix([...new Set(en.map((e) => e.moduleId))]);
   for (const e of en) {
     const p = m.pct(e.studentId, e.moduleId);
@@ -247,12 +354,24 @@ async function runLowAttendanceJob(adminId) {
     await notify(e.studentId, `Your attendance in ${e.module.code} is ${p}% - below the ${env.requiredPct}% requirement. Please speak to your tutor.`,
       'Attendance', { email: `Low attendance in ${e.module.code}` });
     res.alerts++;
+    if (!newlyLow.has(e.moduleId)) newlyLow.set(e.moduleId, { module: e.module, rows: [] });
+    newlyLow.get(e.moduleId).rows.push(`${e.studentId}: ${p}%`);
+  }
+  // One message per tutor and module, listing only the students alerted in this run
+  if (newlyLow.size) {
+    const secs = await prisma.section.findMany({ where: { moduleId: { in: [...newlyLow.keys()] }, academicSession: term }, select: { moduleId: true, tutorId: true } });
+    for (const sec of secs) {
+      const { module: mod, rows } = newlyLow.get(sec.moduleId);
+      await notify(sec.tutorId, `${rows.length} student${rows.length > 1 ? 's are' : ' is'} below ${env.requiredPct}% attendance in ${mod.code} – ${mod.name}:\n${rows.join('\n')}`,
+        'Attendance', { email: `Attendance shortage in ${mod.code}` });
+      res.tutorAlerts = (res.tutorAlerts || 0) + 1;
+    }
   }
   if (adminId) await writeAuditLog(adminId, 'Low-attendance job', `${res.alerts} alerts sent, ${res.skipped} skipped`);
   return res;
 }
 
 module.exports = {
-  overview, listPrograms, createProgram, renameProgram, listUsers, patchUser, listModules, saveModule,
-  pendingTutors, approveTutor, rejectTutor, atRisk, programmeReport, runLowAttendanceJob,
+  overview, listPrograms, createProgram, renameProgram, programStructure, removeProgram, removeModuleFromProgram, listUsers, patchUser, listModules, saveModule,
+  pendingTutors, approveTutor, rejectTutor, createTutor, atRisk, programmeReport, runLowAttendanceJob,
 };
