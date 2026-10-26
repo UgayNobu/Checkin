@@ -13,6 +13,7 @@ const roomKey = (t) => {
   const m = squash(t).match(/^(ITL|IT|CR|LT|DS|DRAWINGSTUDIO|STUDIO)(\d+)$/);
   return m ? `${/STUDIO/.test(m[1]) ? 'DS' : m[1]}|${Number(m[2])}` : null;
 };
+const sameRoom = (r, room) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room)) || squash(r.name) === squash(room);
 const buildingOfRoom = (room, buildings) =>
   buildings.find((b) => b.rooms?.some((r) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room))));
 
@@ -166,6 +167,18 @@ export default function StartAttendance() {
   };
   const workshop = f.where === 'WORKSHOP';
   const roomBuilding = buildingOfRoom(f.room, buildings);
+  const chosen = buildings.find((b) => b.key === f.where); // the building picked under "Where students must be"
+  // Picking a building keeps the room only if it is in that building; otherwise choose again from its list
+  const setWhere = (e) => {
+    const where = e.target.value;
+    const b = buildings.find((x) => x.key === where);
+    setF((x) => ({ ...x, where, room: b && !(b.rooms || []).some((rm) => sameRoom(rm, x.room)) ? '' : x.room }));
+  };
+  useEffect(() => {
+    // a room filled in from the timetable ("IT-05") is matched to the list entry ("IT 05")
+    const canon = chosen?.rooms?.find((rm) => sameRoom(rm, f.room));
+    if (canon && canon.name !== f.room) setF((x) => ({ ...x, room: canon.name }));
+  }, [f.room, f.where, buildings]);
   useEffect(() => {
     if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
     // rooms that aren't inside a mapped building → Workshop around the tutor:
@@ -280,18 +293,14 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-room">Room</label>
-            <input id="sa-room" value={f.room} onChange={set('room')} disabled={open} list="cst-rooms" placeholder="e.g. ITL 06" />
-            <datalist id="cst-rooms">
-              {buildings.flatMap((b) =>
-                (b.rooms || []).map((r) => (
-                  <option key={r.name} value={r.name}>{r.label ? `${r.label} · ${b.name}` : b.name}</option>
-                ))
-              )}
-            </datalist>
-            {roomBuilding && !workshop && (
-              <small className="sa-ok">{f.room} is in the {roomBuilding.name}, so it’s selected below.</small>
-            )}
+            <label htmlFor="sa-where">Where students must be</label>
+            <select id="sa-where" value={f.where} onChange={setWhere} disabled={open}>
+              <option value="">Select location</option>
+              {buildings.map((b) => (
+                <option key={b.key} value={b.key}>{b.name}</option>
+              ))}
+              <option value="WORKSHOP">Workshop – around my location</option>
+            </select>
           </div>
 
           <div className="sa-f">
@@ -303,14 +312,20 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-where">Where students must be</label>
-            <select id="sa-where" value={f.where} onChange={set('where')} disabled={open}>
-              <option value="">Select location</option>
-              {buildings.map((b) => (
-                <option key={b.key} value={b.key}>{b.name}</option>
-              ))}
-              <option value="WORKSHOP">Workshop – around my location</option>
-            </select>
+            <label htmlFor="sa-room">Room</label>
+            {chosen ? (
+              <select id="sa-room" value={f.room} onChange={set('room')} disabled={open}>
+                <option value="">Select a room in the {chosen.name}</option>
+                {(chosen.rooms || []).map((rm) => (
+                  <option key={rm.name} value={rm.name}>{rm.label ? `${rm.name} · ${rm.label}` : rm.name}</option>
+                ))}
+                {/* a timetable room that isn't in the list still shows */}
+                {f.room && !(chosen.rooms || []).some((rm) => rm.name === f.room) && <option value={f.room}>{f.room}</option>}
+              </select>
+            ) : (
+              <input id="sa-room" value={f.room} onChange={set('room')} disabled={open || !f.where}
+                placeholder={workshop ? 'e.g. EG Lab, Robotics Lab' : 'Choose where students must be first'} />
+            )}
           </div>
 
           <div className="sa-f">
