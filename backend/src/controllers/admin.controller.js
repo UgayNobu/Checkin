@@ -24,6 +24,12 @@ module.exports = {
   modules: asyncHandler(async (req, res) => res.json(await a.listModules(req.query))),
   createModule: asyncHandler(async (req, res) => res.json(await a.saveModule(req.user.id, null, req.body))),
   updateModule: asyncHandler(async (req, res) => res.json(await a.saveModule(req.user.id, req.params.id, req.body))),
+  // Tutor accounts made by the admin
+  tutors: asyncHandler(async (req, res) => res.json(await a.listTutors())),
+  createTutor: asyncHandler(async (req, res) => res.status(201).json(await a.createTutor(req.user.id, req.body))),
+  tutorModules: asyncHandler(async (req, res) => res.json(await a.tutorModules(req.params.id))),
+  assignTutorModules: asyncHandler(async (req, res) => res.json(await a.assignTutorModules(req.user.id, req.params.id, req.body.moduleIds))),
+  resetTutorPassword: asyncHandler(async (req, res) => res.json(await a.resetTutorPassword(req.user.id, req.params.id))),
   pendingTutors: asyncHandler(async (req, res) => res.json(await a.pendingTutors())),
   approveTutor: asyncHandler(async (req, res) => res.json(await a.approveTutor(req.user.id, req.params.id))),
   rejectTutor: asyncHandler(async (req, res) => res.json(await a.rejectTutor(req.user.id, req.params.id))),

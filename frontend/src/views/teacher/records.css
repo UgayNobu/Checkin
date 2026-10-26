@@ -1,0 +1,391 @@
+/* =========================================================
+   Attendance Records (scoped under .recs)
+   ========================================================= */
+
+.recs{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-width:980px;
+  font-size:13px;
+}
+
+/* ----- Top row: <back + Download ----- */
+.recs .rowb{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.recs .back{
+  padding:0;
+  background:none;
+  border:none;
+  color:var(--text);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.recs .back:hover{text-decoration:underline}
+.recs .dl{
+  padding:6px 16px;
+  background:var(--card);
+  color:var(--primary);
+  border:1px solid var(--primary);
+  border-radius:8px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.recs .dl:hover{background:var(--primary-tint)}
+.recs .dl:disabled{
+  color:var(--muted);
+  border-color:var(--border);
+  background:var(--card);
+  cursor:not-allowed;
+}
+
+/* ----- Student name + ID ----- */
+.recs .who{
+  margin:4px 0 0;
+  font-size:13px;
+  line-height:1.5;
+  color:var(--text);
+}
+
+/* ----- Legend ----- */
+.recs .legend{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:14px;
+}
+.recs .legend small{
+  flex-basis:100%;
+  color:var(--muted);
+  font-size:11px;
+}
+
+/* ----- Cards ----- */
+.recs .card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+}
+.recs .card.graph{
+  padding:20px;
+  border-color:var(--border);
+}
+.recs h4{margin:0 0 14px}
+
+/* ----- Tables ----- */
+.recs .tbl{
+  overflow-x:auto;
+  padding-bottom:24px;
+}
+.recs table{
+  width:100%;
+  border-collapse:collapse;
+}
+.recs th{
+  padding:12px 14px;
+  text-align:left;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text);
+  border-bottom:1px solid var(--border);
+}
+.recs td{
+  padding:14px;
+  font-size:12px;
+  color:var(--text);
+  border-bottom:1px solid var(--border);
+}
+.recs tbody tr:hover{background:var(--bg)}
+.recs .empty{
+  text-align:center;
+  color:var(--muted);
+  padding:28px;
+}
+
+/* ----- Status pills: Present green, Absent red, Late / Flagged amber ----- */
+.recs .st,
+.recs .pill{
+  display:inline-flex;
+  padding:4px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+  text-transform:capitalize;
+  background:var(--bg);
+  color:var(--muted);
+}
+.recs .st.present,.recs .pill.present{background:var(--present-bg);color:var(--present-text)}
+.recs .st.absent,.recs .pill.absent{background:var(--absent-bg);color:var(--absent-text)}
+.recs .st.flagged,.recs .pill.flagged,
+.recs .st.late,.recs .pill.late{background:var(--late-bg);color:var(--late-text)}
+
+.recs [title]{cursor:help}
+
+/* ----- Misc text ----- */
+.recs .mut{color:var(--muted)}
+.recs .total{font-weight:700;color:var(--primary)}
+.recs .total.low{color:var(--absent-text)}
+.recs .view{
+  padding:0;
+  background:none;
+  border:none;
+  color:var(--primary);
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  text-decoration:underline;
+  cursor:pointer;
+}
+
+/* ----- Bar graph (module page) ----- */
+.recs .gchart{display:flex;gap:8px}
+.recs .gaxis{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  width:26px;
+  height:160px;
+  margin-top:14px;
+  font-size:10px;
+  text-align:right;
+  color:var(--muted);
+}
+.recs .gmain{flex:1;min-width:0;overflow-x:auto}
+.recs .gplot{
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+  height:180px;
+  padding-top:20px;
+  border-bottom:1px solid var(--border);
+  background:repeating-linear-gradient(to bottom,var(--border) 0 1px,transparent 1px 32px);
+  background-position:0 20px;
+}
+.recs .gcol{
+  flex:1;
+  min-width:48px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+}
+.recs .gcol span{font-size:10px;font-weight:600}
+.recs .gbar{width:22px;background:var(--primary);border-radius:4px 4px 0 0}
+.recs .gbar.low{background:var(--absent-solid)}
+.recs .gbar.zero{background:var(--border)}
+.recs .glabels{display:flex;gap:6px;margin-top:6px}
+.recs .glabels span{
+  flex:1;
+  min-width:48px;
+  text-align:center;
+  font-size:10px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* ----- Errors ----- */
+.recs .err{margin:0;color:var(--absent-text);font-size:13px}
+
+/* ----- Module list (/records) ----- */
+.recs .modgrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:16px;
+}
+.recs .modcard{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:20px;
+  box-shadow:var(--shadow);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.recs .modcard:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(124, 58, 237,.12)}
+.recs .modcard b{font-size:15px;color:var(--text)}
+.recs .modcard span{font-size:13px;color:var(--text)}
+.recs .modcard small{margin-top:6px;font-size:11px;color:var(--primary)}
+.recs .nomods{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:40px;
+  text-align:center;
+  border-color:var(--border);
+}
+.recs .nomods small{color:var(--muted)}
+/* ===== Session-based Attendance Records (Sanskar, 14 Oct) — moved here from reports.css ===== */
+/* =========================================================
+   Attendance Records (scoped under .recs, own class names)
+   ========================================================= */
+.recs{display:flex;flex-direction:column;gap:16px;width:100%}
+
+/* ----- Top row ----- */
+.rec-top{display:flex;justify-content:space-between;align-items:center}
+.rec-back{padding:0;background:none;border:0;color:var(--primary);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.rec-back:hover{text-decoration:underline}
+.rec-dl{
+  padding:8px 18px;
+  background:var(--card);
+  color:var(--primary);
+  border:1px solid var(--primary);
+  border-radius:8px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.rec-dl:hover:not(:disabled){background:var(--primary-tint)}
+.rec-dl:disabled{color:var(--muted);border-color:var(--border);cursor:not-allowed}
+
+/* ----- Title ----- */
+.rec-title h2{margin:0 0 4px;font-size:22px;font-weight:700}
+.rec-title small{color:var(--muted);font-size:13px}
+
+/* ----- Search bar ----- */
+.rec-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rec-bar label{margin:0;font-size:13px;font-weight:600}
+.rec-bar input{width:240px;max-width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px}
+.rec-clear{min-height:44px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--primary);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.rec-clear:hover{background:var(--primary-tint)}
+
+/* ----- Table (full width) ----- */
+.rec-tbl{
+  width:100%;
+  overflow-x:auto;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+}
+.rec-tbl table{width:100%;min-width:640px;border-collapse:collapse}
+.rec-tbl th{
+  padding:13px 16px;
+  background:var(--bg);
+  text-align:left;
+  font-size:12px;
+  color:var(--text);
+  white-space:nowrap;
+  border-bottom:1px solid var(--border);
+}
+.rec-tbl td{
+  padding:13px 16px;
+  font-size:13px;
+  border-top:0;
+  border-bottom:1px solid var(--border);
+}
+.rec-tbl tbody tr:last-child td{border-bottom:none}
+.rec-tbl tbody tr:hover{background:var(--bg)}
+.rec-empty{text-align:center;color:var(--muted);padding:30px !important}
+
+/* ----- Cells ----- */
+.rec-cap{text-transform:capitalize}
+.rec-g{color:var(--present-text);font-weight:600}
+.rec-r{color:var(--absent-text);font-weight:600}
+.rec-o{color:var(--late-text);font-weight:600}
+.rec-flagnote{color:var(--late-text);font-weight:500}
+.rec-live{
+  margin-left:8px;
+  padding:2px 8px;
+  background:var(--primary-tint);
+  color:var(--primary-dark);
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+}
+.rec-pct{
+  display:inline-block;
+  padding:3px 10px;
+  background:var(--present-bg);
+  color:var(--present-text);
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+.rec-pct.low{background:var(--absent-bg);color:var(--absent-text)}
+.rec-view{
+  padding:6px 14px;
+  background:var(--card);
+  color:var(--primary);
+  border:1px solid var(--primary);
+  border-radius:8px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.rec-view:hover{background:var(--primary);color:#fff}
+
+/* ----- Status badges ----- */
+.rec-st{
+  display:inline-flex;
+  padding:4px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.rec-st.present{background:var(--present-bg);color:var(--present-text)}
+.rec-st.absent{background:var(--absent-bg);color:var(--absent-text)}
+.rec-st.flagged{background:var(--late-bg);color:var(--late-text);cursor:help}
+
+/* ----- Teacher decides a flagged check-in ----- */
+.rec-decide{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-yes,
+.rec-no{
+  min-height:32px;
+  padding:4px 12px;
+  border-radius:8px;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.rec-yes{background:var(--present-solid);color:#fff;border:1px solid var(--present-solid)}
+.rec-no{background:var(--card);color:var(--absent-text);border:1px solid var(--absent-solid)}
+
+/* ----- Module list (/records) ----- */
+.rec-modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.rec-modcard{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:20px;
+  box-shadow:var(--shadow);
+  font-family:inherit;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.rec-modcard:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(124, 58, 237,.12)}
+.rec-modcard b{font-size:15px;color:var(--text)}
+.rec-modcard span{font-size:13px;color:var(--text)}
+.rec-modcard small{margin-top:6px;font-size:11px;color:var(--primary)}
+.rec-box{padding:40px 20px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.rec-empty-box{display:flex;flex-direction:column;gap:6px;text-align:center}
+.rec-empty-box small{color:var(--muted)}
+
+.rec-err{margin:0;padding:10px 12px;background:var(--absent-bg);border:1px solid var(--absent-border);border-radius:8px;color:var(--absent-text);font-size:13px}.rec-tag{
+  margin-left:6px;
+  padding:2px 8px;
+  background:var(--present-bg);
+  color:var(--present-text);
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+}

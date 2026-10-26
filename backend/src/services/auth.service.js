@@ -5,10 +5,12 @@
 //  A) Roster sign-up (design doc): an admin pre-loads users
 //     (scripts/import-roster.js) with no password. The person types
 //     their ID → we show their name/email → they set a password.
-//  B) Open register form (existing frontend): the person fills in
-//     everything. Students are active straight away; tutors wait for
-//     an admin to approve them.
-// Tutor accounts are never active until an admin approves them.
+//  B) Open register form (existing frontend): students fill in
+//     everything and are active straight away.
+// Tutors do NOT sign up and there is no approval step any more:
+// the admin creates the tutor account (staff ID, email, default
+// password) and assigns their modules (admin.service createTutor /
+// assignTutorModules). The tutor logs in and changes the password.
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { hashPassword, verifyPassword, DUMMY_HASH } = require('../utils/password');
@@ -16,12 +18,14 @@ const { signAuthToken } = require('../utils/jwt');
 const { normalizeId } = require('../utils/id-format');
 const { roleIn, roleOut, userOut } = require('../utils/format');
 const { BadRequest, Unauthorized, Forbidden, NotFound, Conflict } = require('../utils/errors');
-const { notifyAdmins, notify } = require('./notifications.service');
+const { notify } = require('./notifications.service');
 const crypto = require('crypto');
 const { env } = require('../config/env');
 const { sendMail, isSmtpConfigured, explain } = require('../lib/mailer');
 
-const authUser = (u) => ({ name: u.name, userId: u.id, role: roleOut(u.role) });
+// mustChangePassword: the account still uses the default password the admin gave it
+const authUser = (u) => ({ name: u.name, userId: u.id, role: roleOut(u.role), mustChangePassword: Boolean(u.prefs?.mustChangePassword) });
+const TUTOR_BY_ADMIN = 'Tutor accounts are created by the admin. Ask the admin for your login details (your staff ID and a default password are sent to your email).';
 const departmentFromProgramme = (p) => (p || '').replace(/^(BE|B\.E\.)\s+/i, '') || null;
 
 // ── A) Roster sign-up ─────────────────────────────────────────
@@ -50,34 +54,29 @@ async function signupStudent({ userId, password }) {
   return { token: signAuthToken({ id: u.id, role: 'student' }), user: authUser(u) };
 }
 
-async function requestTutorAccount({ userId, password }) {
-  const u = await claimRosterAccount(userId, password, 'teacher');
-  await notifyAdmins(`${u.name} (${u.id}) requested a tutor account.`);
-  return { message: 'Request submitted. An admin will approve your account.' };
+// Tutor self sign-up is closed: the admin creates tutor accounts (no approval step).
+async function requestTutorAccount() {
+  throw Forbidden(TUTOR_BY_ADMIN, 'TUTOR_CREATED_BY_ADMIN');
 }
 
 // ── B) Open register form ─────────────────────────────────────
 async function register({ userId, name, email, password, role, programme, department }) {
+  if (role === 'teacher') throw Forbidden(TUTOR_BY_ADMIN, 'TUTOR_CREATED_BY_ADMIN');
   const id = normalizeId(userId);
   const existing = await prisma.user.findUnique({ where: { id } });
   // Someone on the roster who hasn't signed up yet → use the roster flow instead of failing.
   if (existing && !existing.passwordHash) {
-    return role === 'teacher' ? requestTutorAccount({ userId: id, password }) : { ...(await signupStudent({ userId: id, password })), message: 'Account created' };
+    return { ...(await signupStudent({ userId: id, password })), message: 'Account created' };
   }
   if (existing) throw Conflict('That ID already has an account. Please log in.', 'ALREADY_SIGNED_UP');
   if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } }))
     throw Conflict('An account with this email already exists. Use "Forgot password" if it is yours.', 'EMAIL_TAKEN');
-  const isStudent = role === 'student';
   await prisma.user.create({
     data: {
-      id, name, email, passwordHash: await hashPassword(password), role: roleIn(role), programme,
-      department: department || departmentFromProgramme(programme), isActive: isStudent, status: 'active', year: isStudent ? 1 : null,
+      id, name, email, passwordHash: await hashPassword(password), role: roleIn('student'), programme,
+      department: department || departmentFromProgramme(programme), isActive: true, status: 'active', year: 1,
     },
   });
-  if (!isStudent) {
-    await notifyAdmins(`${name} (${id}) requested a tutor account.`);
-    return { message: 'Request submitted. An admin will approve your account.' };
-  }
   return { message: 'Account created' };
 }
 
@@ -88,7 +87,8 @@ async function login({ userId, password }) {
   const ok = await verifyPassword(password, u?.passwordHash || DUMMY_HASH);
   if (!u || !u.passwordHash || !ok) throw Unauthorized('Wrong ID or password', 'INVALID_CREDENTIALS');
   if (!u.isActive) {
-    if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your account is waiting for admin approval.', 'ACCOUNT_PENDING');
+    // Old sign-up requests from before approval was removed: the admin activates them under Tutors.
+    if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your tutor account is not active yet. Ask the admin to activate it under Tutors.', 'ACCOUNT_PENDING');
     throw Forbidden('This account has been deactivated. If you have returned to the college, ask the admin to activate it again.', 'ACCOUNT_NOT_ACTIVE');
   }
   return { token: signAuthToken({ id: u.id, role: roleOut(u.role) }), user: authUser(u) };
@@ -104,9 +104,22 @@ async function changePassword(userId, { current, next }) {
   const u = await prisma.user.findUnique({ where: { id: userId } });
   if (!u?.passwordHash || !(await verifyPassword(current, u.passwordHash))) throw BadRequest('Current password is wrong', 'WRONG_CURRENT_PASSWORD');
   if (await verifyPassword(next, u.passwordHash)) throw BadRequest('New password must be different from the current one', 'PASSWORD_UNCHANGED');
-  await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next) } });
+  // A new password also clears the "still using the default password" reminder
+  const prefs = { ...(u.prefs || {}) };
+  delete prefs.mustChangePassword;
+  await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next), prefs } });
+  // Security notice to the sign-up email + an SMS to the phone on file
+  await notify(u.id, `Your CheckIn password was changed on ${new Date().toLocaleString('en-GB', { timeZone: 'Asia/Thimphu' })}. If this wasn't you, contact ICT Services straight away.`,
+    'System', { email: 'Your CheckIn password was changed', sms: 'always' });
   return { message: 'Password updated' };
 }
+
+const prefsWithout = async (id, key) => {
+  const u = await prisma.user.findUnique({ where: { id }, select: { prefs: true } });
+  const prefs = { ...(u?.prefs || {}) };
+  delete prefs[key];
+  return prefs;
+};
 
 // ── Forgot password (6-digit code by email) ───────────────────
 const RESET_MINUTES = 15;
@@ -159,10 +172,10 @@ async function resetPassword({ userId, code, password }) {
     throw invalid();
   }
   await prisma.$transaction([
-    prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } }),
+    prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), prefs: await prefsWithout(id, 'mustChangePassword') } }),
     prisma.passwordReset.update({ where: { id: r.id }, data: { usedAt: new Date() } }),
   ]);
-  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System');
+  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System', { email: 'Your CheckIn password was reset', sms: 'always' });
   return { message: 'Password changed. You can log in with your new password.' };
 }
 

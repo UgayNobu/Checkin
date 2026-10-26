@@ -1,0 +1,43 @@
+/* Activate / deactivate accounts */
+.as-cell { display: inline-flex; flex-direction: column; gap: 3px; }
+.as-cell small { font-size: 12px; color: var(--muted); }
+.as-pill { display: inline-block; width: auto; min-height: 0; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.as-pill.on { background: var(--present-bg); color: var(--present-text); }
+.as-pill.off { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.as-pill.wait { background: var(--late-bg); color: var(--late-text); }
+
+.as-actions { display: inline-flex; flex-direction: column; gap: 4px; }
+.as-btn { min-height: 36px; padding: 6px 14px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; white-space: nowrap; }
+.as-btn:disabled { opacity: 0.6; cursor: default; }
+.as-btn.on { background: var(--present-solid); border-color: var(--present-solid); color: #fff; }
+.as-btn.off { background: var(--card); border-color: var(--absent-border); color: var(--absent-text); }
+.as-btn.off:hover:not(:disabled) { background: var(--absent-bg); }
+.as-btn.off.solid { background: var(--absent-solid); color: #fff; }
+.as-btn.ghost { background: var(--card); border-color: var(--border); color: var(--primary); }
+.as-btn.ghost:hover:not(:disabled) { background: var(--primary-tint); }
+.as-btn.dark { background: var(--primary); color: #fff; }
+.as-btn.dark:hover:not(:disabled) { background: var(--primary-dark); }
+.as-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.as-shade {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  padding: 16px; background: rgba(46, 16, 101, 0.45);
+}
+.as-box {
+  width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+  box-shadow: var(--shadow-lg); text-align: left; white-space: normal;
+}
+.as-box h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.as-box p { font-size: 13px; color: var(--text); margin: 8px 0; }
+.as-id { color: var(--muted); font-size: 12px; text-transform: capitalize; }
+.as-info { margin: 12px 0; padding-left: 18px; font-size: 13px; color: var(--text); line-height: 1.55; }
+.as-box label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+.as-box select, .as-box textarea {
+  width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font: inherit; font-size: 14px; background: var(--card);
+}
+.as-box textarea { resize: vertical; }
+.as-err { color: var(--absent-text); font-size: 12px; margin: 8px 0 0; }
+.as-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.as-mods { margin: 8px 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }

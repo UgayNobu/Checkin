@@ -1,0 +1,557 @@
+/* src/pages/management/Module.css */
+
+.mg {
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+/* =========================================================
+   Department Header
+   ========================================================= */
+.dept-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.crumb {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.crumb b { color: var(--text); }
+
+.dept-header .ttl {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Back button — gap between it and the stats below */
+.back-dash {
+  min-height: 40px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-bottom: 20px;
+}
+.back-dash:hover {
+  background: var(--primary-tint);
+  border-color: var(--primary-soft);
+}
+
+/* =========================================================
+   Stats Cards
+   ========================================================= */
+.stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  flex: 1;
+  min-width: 180px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s;
+}
+.stat:hover {
+  box-shadow: 0 4px 12px rgba(46, 16, 101, 0.10);
+}
+
+.stat small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  margin-bottom: 12px;
+}
+
+.stat b {
+  display: block;
+  font-size: 32px;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.chip.g { background: var(--present-bg); color: var(--present-text); }
+.chip.o { background: var(--late-bg); color: var(--late-text); }
+.chip.r { background: var(--absent-bg); color: var(--absent-text); }
+
+/* =========================================================
+   Trend Chart
+   ========================================================= */
+.trend-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.trend-header b {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.trend-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.trend-goal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--late-text);
+  background: var(--late-bg);
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--late-border);
+}
+
+.goal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--late-solid);
+  display: inline-block;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.bar-svg {
+  width: 100%;
+  height: 240px;
+  display: block;
+}
+
+/* =========================================================
+   Empty chart state
+   ========================================================= */
+.chart-empty-state {
+  height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
+  border: 1px dashed var(--border);
+}
+
+.chart-empty-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--primary-tint);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.chart-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.chart-empty-text {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -6px;
+}
+
+/* =========================================================
+   Selectors
+   ========================================================= */
+.selectors-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  box-shadow: var(--shadow);
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+
+.selector-group {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.selector-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.go-btn {
+  padding: 10px 26px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.15s, opacity 0.12s;
+  margin-left: auto;
+  height: 44px;
+  white-space: nowrap;
+}
+.go-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+.go-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* =========================================================
+   CUSTOM DROPDOWN — arrow always points down, auto-flips up
+   ========================================================= */
+.dd {
+  position: relative;
+  width: 100%;
+  font-family: inherit;
+}
+
+.dd-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  height: 44px;
+}
+.dd-btn:hover {
+  border-color: var(--primary-soft);
+}
+.dd-btn.open {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.dd-placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.dd-arrow {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.dd-btn.open .dd-arrow {
+  color: var(--primary);
+}
+
+/* Menu — opens DOWN by default */
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 28px rgba(46, 16, 101, 0.14),
+    0 2px 6px rgba(46, 16, 101, 0.06);
+  overflow-y: auto;
+  z-index: 9999;
+  animation: ddOpen 0.12s ease-out;
+}
+
+/* Menu — flips UP when .dd-up is applied */
+.dd.dd-up .dd-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  animation: ddOpenUp 0.12s ease-out;
+}
+
+@keyframes ddOpen {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ddOpenUp {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dd-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.dd-option:hover {
+  background: var(--primary-tint);
+}
+
+.dd-option.selected {
+  background: var(--primary-tint);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.dd-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.dd-menu::-webkit-scrollbar { width: 6px; }
+.dd-menu::-webkit-scrollbar-track { background: transparent; }
+.dd-menu::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.dd-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* =========================================================
+   Department Cards
+   ========================================================= */
+.dept-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.dept {
+  flex: 1;
+  min-width: 220px;
+  max-width: 280px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, color 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dept:hover {
+  border-color: var(--primary);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.12);
+  transform: translateY(-2px);
+  color: var(--primary);
+}
+
+/* =========================================================
+   Tables (generic)
+   ========================================================= */
+.tbl {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+}
+
+.tbl table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+/* =========================================================
+   Module Table — professional look
+   ========================================================= */
+.tbl-module {
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-top: 4px;
+}
+
+.tbl-module th {
+  padding: 14px 20px;
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+.tbl-module td {
+  padding: 16px 20px;
+  font-size: 13.5px;
+  color: var(--text);
+  border-bottom: 1px solid var(--bg);
+}
+
+.tbl-module tr:last-child td {
+  border-bottom: none;
+}
+
+.tbl-module tbody tr {
+  transition: background 0.12s;
+}
+
+.tbl-module tbody tr:hover {
+  background: var(--bg);
+}
+
+.tbl-module tr.clickable-row {
+  cursor: pointer;
+}
+
+.tbl-module tr.clickable-row:hover {
+  background: var(--primary-tint);
+}
+
+.tbl-module .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.tbl-module .ta-center {
+  text-align: center;
+}
+
+.tbl-module .mut {
+  color: var(--muted);
+}
+
+/* =========================================================
+   Attendance badge (green / amber / red)
+   ========================================================= */
+.att-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.att-badge.good { background: var(--present-bg); color: var(--present-text); }
+.att-badge.warn { background: var(--late-bg); color: var(--late-text); }
+.att-badge.bad  { background: var(--absent-bg); color: var(--absent-text); }
+
+/* =========================================================
+   Absent-hours chip
+   ========================================================= */
+.hours-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--absent-bg);
+  color: var(--absent-text);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 720px) {
+  .selectors-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .go-btn {
+    margin-left: 0;
+    width: 100%;
+  }
+  .stats { flex-direction: column; }
+  .stat { min-width: 0; }
+}

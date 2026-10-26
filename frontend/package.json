@@ -1,3 +1,15 @@
-{"name":"checkin-frontend","private":true,"type":"module","scripts":{"dev":"vite","build":"vite build"},
-"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1","react-router-dom":"^6.26.0"},
-"devDependencies":{"@vitejs/plugin-react":"^4.3.1","vite":"^5.4.0"}}
+{
+  "name": "checkin-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16.4.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.4"
+  }
+}
