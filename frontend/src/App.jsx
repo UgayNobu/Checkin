@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -213,42 +213,59 @@ function Login() {
 function Bell() {
   const [open, setOpen] = useState(false);
   const [list, setList] = useState([]);
+  const [fresh, setFresh] = useState(new Set()); // ids that were unread when the panel opened (kept highlighted)
+  const closeTimer = useRef(null);
+  const loc = useLocation();
 
-  const load = () => api('/notifications').then(setList).catch(() => {});
-
-  useEffect(() => {
-    load();
-  }, []);
+  const load = () => api('/notifications').then((l) => setList(Array.isArray(l) ? l : [])).catch(() => {});
+  // check for new notifications on every page change and every 30 seconds
+  useEffect(() => { load(); }, [loc.pathname]);
+  useEffect(() => { const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   const unread = list.filter((n) => !n.isRead).length;
 
+  const show = () => {
+    clearTimeout(closeTimer.current);
+    if (open) return;
+    setOpen(true);
+    // opening = viewed: remember which ones were new, then mark them all read so the red dot goes
+    const ids = list.filter((n) => !n.isRead).map((n) => n.id);
+    setFresh(new Set(ids));
+    if (ids.length) {
+      setList((l) => l.map((n) => ({ ...n, isRead: true })));
+      api('/notifications/read-all', {}).catch(() => {});
+    }
+  };
+  // a short delay lets the mouse move from the bell down into the panel without it closing
+  const hide = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => { setOpen(false); setFresh(new Set()); }, 250);
+  };
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="bellwrap" onMouseEnter={show} onMouseLeave={hide}>
       <button
         className="bell"
-        onClick={() => {
-          setOpen(!open);
-          load();
-        }}
+        aria-label={unread ? `Notifications, ${unread} new` : 'Notifications'}
+        aria-expanded={open}
+        onClick={() => (open ? (clearTimeout(closeTimer.current), setOpen(false)) : show())}
       >
         🔔{unread > 0 && <i className="dot" />}
       </button>
 
       {open && (
-        <div className="bellpanel">
+        <div className="bellpanel" role="dialog" aria-label="Notifications">
+          <div className="bellhead">Notifications</div>
           {list.length ? (
             list.map((n) => (
-              <p
-                key={n.id}
-                className={n.isRead ? '' : 'unread'}
-                onClick={() => api(`/notifications/${n.id}/read`, {}, 'PUT').then(load)}
-              >
+              <p key={n.id} className={fresh.has(n.id) ? 'unread' : ''}>
                 {n.message}
                 <small>{n.category}</small>
               </p>
             ))
           ) : (
-            <p>No notifications yet</p>
+            <p className="bellempty">No notifications yet</p>
           )}
         </div>
       )}
@@ -343,7 +360,7 @@ function Shell({ user, children, title, sub }) {
         </nav>
 
         <div className="vnav-right">
-          {user.role === 'student' && title === 'Dashboard' && <Bell />}
+          {user.role === 'student' && <Bell />}
           <div className="vuser">
             <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={user.name}>
               <span className="avatar">{ini}</span>
