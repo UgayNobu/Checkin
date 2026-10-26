@@ -1,6 +1,4 @@
-// Next.js: the API address comes from NEXT_PUBLIC_API (or the old VITE_API) in frontend/.env or .env.local.
-// '/api' also works: next.config.mjs forwards /api to the backend.
-const BASE = process.env.NEXT_PUBLIC_API || 'http://localhost:5000/api';
+const BASE = import.meta.env.VITE_API || 'http://localhost:5000/api';
 export const FILES = BASE.replace(/\/api$/, '');
 /** Link for a file the API returned: full URLs (Supabase) as-is, server paths on the backend. */
 export const fileHref = (u) => (!u ? null : /^https?:\/\//.test(u) ? u : FILES + u);

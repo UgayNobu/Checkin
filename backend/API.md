@@ -131,21 +131,3 @@ a class session keeps its section, so its attendance stays with the semester it 
 Hour-weighted: hours attended (Present or Late) ÷ hours of sessions already held × 100.
 A 2-hour practical counts twice a 1-hour lecture. Flagged check-ins don't count until the tutor accepts them.
 All of this lives in `src/services/stats.service.js`.
-
-## Tutor accounts (admin) — added Oct 2026
-
-Tutors no longer sign up or wait for approval. `POST /auth/register` with `role: "teacher"` and `POST /auth/tutor/request` now answer **403 `TUTOR_CREATED_BY_ADMIN`**.
-
-| Method | Path | Who | What |
-| --- | --- | --- | --- |
-| GET | `/admin/tutors` | admin | Every tutor + their modules this semester + `mustChangePassword` |
-| POST | `/admin/tutors` | admin | Create a tutor `{ userId, name, email, phone?, department?, programme?, password? }`. Blank password = `DEFAULT_TUTOR_PASSWORD`. Emails (and texts) the login details. Returns the user + `defaultPassword`. |
-| GET | `/admin/tutors/:id/modules` | admin | The tutor's modules this semester |
-| POST | `/admin/tutors/:id/modules` | admin | Assign modules `{ moduleIds: [...] }` (this semester; a module with another tutor moves to this one) |
-| POST | `/admin/tutors/:id/reset-password` | admin | Set the password back to the default; tutor is emailed/texted and asked to change it |
-
-Login and `/me` now include `mustChangePassword` (login `user`) / `prefs.mustChangePassword` (`/me`) while the default password is still in use. Changing the password clears it.
-
-## Notifications — changed Oct 2026
-
-Every notification is stored in the app **and** emailed to the account's email (unless the user turned email off). If the user turned SMS on and has a phone number, it is also texted. Password changes / resets are always emailed and texted to the phone on file. SMS needs `SMS_PROVIDER` in `.env` (see `src/lib/sms.js`).

@@ -37,18 +37,6 @@ const moduleBodySchema = z.object({
 });
 const moduleIdParamSchema = z.object({ id });
 
-// Admin creates a tutor account (no sign-up / approval). Blank password = DEFAULT_TUTOR_PASSWORD from .env.
-const tutorCreateSchema = z.object({
-  userId: z.string().trim().toUpperCase().regex(/^CST-[A-Z0-9]{2,6}$/, 'Staff ID looks like CST-0142'),
-  name: z.string().trim().min(2, 'must be at least 2 characters').max(100),
-  email: z.string().trim().toLowerCase().email('must be a valid email'),
-  phone: optionalText(20),
-  department: optionalText(100),
-  programme: optionalText(100),
-  password: optionalText(64),
-});
-const assignModulesSchema = z.object({ moduleIds: z.array(z.string().trim().min(1)).min(1, 'Choose at least one module').max(30) });
-
 const atRiskQuerySchema = z.object({
   below: optionalNumber(z.number().min(1).max(100)),
   department: optionalText(100),
@@ -62,7 +50,6 @@ const auditQuerySchema = z.object({
 module.exports = {
   programNameSchema, programRenameSchema, programParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
   modulesQuerySchema, moduleBodySchema, moduleIdParamSchema, atRiskQuerySchema, auditQuerySchema,
-  tutorCreateSchema, assignModulesSchema,
 };
 
 // ── Semesters (AS = Autumn, SS = Spring)

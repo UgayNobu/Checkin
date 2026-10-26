@@ -1,0 +1,84 @@
+.land{min-height:100vh;background:#fff}.lhead{display:flex;gap:10px;align-items:center;padding:14px 40px;border-bottom:1px solid #d9b8c4}.lhead small{display:block;font-size:9px}
+.lbody{display:flex;gap:40px;padding:60px 50px;flex-wrap:wrap}.ltxt{flex:1;min-width:300px}.ltxt h1{font-size:44px;line-height:1.05;margin:10px 0}.ltxt p{color:#2f6df0;max-width:440px;font-size:13px}.eyebrow{color:#2f6df0;font-size:10px;font-weight:700}
+.pick{width:340px;margin:0 auto;border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 8px 20px #0002;text-align:center}.pick h2{margin:6px 0 0}.pick small{font-size:10px}.pick .cont{font-size:9px;font-weight:700;margin:18px 0 10px}
+.opt{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;cursor:pointer;background:#fff}.opt div{flex:1}.opt b{display:block;font-size:13px}.opt small{color:#555}
+.fgt{display:block;text-align:right;color:var(--red);font-size:11px;margin:6px 0 12px}.alt{text-align:center;font-size:11px;margin-top:12px}.alt a{color:#2f6df0;cursor:pointer;text-decoration:underline}
+.logo{width:26px;height:26px;border-radius:50%;object-fit:cover}.lhead>div{display:flex;flex-direction:column}.logobox{width:54px;height:54px;border:1px solid var(--line);border-radius:12px;margin:0 auto 8px;display:grid;place-items:center}.logobox .logo{width:36px;height:36px}
+.photo{height:210px;margin-top:30px;background:#2b2f3a;position:relative;max-width:520px}.loc{position:absolute;left:4px;bottom:-34px;background:#111;color:#fff;font-size:10px;padding:8px 12px;border-radius:6px}
+.opt.hot{box-shadow:0 4px 10px #0003}
+
+/* Password checklist on the sign-up form */
+.pwrules { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 11px; color: #64748b; }
+.pwrules li { margin: 2px 0; }
+.pwrules li.ok { color: #16a34a; }
+
+/* Form validation (sign-up, login, forgot password) */
+.lcard input.bad, .lcard select.bad { border-color: #e5484d !important; background: #fff8f8; }
+.ferr { display: block; color: #b42318; font-size: 11px; margin: 3px 0 6px; }
+.showpw { display: flex !important; align-items: center; gap: 6px; font-size: 12px !important; font-weight: 400 !important; margin: 6px 0 2px; cursor: pointer; }
+.showpw input { width: auto !important; margin: 0; }
+.okmsg { color: #16a34a; font-size: 12px; font-weight: 600; text-align: center; margin: 8px 0; }
+.lcard button[disabled] { opacity: 0.6; cursor: not-allowed; }
+.steps { font-size: 11px; color: #64748b; text-align: center; margin: 0 0 10px; }
+
+/* ---------- Landing page (choose Student or Tutor) ----------
+   Full-screen campus photo with a dark overlay; big heading on the left and a
+   frosted "Continue as" card on the right. Stacks on phones. */
+.lx {
+  position: relative; min-height: 100vh; color: #fff; display: flex; flex-direction: column;
+  background: #0b1f3a url(/front.jpg) center / cover no-repeat;
+}
+.lx::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 18, 38, 0.88) 0%, rgba(8, 18, 38, 0.62) 55%, rgba(8, 18, 38, 0.72) 100%);
+}
+.lx > * { position: relative; }
+.lx-head { display: flex; align-items: center; gap: 12px; padding: 22px max(28px, calc((100% - 1240px) / 2)); }
+.lx-head img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; }
+.lx-head b { display: block; font-size: 19px; }
+.lx-head small { display: block; font-size: 12px; color: #cbd5e1; }
+.lx-body {
+  flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 64px; align-items: center;
+  width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 28px 64px; box-sizing: border-box;
+}
+.lx-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: #93c5fd; }
+.lx-text h1 { font-size: clamp(40px, 5.6vw, 84px); line-height: 1.02; margin: 14px 0 22px; font-weight: 800; letter-spacing: -0.02em; }
+.lx-text h1 span { color: #60a5fa; }
+.lx-text p { font-size: clamp(16px, 1.45vw, 21px); line-height: 1.5; color: #e2e8f0; max-width: 620px; margin: 0; }
+.lx-bar { width: 120px; height: 4px; border-radius: 4px; background: #3b82f6; margin-top: 28px; }
+.lx-loc { margin-top: 22px; font-size: 13px; color: #cbd5e1; }
+
+.lx-card {
+  background: rgba(15, 30, 55, 0.55); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+  padding: 34px 30px; text-align: center;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.lx-card .lx-logo { width: 72px; height: 72px; border-radius: 50%; background: #fff; padding: 4px; object-fit: cover; }
+.lx-card h2 { margin: 14px 0 4px; font-size: 28px; letter-spacing: 0.02em; }
+.lx-card > small { color: #cbd5e1; font-size: 13px; }
+.lx-line { width: 56px; height: 3px; border-radius: 3px; background: #fff; opacity: 0.8; margin: 18px auto; }
+.lx-cont { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #cbd5e1; margin-bottom: 14px; }
+.lx-opt {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+  padding: 16px 18px; margin-bottom: 12px; border-radius: 14px; font: inherit; color: #fff;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.lx-opt:hover, .lx-opt:focus-visible { background: rgba(59, 130, 246, 0.28); border-color: #60a5fa; transform: translateY(-1px); outline: none; }
+.lx-opt.lx-primary { background: #2563eb; border-color: #2563eb; }
+.lx-opt.lx-primary:hover, .lx-opt.lx-primary:focus-visible { background: #1d4ed8; }
+.lx-opt span { flex: 1; }
+.lx-opt b { display: block; font-size: 16px; }
+.lx-opt small { display: block; font-size: 12.5px; color: #dbeafe; margin-top: 2px; line-height: 1.4; }
+.lx-opt i { font-style: normal; font-size: 20px; opacity: 0.85; }
+
+@media (max-width: 960px) {
+  .lx-body { grid-template-columns: 1fr; gap: 36px; padding: 16px 20px 48px; }
+  .lx-card { max-width: 440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .lx::before { background: rgba(8, 18, 38, 0.78); }
+}
+@media (max-width: 480px) {
+  .lx-head { padding: 16px; }
+  .lx-card { padding: 26px 20px; }
+}
