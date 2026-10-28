@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import './public.css';
-import front from '../../../photo/front.jpg';
-import logo from '../../../photo/logo.jpg';
+// photo/ is Vite's publicDir, so its files are served from the site root
+const front = '/front.jpg';
+const logo = '/logo.jpg';
 const Logo = () => <img className="logo" src={logo} alt="CST logo" />;
 
 export default function Landing() {

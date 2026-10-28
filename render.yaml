@@ -1,0 +1,30 @@
+# Render Blueprint for the backend API (free plan). The frontend goes on Vercel.
+# Render dashboard → New → Blueprint → pick this repo. Fill in the values marked
+# sync: false when asked. Full steps: docs/MOBILE.md
+services:
+  - type: web
+    name: checkin-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npm run generate
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # the Vercel address, e.g. https://checkin-cst.vercel.app (comma-separate several)
+      - key: FRONTEND_URL
+        sync: false
+      - key: GEOFENCE_METRES
+        value: "10"

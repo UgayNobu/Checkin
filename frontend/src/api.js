@@ -44,6 +44,11 @@ export async function api(path, body, method) {
       body: form || !body ? body : JSON.stringify(body),
     });
     const d = await r.json();
+    // Saved login has expired or is no longer valid: forget it and go back to the login page
+    if (r.status === 401 && !path.startsWith('/auth/') && auth.get()) {
+      auth.clear();
+      window.location.replace('/login');
+    }
     if (!r.ok) throw new Error(d.error || 'Something went wrong');
     return d;
   } finally {

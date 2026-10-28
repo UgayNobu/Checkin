@@ -452,6 +452,12 @@ td {
 }
 
 /* ---------- 14. Responsive ---------- */
+/* Phone menu bar: only shown on small screens */
+.mbar,
+.mshade {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .login {
     grid-template-columns: 1fr;
@@ -461,8 +467,129 @@ td {
     display: none;
   }
 
+  /* Sidebar becomes a slide-in drawer opened from the menu bar */
+  .shell {
+    flex-direction: column;
+  }
+
+  .mbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 10px 14px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 17px;
+    background: var(--navy-staff);
+  }
+
+  .student .mbar {
+    background: var(--navy-student);
+  }
+
+  .mbar .logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #fff;
+  }
+
+  .mbtn {
+    background: none;
+    border: 0;
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    padding: 4px 6px;
+    cursor: pointer;
+  }
+
   .side {
-    width: 150px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: 240px;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+  }
+
+  .side.open {
+    transform: none;
+  }
+
+  .side a,
+  .side button {
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+
+  .mshade {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: #0006;
+  }
+
+  /* Page header: title on top, user info below */
+  .top {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .top h2 {
+    font-size: 18px;
+  }
+
+  .page {
+    padding: 14px;
+  }
+
+  /* Cards, stats and rows stack instead of overflowing */
+  .stats,
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .card,
+  .lcard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .bellpanel {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    top: 110px;
+    width: auto;
+  }
+
+  /* Wide tables scroll sideways inside the page, not the whole page */
+  .page table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* 16px stops iPhones zooming in when a field is tapped */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
 /* Student sign-up photo */

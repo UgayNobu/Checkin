@@ -253,6 +253,7 @@ const SUB = {
 function Shell({ user, children, title, sub }) {
   const nav = useNavigate();
   const [pend, setPend] = useState(0);
+  const [menu, setMenu] = useState(false); // sidebar drawer on phones
   const ini = user.name
     .split(' ')
     .map((w) => w[0])
@@ -278,8 +279,15 @@ function Shell({ user, children, title, sub }) {
 
   return (
     <div className={'shell ' + user.role}>
+      {/* Phone-only bar with the menu button (hidden on desktop, see base.css) */}
+      <div className="mbar">
+        <button className="mbtn" onClick={() => setMenu(true)} aria-label="Open menu">☰</button>
+        <img className="logo" src="/logo.jpg" alt="" /> CheckIn
+      </div>
+      {menu && <div className="mshade" onClick={() => setMenu(false)} />}
+
       {/* Sidebar */}
-      <aside className="side">
+      <aside className={'side' + (menu ? ' open' : '')}>
         <div className="brand">
           <img className="logo" src="/logo.jpg" alt="" /> CheckIn
           {user.role === 'admin' && (
@@ -291,7 +299,7 @@ function Shell({ user, children, title, sub }) {
 
         <nav>
           {NAV[user.role].map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'}>
+            <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenu(false)}>
               {label}
               {to === '/evidence' && pend > 0 && <span className="nbadge">{pend}</span>}
             </NavLink>
@@ -300,6 +308,7 @@ function Shell({ user, children, title, sub }) {
 
         <button
           onClick={() => {
+            api('/auth/logout', {}).catch(() => {}); // also clear the login cookie
             auth.clear();
             nav('/login');
           }}

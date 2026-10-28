@@ -124,6 +124,10 @@ docker compose up -d --build  # open http://localhost:8080
 
 The CI/CD pipeline, image publishing and server deployment are covered in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
+### On a phone
+
+CheckIn is an installable web app (PWA): host it free on Vercel + Render, open the link on a phone and tap **Add to Home Screen**. Steps in [docs/MOBILE.md](./docs/MOBILE.md).
+
 ### Test accounts
 
 All seeded users use the password `Test@1234`.
