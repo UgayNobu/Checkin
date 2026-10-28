@@ -326,7 +326,7 @@ This repo is public so our guide and co-guide can follow progress.
 | Guide | Mr. Parsu Ram Dhungyel |
 | Co-Guide | Mr. Pema Namgay |
 
-The project proposal and weekly sprint reports are in [`docs/`](./docs).
+The project proposal and weekly sprint reports are in [`docs/`](./docs), and progress, daily and deployment reports in [`docs/reports/`](./docs/reports).
 
 ## License
 

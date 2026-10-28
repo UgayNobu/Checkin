@@ -150,3 +150,6 @@ backend/uploads/*
 
 # internal college data with real staff names (kept out of the public repo)
 backend/prisma/timetable_AS2026.sql
+
+# Git bundles used to move commits between machines
+*.bundle
