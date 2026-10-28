@@ -10,7 +10,8 @@
     "seed": "node prisma/seed.js",
     "create-admin": "node scripts/create-admin.js",
     "import-roster": "node scripts/import-roster.js",
-    "mail:test": "node scripts/test-mail.js"
+    "mail:test": "node scripts/test-mail.js",
+    "test": "jest"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -30,6 +31,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "jest": "^30.5.2",
     "prisma": "^5.22.0"
   }
 }

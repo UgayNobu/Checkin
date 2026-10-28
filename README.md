@@ -83,7 +83,11 @@ Checkin/
 │       ├── schema.prisma     # Prisma map of the database tables
 │       ├── database.sql      # all database changes + seed data
 │       └── seed.js           # npm run seed – loads the seed data part
-├── docs/                     # proposal, sprint reports
+├── .github/workflows/        # CI/CD pipeline
+├── docker-compose.yml        # local Docker stack (own Postgres)
+├── docker-compose.prod.yml   # production (GHCR images + Supabase)
+├── scripts/smoke-test.sh     # end-to-end check used by CI
+├── docs/                     # proposal, sprint reports, DEPLOYMENT.md
 └── README.md
 ```
 
@@ -139,6 +143,23 @@ Phones only share their location with **https** pages, and `localhost` on a phon
 3. Open the printed `https://….trycloudflare.com` link on the phones and allow **precise** location.
 
 The link changes each time the tunnel restarts, and the app works on phones only while that laptop runs the backend, frontend and tunnel. Turn on **Precise location** on each phone (iPhone: Settings → Privacy & Security → Location Services → Safari/Chrome; Android: Settings → Location → Use precise location).
+
+Or run both from the repo root in one terminal: `npm run install:all` once, then `npm run dev`.
+
+### Or: run everything in Docker
+
+No Node, Supabase or `.env` values needed. Docker starts its own local database with the seed data.
+
+```bash
+cp .env.example .env          # then set JWT_SECRET
+docker compose up -d --build  # open http://localhost:8080
+```
+
+The CI/CD pipeline, image publishing and server deployment are covered in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+
+### On a phone
+
+CheckIn is an installable web app (PWA): host it free on Vercel + Render, open the link on a phone and tap **Add to Home Screen**. Steps in [docs/MOBILE.md](./docs/MOBILE.md).
 
 ### Test accounts
 
