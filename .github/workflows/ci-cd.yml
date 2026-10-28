@@ -1,0 +1,180 @@
+# CheckIn CI/CD
+#   Every PR into dev/main and every push to dev/main:
+#     1. backend   - install, validate Prisma schema, syntax-check JS
+#     2. frontend  - install, production build
+#     3. docker    - build all images, start the full stack, run scripts/smoke-test.sh
+#   Push to dev/main (after 1-3 pass):
+#     4. publish   - push images to GitHub Container Registry (ghcr.io)
+#   Push to main, only when the DEPLOY_HOST repo variable is set:
+#     5. deploy    - SSH to the server and roll out the new images
+# See docs/DEPLOYMENT.md for the one-time setup.
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # dummy values: only needed so Prisma can parse the schema
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - run: npx prisma generate
+      - name: Syntax-check JavaScript
+        run: for f in $(find src -name "*.js") prisma/seed.js scripts/*.js; do node --check "$f"; done
+      - name: Unit tests
+        run: npm test
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - run: npm run build
+        env:
+          VITE_API: /api
+
+  docker:
+    name: Docker build + smoke test
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    env:
+      APP_PORT: ${{ vars.CI_APP_PORT || 8080 }}   # compose publishes the frontend here
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env for compose
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+      - name: Build images
+        run: docker compose build
+      - name: Start stack
+        run: docker compose up -d
+      - name: Smoke test
+        run: sh scripts/smoke-test.sh "http://localhost:$APP_PORT"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose ps -a && docker compose logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  publish:
+    name: Publish images
+    needs: docker
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: checkin-backend
+            context: ./backend
+            target: runtime
+          - name: checkin-frontend
+            context: ./frontend
+            target: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image name (ghcr needs lowercase)
+        id: img
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.repo }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    name: Deploy to server
+    needs: publish
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${{ vars.DEPLOY_PORT || 22 }}" "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+      - name: Copy compose file
+        run: |
+          scp -i ~/.ssh/id_deploy -P "${{ vars.DEPLOY_PORT || 22 }}" docker-compose.prod.yml \
+            "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}:${{ vars.DEPLOY_PATH || 'checkin' }}/docker-compose.prod.yml"
+      - name: Pull and restart
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${{ vars.DEPLOY_PORT || 22 }}" "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
+            "set -e
+             cd '${{ vars.DEPLOY_PATH || 'checkin' }}'
+             echo '$GHCR_TOKEN' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+             export IMAGE_OWNER='${GITHUB_REPOSITORY_OWNER,,}' IMAGE_TAG='sha-${GITHUB_SHA::7}'
+             docker compose -f docker-compose.prod.yml pull
+             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+             docker logout ghcr.io
+             docker image prune -f"
