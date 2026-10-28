@@ -29,6 +29,11 @@ const userOut = (u) => ({
   department: u.department, designation: u.designation, programme: u.programme, year: u.year,
   role: roleOut(u.role), active: u.isActive, status: u.status, createdAt: u.createdAt,
   avatarUrl: u.avatarUrl || null, prefs: { ...DEFAULT_PREFS, ...(u.prefs || {}) },
+  // Why and when the account was deactivated (null while active)
+  deactivation: u.isActive || !u.deactivationReason ? null
+    : { reason: u.deactivationReason, note: u.deactivationNote || null, at: u.deactivatedAt, by: u.deactivatedBy },
+  // A tutor who signed up but hasn't been approved yet (not the same as deactivated)
+  pending: !u.isActive && u.status === 'active',
 });
 
 module.exports = { roleOut, roleIn, cap, apiStatus, sessionStart, round1, flagText, monthStart, initials, userOut, DEFAULT_PREFS };

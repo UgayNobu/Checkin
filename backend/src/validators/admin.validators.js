@@ -1,8 +1,9 @@
-const { z, id, optionalText, optionalNumber } = require('./common');
+const { z, id, optionalText, optionalNumber, isoDate } = require('./common');
 
 const programNameSchema = z.object({ name: z.string().trim().min(2).max(100) });
 const programRenameSchema = z.object({ from: z.string().trim().min(1), to: z.string().trim().min(2).max(100) });
 const programParamSchema = z.object({ name: z.string().trim().min(1) });
+const programModuleParamSchema = z.object({ name: z.string().trim().min(1), id: z.string().trim().min(1).max(10) });
 
 const usersQuerySchema = z.object({
   role: z.enum(['student', 'teacher', 'admin', 'management']).default('student'),
@@ -11,7 +12,15 @@ const usersQuerySchema = z.object({
   year: optionalNumber(z.number().int().min(1).max(6)),
 });
 const userIdParamSchema = z.object({ id });
-const userPatchSchema = z.object({ active: z.boolean().optional(), name: z.string().trim().min(2).max(100).optional() });
+// Deactivating needs a reason; the allowed reasons depend on the role (checked in admin.service).
+const DEACTIVATION_REASONS = ['graduated', 'dropped_out', 'transferred', 'on_leave', 'resigned', 'retired', 'other'];
+const userPatchSchema = z.object({
+  active: z.boolean().optional(),
+  name: z.string().trim().min(2).max(100).optional(),
+  reason: z.enum(DEACTIVATION_REASONS).optional(),
+  note: optionalText(200),
+}).refine((b) => b.active !== false || b.reason, { message: 'Choose why this account is being deactivated', path: ['reason'] })
+  .refine((b) => b.reason !== 'other' || b.note, { message: 'Write a short note when the reason is "Other"', path: ['note'] });
 
 const modulesQuerySchema = z.object({
   department: optionalText(100),
@@ -40,6 +49,27 @@ const auditQuerySchema = z.object({
 });
 
 module.exports = {
-  programNameSchema, programRenameSchema, programParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
+  programNameSchema, programRenameSchema, programParamSchema, programModuleParamSchema, usersQuerySchema, userIdParamSchema, userPatchSchema,
   modulesQuerySchema, moduleBodySchema, moduleIdParamSchema, atRiskQuerySchema, auditQuerySchema,
 };
+
+// ── Semesters (AS = Autumn, SS = Spring)
+const semesterParamSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^(AS|SS)\d{4}$/, 'must look like AS2027') });
+const semesterBodySchema = z.object({
+  code: z.string().trim().toUpperCase().regex(/^(AS|SS)\d{4}$/, 'must look like AS2027 (Autumn) or SS2027 (Spring)'),
+  name: optionalText(60),
+  startDate: isoDate,
+  endDate: isoDate,
+});
+const makeCurrentSchema = z.object({ promoteYears: z.boolean().default(false) });
+module.exports = { ...module.exports, semesterParamSchema, semesterBodySchema, makeCurrentSchema };
+
+// Admin creates a tutor account (staff ID, name, college email, department)
+const createTutorSchema = z.object({
+  userId: z.string().trim().regex(/^CST-[A-Z0-9]{2,6}$/i, 'must be a staff ID, e.g. CST-0142'),
+  name: z.string().trim().min(2, 'must be at least 2 characters').max(100)
+    .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'can only contain letters, spaces, dots, hyphens and apostrophes'),
+  email: z.string().trim().toLowerCase().email('must be a valid email').regex(/@rub\.edu\.bt$/i, 'must be a college email (@rub.edu.bt)'),
+  department: z.string().trim().min(2, 'Choose a department').max(100),
+});
+module.exports = { ...module.exports, createTutorSchema };

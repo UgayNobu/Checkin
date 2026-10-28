@@ -11,23 +11,24 @@ const { cap } = require('../utils/format');
 const { BadRequest, Forbidden, NotFound, Conflict } = require('../utils/errors');
 const { notify } = require('./notifications.service');
 const { writeAuditLog } = require('./audit.service');
+const { currentAcademicSession } = require('../lib/academicSession');
 
 const include = { student: true, module: true, reviewer: true };
 
 /* ---------- Helpers ---------- */
 
-// Modules a student is enrolled in: [{ id, code }]
+// Modules a student is enrolled in this semester: [{ id, code }]
 async function studentModules(studentId) {
   const rows = await prisma.enrollment.findMany({
-    where: { studentId },
+    where: { studentId, academicSession: await currentAcademicSession() },
     select: { module: { select: { id: true, code: true } } },
   });
   return rows.map((r) => r.module);
 }
 
-// Module ids a tutor teaches
+// Module ids a tutor teaches this semester
 async function tutorModuleIds(tutorId) {
-  const secs = await prisma.section.findMany({ where: { tutorId }, select: { moduleId: true } });
+  const secs = await prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, select: { moduleId: true } });
   return [...new Set(secs.map((s) => s.moduleId))];
 }
 
@@ -35,7 +36,7 @@ async function tutorModuleIds(tutorId) {
 async function teachesStudent(tutorId, studentId) {
   const ids = await tutorModuleIds(tutorId);
   if (!ids.length) return false;
-  return !!(await prisma.enrollment.findFirst({ where: { studentId, moduleId: { in: ids } } }));
+  return !!(await prisma.enrollment.findFirst({ where: { studentId, moduleId: { in: ids }, academicSession: await currentAcademicSession() } }));
 }
 
 // 'pdf' | 'image' | null — lets the page pick an <iframe> or an <img>.
@@ -102,7 +103,7 @@ async function submit(student, { date, type, reason }, file) {
 
   // Tell every tutor of the student's modules (each tutor once)
   const secs = await prisma.section.findMany({
-    where: { moduleId: { in: mods.map((m) => m.id) } },
+    where: { moduleId: { in: mods.map((m) => m.id) }, academicSession: await currentAcademicSession() },
     select: { tutorId: true },
   });
   const label = type === 'official' ? 'official' : 'medical';
@@ -125,7 +126,7 @@ async function listForStaff(user, { status }) {
   if (user.role === 'teacher') {
     const ids = await tutorModuleIds(user.id);
     if (!ids.length) return [];
-    const en = await prisma.enrollment.findMany({ where: { moduleId: { in: ids } }, select: { studentId: true } });
+    const en = await prisma.enrollment.findMany({ where: { moduleId: { in: ids }, academicSession: await currentAcademicSession() }, select: { studentId: true } });
     where.studentId = { in: [...new Set(en.map((e) => e.studentId))] };
   }
 
@@ -170,6 +171,16 @@ async function review(user, id, { status, note }) {
 
   const day = r.date.toISOString().slice(0, 10);
   await notify(r.studentId, `Your absence request for ${day} was ${status}.${note ? ` Note: ${note}` : ''}`, 'Evidence Documents', { email: `Absence request ${status}` });
+  // Tell the student's tutors too (each once), with an email if they have email notifications on
+  const mods = await studentModules(r.studentId);
+  const secs = await prisma.section.findMany({
+    where: { moduleId: { in: mods.map((m) => m.id) }, academicSession: await currentAcademicSession() },
+    select: { tutorId: true },
+  });
+  for (const tutorId of new Set(secs.map((s) => s.tutorId))) {
+    await notify(tutorId, `${r.student.name} (${r.studentId})'s absence request for ${day} was ${status} by management.${approved ? ' Their classes on that day are now marked Present.' : ''}`,
+      'Evidence Documents', { email: `Absence request ${status}: ${r.student.name}` });
+  }
   await writeAuditLog(user.id, approved ? 'Evidence approved' : 'Evidence rejected', `${r.student.name} (${r.studentId}) ${day}`);
   return { _id: r.id, status };
 }

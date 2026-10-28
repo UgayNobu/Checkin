@@ -5,14 +5,19 @@ const { loadMatrix, enrolledModuleIds } = require('./stats.service');
 const { sessionStart, round1 } = require('../utils/format');
 const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors');
 const { normalizeEnrolmentKey } = require('../utils/enrolment-key');
+const { currentAcademicSession } = require('../lib/academicSession');
 
 /** One card per enrolled module with its attendance %. */
 async function dashboard(studentId) {
-  const en = await prisma.enrollment.findMany({ where: { studentId }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
+  const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
   const m = await loadMatrix(en.map((e) => e.moduleId), [studentId]);
   return en.map((e) => {
-    const pct = m.pct(studentId, e.moduleId) ?? 0;
-    return { id: e.moduleId, name: e.module.name, code: e.module.code, pct, atRisk: pct < env.atRiskPct, belowRequired: pct < env.requiredPct };
+    // pct is null until a class of the module has been held: "no classes yet", not 0%
+    const pct = m.pct(studentId, e.moduleId);
+    return {
+      id: e.moduleId, name: e.module.name, code: e.module.code, pct, classes: m.sessionsOf(e.moduleId).length,
+      atRisk: pct != null && pct < env.atRiskPct, belowRequired: pct != null && pct < env.requiredPct,
+    };
   });
 }
 
@@ -21,7 +26,7 @@ async function summary(studentId) {
   const mods = await enrolledModuleIds(studentId);
   const t = (await loadMatrix(mods, [studentId])).overallTally(studentId, mods);
   return {
-    rate: t.total ? Math.round((t.present / t.total) * 100) : 0,
+    rate: t.total ? Math.round((t.present / t.total) * 100) : null, // null = no classes held yet
     absences: t.missed,
     absentHours: round1(t.missedHours),
     required: env.requiredPct,
@@ -30,14 +35,15 @@ async function summary(studentId) {
 
 /** Session-by-session list for one module, split into theory and practical. */
 async function moduleRecords(studentId, moduleId) {
-  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId, moduleId } } });
+  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId, academicSession: await currentAcademicSession() } } });
   if (!enrolled) throw Forbidden('You are not enrolled in this module', 'NOT_ENROLLED');
   const m = await loadMatrix([moduleId], [studentId]);
   const rows = m.sessionsOf(moduleId)
+    .filter((s) => m.wasIn(studentId, s.id)) // classes held before they enrolled don't count
     .map((s) => ({ date: sessionStart(s), hours: s.duration / 60, type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }))
     .reverse();
-  const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) ?? 0 });
-  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) ?? 0 };
+  const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) }); // null = none held
+  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) };
 }
 
 /**
@@ -45,9 +51,19 @@ async function moduleRecords(studentId, moduleId) {
  * under each programme/year/semester it belongs to. The enrolment key is never sent.
  */
 async function browseModules(studentId) {
+  const academicSession = await currentAcademicSession();
   const [rows, mine] = await Promise.all([
     prisma.programModule.findMany({
-      include: { program: true, module: { include: { sections: { take: 1, include: { tutor: { select: { name: true } } } }, _count: { select: { enrollments: true } } } } },
+      include: {
+        program: true,
+        module: {
+          include: {
+            // this semester's tutor and class size only
+            sections: { where: { academicSession }, take: 1, include: { tutor: { select: { name: true } } } },
+            _count: { select: { enrollments: { where: { academicSession } } } },
+          },
+        },
+      },
       orderBy: { module: { code: 'asc' } },
     }),
     enrolledModuleIds(studentId),
@@ -72,9 +88,10 @@ async function enrol(studentId, { module, key }) {
   if (!m) throw NotFound(module ? 'Module not found' : 'Enrolment key not found. Check it with your tutor.', module ? 'MODULE_NOT_FOUND' : 'KEY_NOT_FOUND');
   if (!m.selfEnrol) throw Forbidden('Self-enrolment is closed for this module. Ask your tutor to add you.', 'SELF_ENROL_CLOSED');
   if (!m.enrolmentKey || m.enrolmentKey.toUpperCase() !== k) throw BadRequest('Wrong enrolment key for this module', 'WRONG_KEY');
-  const exists = await prisma.enrollment.findUnique({ where: { studentId_moduleId: { studentId, moduleId: m.id } } });
+  const academicSession = await currentAcademicSession();
+  const exists = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId: m.id, academicSession } } });
   if (exists) throw Conflict(`You are already enrolled in ${m.name}`, 'ALREADY_ENROLLED');
-  await prisma.enrollment.create({ data: { studentId, moduleId: m.id } });
+  await prisma.enrollment.create({ data: { studentId, moduleId: m.id, academicSession } });
   return { message: `Joined ${m.name}`, module: { id: m.id, code: m.code, name: m.name } };
 }
 

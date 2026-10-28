@@ -84,7 +84,7 @@ export function Overview() {
                 <td><b>{r.department}</b></td>
                 <td>{r.students ?? ''}</td>
                 <td>{r.modules ?? ''}</td>
-                <td>{r.attendance != null ? `${r.attendance}%` : ''}</td>
+                <td>{r.attendance != null ? `${r.attendance}%` : <span style={{ color: '#6a737b' }}>No classes yet</span>}</td>
                 <td>
                   <a
                     className="view"

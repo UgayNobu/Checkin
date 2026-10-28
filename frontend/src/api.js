@@ -44,14 +44,28 @@ export async function api(path, body, method) {
       body: form || !body ? body : JSON.stringify(body),
     });
     const d = await r.json();
-    // Saved login has expired or is no longer valid: forget it and go back to the login page
+    // Saved login has expired or is no longer valid: forget it and go back to the start page
     if (r.status === 401 && !path.startsWith('/auth/') && auth.get()) {
       auth.clear();
-      window.location.replace('/login');
+      window.location.replace('/welcome');
     }
-    if (!r.ok) throw new Error(d.error || 'Something went wrong');
+    if (!r.ok) throw Object.assign(new Error(d.error || 'Something went wrong'), { code: d.code, status: r.status });
     return d;
   } finally {
     loading(false);
+  }
+}
+/**
+ * Log out everywhere: asks the backend to delete the login cookie (checkin_token),
+ * then forgets the saved login in this browser. Clearing only localStorage is not
+ * enough, because the browser would keep sending the cookie.
+ */
+export async function logout() {
+  try {
+    await api('/auth/logout', {});
+  } catch {
+    /* backend unreachable: still log out locally */
+  } finally {
+    auth.clear();
   }
 }

@@ -19,7 +19,7 @@ const { BadRequest, Unauthorized, Forbidden, NotFound, Conflict } = require('../
 const { notifyAdmins, notify } = require('./notifications.service');
 const crypto = require('crypto');
 const { env } = require('../config/env');
-const { sendMail, isSmtpConfigured } = require('../lib/mailer');
+const { sendMail, isSmtpConfigured, explain } = require('../lib/mailer');
 
 const authUser = (u) => ({ name: u.name, userId: u.id, role: roleOut(u.role) });
 const departmentFromProgramme = (p) => (p || '').replace(/^(BE|B\.E\.)\s+/i, '') || null;
@@ -89,7 +89,7 @@ async function login({ userId, password }) {
   if (!u || !u.passwordHash || !ok) throw Unauthorized('Wrong ID or password', 'INVALID_CREDENTIALS');
   if (!u.isActive) {
     if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your account is waiting for admin approval.', 'ACCOUNT_PENDING');
-    throw Forbidden('Account is not active. Contact ICT Services.', 'ACCOUNT_NOT_ACTIVE');
+    throw Forbidden('This account has been deactivated. If you have returned to the college, ask the admin to activate it again.', 'ACCOUNT_NOT_ACTIVE');
   }
   return { token: signAuthToken({ id: u.id, role: roleOut(u.role) }), user: authUser(u) };
 }
@@ -105,6 +105,7 @@ async function changePassword(userId, { current, next }) {
   if (!u?.passwordHash || !(await verifyPassword(current, u.passwordHash))) throw BadRequest('Current password is wrong', 'WRONG_CURRENT_PASSWORD');
   if (await verifyPassword(next, u.passwordHash)) throw BadRequest('New password must be different from the current one', 'PASSWORD_UNCHANGED');
   await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next) } });
+  await notify(u.id, 'Your CheckIn password was changed. If this wasn\'t you, reset it with "Forgot password" and contact ICT Services.', 'System', { email: 'Your CheckIn password was changed' });
   return { message: 'Password updated' };
 }
 
@@ -132,7 +133,13 @@ async function forgotPassword({ userId }) {
 
   const text = `Hello ${u.name || ''},\n\nYour CheckIn password reset code is ${code}.\nIt expires in ${RESET_MINUTES} minutes. If you didn't ask for this, you can ignore this email.`;
   if (isSmtpConfigured()) {
-    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text }).catch((e) => console.warn('[mailer] reset email failed:', e.message));
+    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text })
+      .then(() => console.log(`[forgot-password] code emailed to ${u.id}`))
+      .catch((e) => {
+        console.warn('[mailer] reset email failed:', explain(e));
+        // During development, still show the code so testing isn't blocked by email problems
+        if (!env.isProd) console.log(`[forgot-password] code for ${u.id}: ${code}  (email failed)`);
+      });
   } else if (!env.isProd) {
     // Email isn't set up yet (no SMTP_HOST in .env): print the code so it can still be tested
     console.log(`[forgot-password] code for ${u.id}: ${code}  (email not configured)`);
@@ -156,7 +163,7 @@ async function resetPassword({ userId, code, password }) {
     prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } }),
     prisma.passwordReset.update({ where: { id: r.id }, data: { usedAt: new Date() } }),
   ]);
-  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System');
+  await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System', { email: 'Your CheckIn password was reset' });
   return { message: 'Password changed. You can log in with your new password.' };
 }
 

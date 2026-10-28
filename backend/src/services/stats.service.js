@@ -10,19 +10,26 @@
 //                  hours of sessions already held
 //
 // A session counts once its start time has passed. A student with
-// no record for a held session is absent.
+// no record for a held session is absent. Optional extra classes
+// (class_sessions.counts = false) never count.
+//
+// Semesters: everything here counts ONE academic session (semester) —
+// the current one unless { term: 'AS2026' } is passed — so a module
+// taught again next year starts from zero and old records stay intact.
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { ATTENDED } = require('../config/constants');
 const { sessionStart, round1, apiStatus } = require('../utils/format');
+const { sessionOrCurrent } = require('../lib/academicSession');
 
 const hoursOf = (s) => (s.duration || 60) / 60;
 const isHeld = (s, now = Date.now()) => sessionStart(s).getTime() <= now;
 
-/** Held sessions of one module, oldest first. */
-async function heldSessions(moduleId) {
+/** Held sessions of one module in a semester (current by default), oldest first. */
+async function heldSessions(moduleId, { term } = {}) {
+  const academicSession = await sessionOrCurrent(term);
   const all = await prisma.classSession.findMany({
-    where: { section: { moduleId } }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    where: { section: { moduleId, academicSession }, counts: true }, orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
   return all.filter((s) => isHeld(s));
 }
@@ -31,22 +38,28 @@ async function heldSessions(moduleId) {
  * Loads sessions + attended records for many modules in 2 queries, then
  * answers % questions from memory. Use this for lists and reports.
  */
-async function loadMatrix(moduleIds, studentIds) {
+async function loadMatrix(moduleIds, studentIds, { term } = {}) {
+  const academicSession = await sessionOrCurrent(term);
   // Both queries run at the same time (one round trip to the database instead of two).
   const [allSessions, allAtt] = await Promise.all([
     prisma.classSession.findMany({
-      where: { section: { moduleId: { in: moduleIds } } },
+      where: { section: { moduleId: { in: moduleIds }, academicSession }, counts: true },
       select: { id: true, date: true, startTime: true, duration: true, sessionType: true, section: { select: { moduleId: true } } },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     }),
     prisma.attendance.findMany({
-      where: { session: { section: { moduleId: { in: moduleIds } } }, status: { in: ATTENDED }, ...(studentIds && { studentId: { in: studentIds } }) },
-      select: { studentId: true, sessionId: true },
+      where: { session: { section: { moduleId: { in: moduleIds }, academicSession }, counts: true }, ...(studentIds && { studentId: { in: studentIds } }) },
+      select: { studentId: true, sessionId: true, status: true },
     }),
   ]);
   const sessions = allSessions.filter((s) => isHeld(s));
   const heldIds = new Set(sessions.map((s) => s.id));
-  const att = allAtt.filter((a) => heldIds.has(a.sessionId));
+  const rec = allAtt.filter((a) => heldIds.has(a.sessionId));
+  // A class only counts for a student who has a record in it. Closing a class writes Absent for
+  // every student enrolled at that time, so someone who enrolled later is not counted absent
+  // for classes held before they joined.
+  const recorded = new Set(rec.map((a) => `${a.studentId}|${a.sessionId}`));
+  const att = rec.filter((a) => ATTENDED.includes(a.status));
   const perSession = new Map();
   for (const a of att) perSession.set(a.sessionId, (perSession.get(a.sessionId) || 0) + 1);
 
@@ -60,19 +73,23 @@ async function loadMatrix(moduleIds, studentIds) {
 
   /** Hour totals for a student over a list of sessions. */
   const tally = (studentId, list) => {
-    let total = 0, present = 0, missed = 0, missedHours = 0;
+    let total = 0, present = 0, missed = 0, missedHours = 0, count = 0;
     for (const s of list) {
+      if (!recorded.has(`${studentId}|${s.id}`)) continue; // not part of this class (enrolled later, or still running)
+      count++;
       total += hoursOf(s);
       if (attendedSession(studentId, s.id)) present += hoursOf(s);
       else { missed++; missedHours += hoursOf(s); }
     }
-    return { total, present, missed, missedHours, sessions: list.length };
+    return { total, present, missed, missedHours, sessions: count };
   };
   const pctOf = (t) => (t.total ? round1((t.present / t.total) * 100) : null);
 
   return {
     sessionsOf: (moduleId) => byModule.get(moduleId) || [],
     attendedSession,
+    /** Was this class taken for this student (they have a record in it)? */
+    wasIn: (studentId, sessionId) => recorded.has(`${studentId}|${sessionId}`),
     /** How many students attended a session (Present or Late). */
     studentsWho: (sessionId) => perSession.get(sessionId) || 0,
     /** Class rate for some sessions: attended records ÷ (sessions × class size), no extra query. */
@@ -87,8 +104,9 @@ async function loadMatrix(moduleIds, studentIds) {
   };
 }
 
-const enrolledModuleIds = async (studentId) =>
-  (await prisma.enrollment.findMany({ where: { studentId }, select: { moduleId: true } })).map((e) => e.moduleId);
+/** Modules a student is enrolled in this semester (or the semester given). */
+const enrolledModuleIds = async (studentId, { term } = {}) =>
+  (await prisma.enrollment.findMany({ where: { studentId, academicSession: await sessionOrCurrent(term) }, select: { moduleId: true } })).map((e) => e.moduleId);
 
 /** One student's % in one module (0 when nothing held yet — matches the old API). */
 async function modulePct(studentId, moduleId) {
@@ -102,14 +120,16 @@ async function overallPct(studentId) {
 }
 
 /** Overall % for many students at once: Map(studentId → %). */
-async function overallFor(studentIds) {
+async function overallFor(studentIds, { term } = {}) {
   if (!studentIds.length) return new Map();
-  const en = await prisma.enrollment.findMany({ where: { studentId: { in: studentIds } }, select: { studentId: true, moduleId: true } });
+  const academicSession = await sessionOrCurrent(term);
+  const en = await prisma.enrollment.findMany({ where: { studentId: { in: studentIds }, academicSession }, select: { studentId: true, moduleId: true } });
   const mods = [...new Set(en.map((e) => e.moduleId))];
-  const m = await loadMatrix(mods, studentIds);
+  const m = await loadMatrix(mods, studentIds, { term: academicSession });
   const byStudent = new Map(studentIds.map((id) => [id, []]));
   en.forEach((e) => byStudent.get(e.studentId).push(e.moduleId));
-  return new Map(studentIds.map((id) => [id, m.overall(id, byStudent.get(id)) ?? 0]));
+  // null = no classes held yet in their modules (not the same as 0%)
+  return new Map(studentIds.map((id) => [id, m.overall(id, byStudent.get(id))]));
 }
 
 /**
@@ -118,7 +138,7 @@ async function overallFor(studentIds) {
  */
 async function monthDays(studentId, moduleIds, month) {
   const [y, mo] = month.split('-').map(Number);
-  const inMonth = { section: { moduleId: { in: moduleIds } }, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
+  const inMonth = { section: { moduleId: { in: moduleIds } }, counts: true, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
   const [all, att] = await Promise.all([
     prisma.classSession.findMany({ where: inMonth }),
     prisma.attendance.findMany({ where: { studentId, session: inMonth } }),
@@ -126,10 +146,42 @@ async function monthDays(studentId, moduleIds, month) {
   const sessions = all.filter((s) => isHeld(s));
   const rank = { absent: 0, flagged: 1, present: 2 }, out = {};
   for (const s of sessions) {
-    const r = att.find((a) => a.sessionId === s.id), st = r ? apiStatus(r.status) : 'absent', d = s.date.getUTCDate();
+    const r = att.find((a) => a.sessionId === s.id);
+    if (!r) continue; // no record = the class wasn't taken for this student (e.g. enrolled later)
+    const st = apiStatus(r.status), d = s.date.getUTCDate();
     if (!out[d] || rank[st] > rank[out[d]]) out[d] = st;
   }
   return out;
+}
+
+/**
+ * One day on the student's calendar: every class held that day in their modules, with
+ * their own status. Optional classes are listed too, marked as not counting.
+ */
+async function dayDetails(studentId, moduleIds, day) {
+  const sessions = await prisma.classSession.findMany({
+    where: { section: { moduleId: { in: moduleIds } }, date: new Date(`${day}T00:00:00Z`) },
+    include: {
+      section: { include: { module: { select: { code: true, name: true } } } },
+      attendance: { where: { studentId }, select: { status: true, flagReason: true } },
+    },
+    orderBy: { startTime: 'asc' },
+  });
+  const bhutanTime = (d) => new Date(d.getTime() + 6 * 3600 * 1000).toISOString().slice(11, 16);
+  return {
+    date: day,
+    // counted classes without a record for this student (e.g. held before they enrolled) are left out
+    classes: sessions.filter((s) => isHeld(s) && (s.attendance.length || s.counts === false)).map((s) => {
+      const a = s.attendance[0];
+      return {
+        module: s.section.module, start: bhutanTime(sessionStart(s)), hours: hoursOf(s), type: s.sessionType,
+        optional: s.counts === false,
+        // no record for a counted class = absent; for an optional class = didn't come (not counted)
+        status: a ? apiStatus(a.status) : s.counts === false ? 'not_attended' : 'absent',
+        note: a && apiStatus(a.status) === 'flagged' ? 'Waiting for your tutor to decide' : null,
+      };
+    }),
+  };
 }
 
 /** Class rate for a set of sessions: attended records ÷ (sessions × class size). */
@@ -139,4 +191,4 @@ async function classRate(sessions, classSize) {
   return round1((n / (sessions.length * classSize)) * 100);
 }
 
-module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, classRate };
+module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, dayDetails, classRate };

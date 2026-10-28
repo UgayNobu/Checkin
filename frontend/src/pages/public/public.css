@@ -4,8 +4,8 @@
 .opt{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;cursor:pointer;background:#fff}.opt div{flex:1}.opt b{display:block;font-size:13px}.opt small{color:#555}
 .fgt{display:block;text-align:right;color:var(--red);font-size:11px;margin:6px 0 12px}.alt{text-align:center;font-size:11px;margin-top:12px}.alt a{color:#2f6df0;cursor:pointer;text-decoration:underline}
 .logo{width:26px;height:26px;border-radius:50%;object-fit:cover}.lhead>div{display:flex;flex-direction:column}.logobox{width:54px;height:54px;border:1px solid var(--line);border-radius:12px;margin:0 auto 8px;display:grid;place-items:center}.logobox .logo{width:36px;height:36px}
-.photo{height:210px;margin-top:30px;background:#2b2f3a url(/hero.jpg) center/cover;position:relative;max-width:520px}.loc{position:absolute;left:4px;bottom:-34px;background:#111;color:#fff;font-size:10px;padding:8px 12px;border-radius:6px}
-.opt.hot{box-shadow:0 4px 10px #0003}.mapstrip{height:150px;margin-top:50px;background:#16273a url(/map.jpg) center/cover;color:#dfe6ee;display:flex;gap:80px;align-items:center;justify-content:center;font-weight:600}
+.photo{height:210px;margin-top:30px;background:#2b2f3a;position:relative;max-width:520px}.loc{position:absolute;left:4px;bottom:-34px;background:#111;color:#fff;font-size:10px;padding:8px 12px;border-radius:6px}
+.opt.hot{box-shadow:0 4px 10px #0003}
 
 /* Password checklist on the sign-up form */
 .pwrules { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 11px; color: #64748b; }
@@ -20,3 +20,154 @@
 .okmsg { color: #16a34a; font-size: 12px; font-weight: 600; text-align: center; margin: 8px 0; }
 .lcard button[disabled] { opacity: 0.6; cursor: not-allowed; }
 .steps { font-size: 11px; color: #64748b; text-align: center; margin: 0 0 10px; }
+
+/* ---------- Landing page (choose Student or Tutor) ----------
+   Full-screen campus photo with a dark overlay; big heading on the left and a
+   frosted "Continue as" card on the right. Stacks on phones. */
+.lx {
+  position: relative; min-height: 100vh; color: #fff; display: flex; flex-direction: column;
+  background: #0b1f3a url(/front.jpg) center / cover no-repeat;
+}
+.lx::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 18, 38, 0.88) 0%, rgba(8, 18, 38, 0.62) 55%, rgba(8, 18, 38, 0.72) 100%);
+}
+.lx > * { position: relative; }
+.lx-head { display: flex; align-items: center; gap: 12px; padding: 22px max(28px, calc((100% - 1240px) / 2)); }
+.lx-head img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; }
+.lx-head b { display: block; font-size: 19px; }
+.lx-head small { display: block; font-size: 12px; color: #cbd5e1; }
+.lx-body {
+  flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 64px; align-items: center;
+  width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 28px 64px; box-sizing: border-box;
+}
+.lx-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: #93c5fd; }
+.lx-text h1 { font-size: clamp(40px, 5.6vw, 84px); line-height: 1.02; margin: 14px 0 22px; font-weight: 800; letter-spacing: -0.02em; }
+.lx-text h1 span { color: #60a5fa; }
+.lx-text p { font-size: clamp(16px, 1.45vw, 21px); line-height: 1.5; color: #e2e8f0; max-width: 620px; margin: 0; }
+.lx-bar { width: 120px; height: 4px; border-radius: 4px; background: #3b82f6; margin-top: 28px; }
+.lx-loc { margin-top: 22px; font-size: 13px; color: #cbd5e1; }
+
+.lx-card {
+  background: rgba(15, 30, 55, 0.55); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+  padding: 34px 30px; text-align: center;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.lx-card .lx-logo { width: 72px; height: 72px; border-radius: 50%; background: #fff; padding: 4px; object-fit: cover; }
+.lx-card h2 { margin: 14px 0 4px; font-size: 28px; letter-spacing: 0.02em; }
+.lx-card > small { color: #cbd5e1; font-size: 13px; }
+.lx-line { width: 56px; height: 3px; border-radius: 3px; background: #fff; opacity: 0.8; margin: 18px auto; }
+.lx-cont { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #cbd5e1; margin-bottom: 14px; }
+.lx-opt {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+  padding: 16px 18px; margin-bottom: 12px; border-radius: 14px; font: inherit; color: #fff;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.lx-opt:hover, .lx-opt:focus-visible { background: rgba(59, 130, 246, 0.28); border-color: #60a5fa; transform: translateY(-1px); outline: none; }
+.lx-opt.lx-primary { background: #2563eb; border-color: #2563eb; }
+.lx-opt.lx-primary:hover, .lx-opt.lx-primary:focus-visible { background: #1d4ed8; }
+.lx-opt span { flex: 1; }
+.lx-opt b { display: block; font-size: 16px; }
+.lx-opt small { display: block; font-size: 12.5px; color: #dbeafe; margin-top: 2px; line-height: 1.4; }
+.lx-opt i { font-style: normal; font-size: 20px; opacity: 0.85; }
+
+@media (max-width: 960px) {
+  .lx-body { grid-template-columns: 1fr; gap: 36px; padding: 16px 20px 48px; }
+  .lx-card { max-width: 440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .lx::before { background: rgba(8, 18, 38, 0.78); }
+}
+@media (max-width: 480px) {
+  .lx-head { padding: 16px; }
+  .lx-card { padding: 26px 20px; }
+}
+
+/* =========================================================
+   Login, sign-up and forgot password (student + tutor)
+   Same feel as the landing page: the photo fills the whole screen under a dark
+   overlay, heading on the left, frosted card with the form on the right.
+   Student pages use blue accents, tutor pages teal.
+   ========================================================= */
+.login.student { --acc: #60a5fa; --acc-strong: #2563eb; --acc-hover: #1d4ed8; }
+.login.tutor   { --acc: #5eead4; --acc-strong: #0f766e; --acc-hover: #115e59; }
+
+.login {
+  position: relative; display: grid; min-height: 100vh;
+  grid-template-columns: minmax(0, 1fr) 420px; grid-template-rows: auto;
+  column-gap: 64px; align-items: center;
+  padding: 0 max(28px, calc((100% - 1240px) / 2)); box-sizing: border-box;
+  background: #0b1f3a; color: #fff;
+}
+/* the photo panel becomes the full-screen background, its text stays in the left column */
+.login .hero {
+  grid-area: 1 / 1 / 2 / 3; align-self: stretch;
+  margin: 0 calc(-1 * max(28px, calc((100vw - 1240px) / 2)));
+  padding: 22px max(28px, calc((100vw - 1240px) / 2)) 28px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 24px; min-height: 100vh; box-sizing: border-box;
+  background-size: cover !important; background-position: center !important;
+}
+.login .hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(8, 18, 38, 0.9) 0%, rgba(8, 18, 38, 0.66) 55%, rgba(8, 18, 38, 0.78) 100%);
+}
+.login .hero > * { position: relative; max-width: calc(100% - 484px); }
+.login .herologo { font-size: 19px; }
+.login .herologo img { width: 42px; height: 42px; }
+.login .hero-eyebrow { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--acc); }
+.login .hero h1 { font-size: clamp(36px, 4.6vw, 68px); line-height: 1.04; margin: 14px 0 20px; font-weight: 800; letter-spacing: -0.02em; }
+.login .hero h1 span { color: var(--acc); }
+.login .hero p { font-size: clamp(15px, 1.3vw, 19px); line-height: 1.5; color: #e2e8f0; max-width: 560px; opacity: 1; margin: 0; }
+.login .hero-bar { width: 120px; height: 4px; border-radius: 4px; background: var(--acc-strong); margin-top: 26px; }
+.login .hero > small { color: #cbd5e1; font-size: 13px; }
+
+/* frosted form card */
+.login .lcard {
+  grid-area: 1 / 2 / 2 / 3; position: relative; z-index: 1; width: 100% !important; box-sizing: border-box;
+  margin: 40px 0; padding: 30px 30px 24px; color: #fff;
+  background: rgba(15, 30, 55, 0.58); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.login .lcard .cardlogo { width: 72px; height: 72px; background: #fff; padding: 4px; box-sizing: border-box; }
+.login .lcard h2 { font-size: 26px; margin: 12px 0 4px; }
+.login .lcard .sub { color: #cbd5e1; font-size: 13px; margin-bottom: 18px; }
+.login .lcard label { display: block; margin: 12px 0 6px; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+.login .lcard input:not([type='checkbox']), .login .lcard select {
+  width: 100%; box-sizing: border-box; padding: 11px 13px; font: inherit; font-size: 15px;
+  color: #fff; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 10px;
+}
+.login .lcard select option { color: #1d2125; }
+.login .lcard input::placeholder { color: #94a3b8; }
+.login .lcard input:focus, .login .lcard select:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25); }
+.login .lcard input.bad, .login .lcard select.bad { border-color: #f87171 !important; background: rgba(248, 113, 113, 0.12); }
+.login .lcard .showpw { color: #cbd5e1; }
+.login .lcard .btn, .login .lcard .btn.purple {
+  margin-top: 6px; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-size: 16px; font-weight: 700;
+  background: var(--acc-strong); color: #fff; cursor: pointer;
+}
+.login .lcard .btn:hover { background: var(--acc-hover); }
+.login .lcard .alt, .login .lcard .alt a { color: #cbd5e1; font-size: 13px !important; }
+.login .lcard .alt a { color: var(--acc); }
+.login .lcard > a.alt:first-child { color: #cbd5e1; margin-bottom: 4px; }
+.login .lcard > a.alt:first-child:hover { color: #fff; }
+.login .lcard .fgt { color: var(--acc); font-size: 13px; }
+.login .lcard .err, .login .lcard .ferr { color: #fca5a5; }
+.login .lcard .ok, .login .lcard .okmsg { color: #86efac; }
+.login .lcard .steps, .login .lcard small { color: #cbd5e1; }
+.login .lcard .pwrules { color: #94a3b8; }
+.login .lcard .pwrules li.ok { color: #86efac; }
+
+@media (max-width: 960px) {
+  .login { grid-template-columns: 1fr; padding: 0 16px; }
+  .login .hero { grid-area: 1 / 1 / 2 / 2; display: flex; margin: 0 -16px; padding: 16px; }
+  .login .hero > div:not(.herologo), .login .hero > small { display: none; }       /* phones: logo + photo only, the form is the focus */
+  .login .hero > * { max-width: none; }
+  .login .hero::before { background: rgba(8, 18, 38, 0.8); }
+  .login .lcard { grid-area: 1 / 1 / 2 / 2; max-width: 440px; margin: 84px auto 32px; }
+}
+@media (max-width: 480px) { .login .lcard { padding: 24px 18px 20px; } }
+/* one overlay only (the ::before above), so the photos show like on the landing page */
+.login .hero { background: #0b1f3a url(/login-bg.jpg) center / cover no-repeat !important; }
+.login .hero.teacherlogin { background-image: url(/techer2.jpg) !important; }
+.login .hero.studenthero { background-image: url(/studentsigin.jpeg) !important; }
+.login .hero.teacherhero { background-image: url(/techer1.jpg) !important; }

@@ -86,7 +86,13 @@ ALTER TABLE evidence_documents ADD CONSTRAINT chk_evidence_leave_type
   CHECK (leave_type IS NULL OR leave_type IN ('Medical','Official'));
 
 -- enrollments: backend never sends academic_year, so give it a default
-ALTER TABLE enrollments ALTER COLUMN academic_year SET DEFAULT '2026-27';
+-- (the column is removed in Part 12; skip this once it's gone)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'enrollments' AND column_name = 'academic_year') THEN
+    ALTER TABLE enrollments ALTER COLUMN academic_year SET DEFAULT '2026-27';
+  END IF;
+END $$;
 ALTER TABLE enrollments ALTER COLUMN enrolled_date SET DEFAULT CURRENT_DATE;
 
 -- attendance: backend expects a check-in time
@@ -274,6 +280,166 @@ CREATE TABLE IF NOT EXISTS stored_files (
 CREATE INDEX IF NOT EXISTS idx_files_owner ON stored_files (owner_id);
 ALTER TABLE stored_files ENABLE ROW LEVEL SECURITY;
 
+-- ===== Part 9: academic sessions (semesters) =====
+-- The college runs two semesters a year: Autumn (AS) and Spring (SS). Exactly one is "current".
+-- Tutor assignments (sections) and enrolments belong to a semester, so a new semester starts
+-- clean while every past class, attendance mark and evidence request stays in the database.
+CREATE TABLE IF NOT EXISTS academic_sessions (
+  session_code VARCHAR(10) PRIMARY KEY,             -- e.g. AS2026, SS2027
+  name         VARCHAR(60) NOT NULL,                -- e.g. Autumn Semester 2026
+  term         VARCHAR(10) NOT NULL,                -- autumn | spring
+  start_date   DATE NOT NULL,
+  end_date     DATE NOT NULL,
+  is_current   BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_acs_term  CHECK (term IN ('autumn', 'spring')),
+  CONSTRAINT chk_acs_dates CHECK (end_date > start_date),
+  CONSTRAINT chk_acs_code  CHECK (session_code ~ '^(AS|SS)[0-9]{4}$')
+);
+-- At most one current semester
+CREATE UNIQUE INDEX IF NOT EXISTS uq_acs_one_current ON academic_sessions (is_current) WHERE is_current;
+ALTER TABLE academic_sessions ENABLE ROW LEVEL SECURITY;
+
+-- This semester (dates from the IDE201 capstone schedule)
+INSERT INTO academic_sessions (session_code, name, term, start_date, end_date, is_current)
+SELECT 'AS2026', 'Autumn Semester 2026', 'autumn', DATE '2026-07-27', DATE '2026-12-06', true
+WHERE NOT EXISTS (SELECT 1 FROM academic_sessions);
+
+-- The current semester's code, used as the default for new rows below
+CREATE OR REPLACE FUNCTION current_academic_session() RETURNS VARCHAR
+LANGUAGE sql STABLE AS $fn$ SELECT session_code FROM academic_sessions WHERE is_current LIMIT 1 $fn$;
+
+-- Tutor assignments and enrolments now belong to a semester. Existing rows become AS2026.
+ALTER TABLE sections    ADD COLUMN IF NOT EXISTS academic_session VARCHAR(10) NOT NULL DEFAULT current_academic_session();
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS academic_session VARCHAR(10) NOT NULL DEFAULT current_academic_session();
+CREATE INDEX IF NOT EXISTS idx_sections_term    ON sections (academic_session, tutor_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_term ON enrollments (academic_session, module_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sections_term') THEN
+    ALTER TABLE sections ADD CONSTRAINT fk_sections_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_enrollments_term') THEN
+    ALTER TABLE enrollments ADD CONSTRAINT fk_enrollments_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  -- The timetable already has academic_session; link it to the semesters table too
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_slots_term') THEN
+    INSERT INTO academic_sessions (session_code, name, term, start_date, end_date)
+      SELECT DISTINCT t.academic_session, t.academic_session, CASE WHEN t.academic_session LIKE 'SS%' THEN 'spring' ELSE 'autumn' END,
+             make_date(substr(t.academic_session, 3)::int, 1, 1), make_date(substr(t.academic_session, 3)::int, 12, 31)
+      FROM timetable_slots t
+      WHERE t.academic_session ~ '^(AS|SS)[0-9]{4}$'
+        AND NOT EXISTS (SELECT 1 FROM academic_sessions a WHERE a.session_code = t.academic_session);
+    ALTER TABLE timetable_slots ADD CONSTRAINT fk_slots_term FOREIGN KEY (academic_session)
+      REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT;
+  END IF;
+  -- A student can take the same module again in a later semester: the key now includes it
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+    WHERE i.indrelid = 'enrollments'::regclass AND i.indisprimary AND a.attname = 'academic_session'
+  ) THEN
+    ALTER TABLE enrollments DROP CONSTRAINT enrollments_pkey;
+    ALTER TABLE enrollments ADD CONSTRAINT enrollments_pkey PRIMARY KEY (student_id, module_id, academic_session);
+  END IF;
+END $$;
+
+-- ===== Part 10: deactivated accounts =====
+-- Accounts are never deleted: a student who graduates or leaves, or a tutor who resigns, is
+-- deactivated (users.is_active = false, status = 'inactive') and can be activated again later.
+-- These columns record why, when and by whom, so the admin can see it at a glance.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at      TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivation_reason VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivation_note   VARCHAR(200);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_by      VARCHAR(10);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_deact_reason') THEN
+    ALTER TABLE users ADD CONSTRAINT chk_users_deact_reason CHECK (deactivation_reason IS NULL OR deactivation_reason IN
+      ('graduated', 'dropped_out', 'transferred', 'on_leave', 'resigned', 'retired', 'other'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_users_deact_by') THEN
+    ALTER TABLE users ADD CONSTRAINT fk_users_deact_by FOREIGN KEY (deactivated_by)
+      REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- ===== Part 11: class changes (cancelled, extra and cover classes) =====
+-- The weekly timetable stays fixed; anything different on one date is a "class change":
+--   cancelled → a timetable class is not held on that date (students are not marked absent)
+--   cover     → another tutor teaches a timetable class on that date (two covers = a swap)
+--   extra     → a class that is not on the timetable (make-up, extra lecture, free revision class).
+--               counts = false makes it optional: attendance is taken but never counts toward anyone's %.
+CREATE SEQUENCE IF NOT EXISTS seq_class_changes;
+CREATE TABLE IF NOT EXISTS class_changes (
+  change_id        VARCHAR(10)  PRIMARY KEY DEFAULT gen_id('CC', 'seq_class_changes'),
+  change_type      VARCHAR(10)  NOT NULL,
+  class_date       DATE         NOT NULL,
+  slot_id          VARCHAR(10),                   -- cancelled / cover: the timetable class
+  module_id        VARCHAR(10)  NOT NULL,
+  room_id          VARCHAR(10),
+  start_time       TIME         NOT NULL,
+  end_time         TIME         NOT NULL,
+  session_type     VARCHAR(10)  NOT NULL DEFAULT 'theory',
+  counts           BOOLEAN      NOT NULL DEFAULT true,
+  cover_tutor_id   VARCHAR(10),
+  reason           VARCHAR(200) NOT NULL,
+  academic_session VARCHAR(10)  NOT NULL DEFAULT current_academic_session(),
+  created_by       VARCHAR(10),
+  created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  CONSTRAINT fk_cc_slot   FOREIGN KEY (slot_id)          REFERENCES timetable_slots(slot_id)        ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_cc_module FOREIGN KEY (module_id)        REFERENCES modules(module_id)              ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_cc_room   FOREIGN KEY (room_id)          REFERENCES rooms(room_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_cover  FOREIGN KEY (cover_tutor_id)   REFERENCES users(user_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_by     FOREIGN KEY (created_by)       REFERENCES users(user_id)                  ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_cc_term   FOREIGN KEY (academic_session) REFERENCES academic_sessions(session_code) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT chk_cc_type  CHECK (change_type IN ('cancelled', 'cover', 'extra')),
+  CONSTRAINT chk_cc_time  CHECK (end_time > start_time),
+  CONSTRAINT chk_cc_stype CHECK (session_type IN ('theory', 'practical', 'tutorial')),
+  CONSTRAINT chk_cc_slot  CHECK ((change_type = 'extra') = (slot_id IS NULL)),
+  CONSTRAINT chk_cc_cover CHECK ((change_type = 'cover') = (cover_tutor_id IS NOT NULL)),
+  CONSTRAINT chk_cc_opt   CHECK (counts OR change_type = 'extra')
+);
+-- A timetable class has at most one change per date (cancelled OR covered)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_slot_date ON class_changes (slot_id, class_date) WHERE slot_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cc_date   ON class_changes (academic_session, class_date);
+CREATE INDEX IF NOT EXISTS idx_cc_module ON class_changes (module_id);
+ALTER TABLE class_changes ENABLE ROW LEVEL SECURITY;
+
+-- Which change a class session came from, who actually took it, and whether it counts toward attendance %
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS change_id VARCHAR(10);
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS taken_by  VARCHAR(10);
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS counts    BOOLEAN NOT NULL DEFAULT true;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_change') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_change FOREIGN KEY (change_id)
+      REFERENCES class_changes(change_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_sessions_taken_by') THEN
+    ALTER TABLE class_sessions ADD CONSTRAINT fk_sessions_taken_by FOREIGN KEY (taken_by)
+      REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_sessions_slot_date ON class_sessions (slot_id, date);
+
+-- ===== Part 12: remove enrollments.academic_year =====
+-- Replaced by academic_session (Part 9): enrolments now belong to a semester (AS2026, SS2027 …).
+-- Nothing in the app reads or writes academic_year any more. Only dropped when it is no longer
+-- part of the primary key (Part 9 must have run first).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'enrollments' AND column_name = 'academic_year')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+       WHERE i.indrelid = 'enrollments'::regclass AND i.indisprimary AND a.attname = 'academic_year'
+     ) THEN
+    ALTER TABLE enrollments DROP COLUMN academic_year;
+  END IF;
+END $$;
+
 COMMIT;
 
 
@@ -332,9 +498,9 @@ INSERT INTO attendance (attendance_id, student_id, session_id, "timestamp", stat
 ON CONFLICT DO NOTHING;
 
 -- enrollments (2 rows)
-INSERT INTO enrollments (student_id, module_id, academic_year, enrolled_date) VALUES
-  ('U004', 'M001', '2026-27', '2026-08-10'),
-  ('U004', 'M002', '2026-27', '2026-08-10')
+INSERT INTO enrollments (student_id, module_id, enrolled_date) VALUES
+  ('U004', 'M001', '2026-08-10'),
+  ('U004', 'M002', '2026-08-10')
 ON CONFLICT DO NOTHING;
 
 -- evidence_documents (2 rows)

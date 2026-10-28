@@ -16,12 +16,20 @@ const env = {
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
 
-  geofenceMetres: num(process.env.GEOFENCE_METRES, 10),
+  // 40 m: measured classroom IT-05 (max 13.2 m tutor→student) + ~25 m indoor GPS error
+  geofenceMetres: num(process.env.GEOFENCE_METRES, 40),
+  // A timetable class can be started this many minutes before it begins (until it ends)
+  startEarlyMinutes: num(process.env.START_EARLY_MINUTES, 15),
   accuracyFlagMetres: num(process.env.ACCURACY_FLAG_METRES, 50),
   // how long a check-in code stays valid (CHECKIN_WINDOW_MINUTES is the older name for the same setting)
   codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),
   // extra time for a check-in that the app held back because of bad internet
   networkGraceSeconds: num(process.env.NETWORK_GRACE_SECONDS, 120),
+  // After the check-in code closes, the tutor has this long to decide flagged students
+  // (Present / Absent). Then the session closes and anyone undecided is marked Absent.
+  reviewMinutes: num(process.env.REVIEW_MINUTES, 3),
+  // Password every admin-created tutor account starts with (they can change it in Settings → Account)
+  defaultTutorPassword: process.env.DEFAULT_TUTOR_PASSWORD || 'Tutor@2026',
   requiredPct: num(process.env.REQUIRED_ATTENDANCE_PERCENT, 90),
   atRiskPct: num(process.env.AT_RISK_ATTENDANCE_PERCENT, 80),
   realertDays: num(process.env.LOW_ATTENDANCE_REALERT_DAYS, 7),

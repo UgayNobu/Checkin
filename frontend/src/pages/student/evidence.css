@@ -17,7 +17,7 @@
   padding: 12px 22px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -53,7 +53,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-left: 4px solid var(--red);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px 18px;
 }
 
@@ -78,7 +78,7 @@
 .ev .ev-stat {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 14px 22px;
   min-width: 130px;
   text-align: center;
@@ -126,7 +126,7 @@
   padding: 28px;
   background: #fff;
   border: 1px dashed var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   text-align: center;
   color: var(--muted);
   font-size: 13px;
@@ -138,7 +138,7 @@
   gap: 14px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 14px 18px;
 }
 
@@ -148,7 +148,7 @@
   display: grid;
   place-items: center;
   background: #f3edff;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 20px;
 }
 
@@ -169,12 +169,12 @@
 }
 
 .ev .ev-main .ev-reason {
-  color: #555;
+  color: #495057;
 }
 
 .ev .ev-badge {
   padding: 5px 12px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
 }
@@ -191,7 +191,7 @@
 
 .ev .ev-badge.rejected {
   background: #fde8e8;
-  color: #b42318;
+  color: #ca3120;
 }
 
 .ev .ev-view {
@@ -228,7 +228,7 @@
   max-height: 92vh;
   overflow: auto;
   background: #fff;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 24px;
   box-shadow: 0 16px 40px #0004;
 }
@@ -250,7 +250,7 @@
   gap: 4px;
   padding: 22px;
   border: 2px dashed var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: #fafafc;
   text-align: center;
   cursor: pointer;
@@ -276,7 +276,7 @@
   background: var(--purple);
   color: #fff;
   border: 0;
-  border-radius: 20px;
+  border-radius: 8px;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -301,10 +301,10 @@
 .ev .ev-err {
   margin: 12px 0 0;
   padding: 10px 14px;
-  background: #fdecec;
-  border: 1px solid #e5484d;
+  background: #f4d6d2;
+  border: 1px solid #ca3120;
   border-radius: 8px;
-  color: #b42318;
+  color: #ca3120;
   font-size: 13px;
   font-weight: 600;
 }
@@ -314,8 +314,8 @@
   margin-bottom:18px;
   padding:14px 16px;
   background:#fff;
-  border:1px solid #e3e7f0;
-  border-radius:12px;
+  border:1px solid #dee2e6;
+  border-radius:8px;
 }
 .ev-updates h4{margin:0 0 10px;font-size:14px}
 .ev-update{
@@ -326,11 +326,11 @@
   padding:10px 12px;
   margin-top:8px;
   border-radius:8px;
-  background:#f3f4f6;
+  background:#f8f9fa;
   font-size:13px;
 }
-.ev-update.approved{background:#d1fae5;color:#065f46}
-.ev-update.rejected{background:#fee2e2;color:#991b1b}
+.ev-update.approved{background:#d7e6d7;color:#2b6328}
+.ev-update.rejected{background:#f4d6d2;color:#ca3120}
 .ev-update button{
   flex-shrink:0;
   padding:5px 12px;
@@ -344,5 +344,5 @@
 
 /* ----- "Approved by … · date" line in the list ----- */
 .ev-decision{font-weight:600}
-.ev-decision.approved{color:#047857}
-.ev-decision.rejected{color:#b91c1c}
+.ev-decision.approved{color:#2b6328}
+.ev-decision.rejected{color:#ca3120}

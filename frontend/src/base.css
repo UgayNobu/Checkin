@@ -452,7 +452,7 @@ td {
 }
 
 /* ---------- 14. Responsive ---------- */
-/* Phone menu bar: only shown on small screens */
+/* Phone top bar and drawer: hidden on wider screens */
 .mbar,
 .mshade {
   display: none;
@@ -467,22 +467,21 @@ td {
     display: none;
   }
 
-  /* Sidebar becomes a slide-in drawer opened from the menu bar */
+  /* App shell: content gets the full width; the sidebar slides in from the left */
   .shell {
-    flex-direction: column;
+    display: block;
   }
 
   .mbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     position: sticky;
     top: 0;
     z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
     color: #fff;
-    font-weight: 700;
-    font-size: 17px;
     background: var(--navy-staff);
   }
 
@@ -491,105 +490,140 @@ td {
   }
 
   .mbar .logo {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    object-fit: cover;
     background: #fff;
+    object-fit: cover;
   }
 
-  .mbtn {
-    background: none;
+  .mbar-btn {
+    display: grid;
+    gap: 4px;
+    width: 38px;
+    height: 38px;
+    padding: 10px 9px;
     border: 0;
-    color: #fff;
-    font-size: 22px;
-    line-height: 1;
-    padding: 4px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
     cursor: pointer;
+  }
+
+  .mbar-btn span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
   }
 
   .side {
     position: fixed;
     top: 0;
-    bottom: 0;
     left: 0;
+    bottom: 0;
     z-index: 60;
-    width: 240px;
+    width: 250px;
+    max-width: 82vw;
     overflow-y: auto;
+    padding-top: max(14px, env(safe-area-inset-top));
     transform: translateX(-100%);
-    transition: transform 0.2s;
+    transition: transform 0.2s ease;
   }
 
-  .side.open {
+  .menu-open .side {
     transform: none;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
   }
 
-  .side a,
-  .side button {
+  .side a {
     font-size: 15px;
-    padding: 12px 10px;
+    padding: 12px;
   }
 
   .mshade {
-    display: block;
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: #0006;
+    background: rgba(10, 15, 30, 0.45);
   }
 
-  /* Page header: title on top, user info below */
+  .menu-open .mshade {
+    display: block;
+  }
+
+  .main {
+    min-height: calc(100vh - 58px);
+  }
+
+  /* Page header: title on top, the person underneath */
   .top {
     flex-wrap: wrap;
     gap: 10px;
-    padding: 12px 14px;
+    padding: 12px 16px;
+  }
+
+  .top > div:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   .top h2 {
     font-size: 18px;
   }
 
-  .page {
-    padding: 14px;
+  .me {
+    flex-wrap: wrap;
   }
 
-  /* Cards, stats and rows stack instead of overflowing */
-  .stats,
+  .page {
+    padding: 14px 16px;
+  }
+
+  /* Wide tables scroll sideways inside their box instead of stretching the page */
+  .page table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page img {
+    max-width: 100%;
+  }
+
+  /* Rows of panels and cards stack */
   .row {
     flex-wrap: wrap;
   }
 
-  .stat {
-    flex: 1 1 140px;
+  .row > .panel {
+    flex: 1 1 100% !important;
     min-width: 0;
   }
 
-  .card,
-  .lcard {
+  /* Forms and cards that assume a wide screen */
+  .pform {
+    min-width: 0 !important;
+  }
+
+  .g2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mcards .mcard,
+  .prof .pcard {
     width: 100%;
-    max-width: 100%;
   }
 
-  .bellpanel {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    top: 110px;
-    width: auto;
+  .page .ok:empty {
+    display: none;
   }
+}
 
-  /* Wide tables scroll sideways inside the page, not the whole page */
-  .page table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  /* 16px stops iPhones zooming in when a field is tapped */
-  input,
-  select,
-  textarea {
-    font-size: 16px;
+@media (prefers-reduced-motion: reduce) {
+  .side {
+    transition: none;
   }
 }
 /* Student sign-up photo */
@@ -619,3 +653,26 @@ td {
 #loadbar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: #1ea7e8; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 #loadbar.on { opacity: 1; animation: loadbar 1.2s ease-in-out infinite; }
 @keyframes loadbar { 0% { left: 0; width: 0; } 50% { left: 20%; width: 60%; } 100% { left: 100%; width: 0; } }
+
+/* ---------- Desktop page layout ----------
+   Every page uses the same content column: up to 1200px wide and centred in the space
+   next to the sidebar, so pages don't sit squeezed on the left of a big screen.
+   The page title bar lines up with the same column. Phones keep the layout above. */
+@media (min-width: 761px) {
+  .main {
+    --gutter: max(32px, calc((100% - 1200px) / 2));
+  }
+  .top {
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
+  .page {
+    padding: 28px var(--gutter) 48px;
+  }
+  /* page wrappers had their own max-width (860–1100px) and sat on the left: let them fill the column */
+  .page > * {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}

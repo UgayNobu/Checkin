@@ -63,15 +63,17 @@ export default function Forgot() {
   );
 
   return (
-    <div className="login">
+    <div className={'login ' + (teacher ? 'tutor' : 'student')}>
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
         <div>
-          <h1>Reset your password</h1>
+          <span className="hero-eyebrow">{teacher ? 'TUTOR PORTAL' : 'STUDENT PORTAL'}</span>
+          <h1>Reset your <span>password.</span></h1>
           <p>We'll email a 6-digit code to the college email on your account. The code works once and expires in 15 minutes.</p>
+          <div className="hero-bar" />
         </div>
         <small>College of Science and Technology</small>
       </div>

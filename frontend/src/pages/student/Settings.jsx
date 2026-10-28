@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, auth } from '../../api';
+import { api, fileHref, logout } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
@@ -15,15 +15,40 @@ const initials = (n = '') =>
 const Back = ({ to = '/settings', label = 'Settings' }) => {
   const nav = useNavigate();
   return (
-    <button className="back" onClick={() => nav(to)}>
+    <button type="button" className="back" onClick={() => nav(to)}>
       ← {label}
     </button>
   );
 };
 
+/* Profile circle: the uploaded photo if there is one, otherwise the initials */
+const Avatar = ({ name, url, className = 'av' }) => (
+  <div className={className} style={{ overflow: 'hidden' }}>
+    {url ? (
+      <img
+        src={fileHref(url)}
+        alt="Profile"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+      />
+    ) : (
+      initials(name)
+    )}
+  </div>
+);
+
 /* =========================================================
    Settings (main page)
    ========================================================= */
+// Small line icons for the Settings links
+const svg = (d) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+);
+const ICONS = {
+  person: svg(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></>),
+  lock: svg(<><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>),
+  book: svg(<><path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /><path d="M9 7h7" /></>),
+};
+
 export default function Settings() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
@@ -36,45 +61,41 @@ export default function Settings() {
 
   const prefs = me.prefs || {};
 
+  // Email is on unless the student turned it off (prefs.email === false)
+  const isOn = (k) => (k === 'email' ? prefs.email !== false : !!prefs[k]);
   const tog = (k) => {
-    const p = { ...prefs, [k]: !prefs[k] };
+    const p = { ...prefs, [k]: !isOn(k) };
     setMe({ ...me, prefs: p });
     api('/me', { prefs: p }, 'PUT');
   };
 
   const links = [
     [
+      'person',
       'Edit profile details',
       'Update your display name, contact information, and academic bio.',
       '/settings/profile',
     ],
     [
+      'lock',
       'Change passkey & password',
       'Ensure your secure student portal remains locked and secure.',
       '/settings/password',
     ],
     [
+      'book',
       'My enrolled module',
       'View and adjust registration for active academic courses.',
       '/settings/modules',
     ],
   ];
 
+  // Only email can be switched off; in-app notifications (the bell) always arrive
   const notes = [
     [
-      'low',
-      'Low Attendance Alerts',
-      'Instant notification if attendance slips below critical 85% requirement.',
-    ],
-    [
-      'evidence',
-      'Update Evidence Details',
-      'Get updates as soon as your submitted absence requests are processed.',
-    ],
-    [
-      'reminders',
-      'Check-in Reminders',
-      'Receive class start notifications for real-time mobile check-ins.',
+      'email',
+      'Email notifications',
+      `Sent to ${me.email || 'your college email'}: attendance below 90%, absence request approved or rejected, and password changes.`,
     ],
   ];
 
@@ -90,7 +111,7 @@ export default function Settings() {
           <hr />
 
           <div className="who">
-            <div className="av">{initials(me.name)}</div>
+            <Avatar name={me.name} url={me.avatarUrl} />
             <div>
               <b>{me.name}</b> <span className="tag">ACTIVE STUDENT</span>
               <br />
@@ -100,9 +121,9 @@ export default function Settings() {
             </div>
           </div>
 
-          {links.map(([t, s, to]) => (
+          {links.map(([icon, t, s, to]) => (
             <div className="link" key={to} onClick={() => nav(to)}>
-              <span className="ic" />
+              <span className="ic" aria-hidden="true">{ICONS[icon]}</span>
               <div>
                 <b>{t}</b>
                 <small>{s}</small>
@@ -125,19 +146,15 @@ export default function Settings() {
                   <b>{t}</b>
                   <small>{s}</small>
                 </div>
-                <button className={'tog ' + (prefs[k] ? 'on' : '')} onClick={() => tog(k)} />
+                <button className={'tog ' + (isOn(k) ? 'on' : '')} onClick={() => tog(k)} aria-label={t} aria-pressed={isOn(k)} />
               </div>
             ))}
           </div>
 
           <div className="box">
-            <hr className="blue" />
             <button
               className="logout"
-              onClick={() => {
-                auth.clear();
-                nav('/login');
-              }}
+              onClick={() => logout().then(() => nav('/welcome'))}
             >
               ⇥ Log out
             </button>
@@ -150,27 +167,78 @@ export default function Settings() {
 
 /* =========================================================
    Edit profile
+   Photo uses the same upload route as the teacher profile (/me/avatar)
    ========================================================= */
 export function EditProfile() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const file = useRef(null);
 
   useEffect(() => {
-    api('/me').then(setMe);
+    api('/me').then(setMe).catch((e) => setErr(e.message));
   }, []);
 
-  if (!me) return null;
+  if (!me) return err ? <p className="err">{err}</p> : null;
 
-  const set = (k) => (e) => setMe({ ...me, [k]: e.target.value });
+  const set = (k) => (e) => { setMe({ ...me, [k]: e.target.value }); setErr(''); setMsg(''); };
+
+  // Upload a new photo straight away (PNG, JPG or WEBP, up to 2 MB)
+  const upload = (e) => {
+    const pic = e.target.files?.[0];
+    e.target.value = ''; // lets the same file be picked again
+    if (!pic) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(pic.type)) return setErr('Choose a PNG, JPG or WEBP image.');
+    if (pic.size > 2 * 1024 * 1024) return setErr('The photo must be 2 MB or smaller.');
+    const fd = new FormData();
+    fd.append('file', pic);
+    setBusy(true); setErr(''); setMsg('');
+    api('/me/avatar', fd)
+      .then(() => api('/me')) // get the fresh photo address from the backend
+      .then((u) => { setMe((m) => ({ ...m, avatarUrl: u.avatarUrl })); setMsg('Photo updated.'); })
+      .catch((x) => setErr(x.message))
+      .finally(() => setBusy(false));
+  };
+
+  const removePhoto = () => {
+    setBusy(true); setErr(''); setMsg('');
+    api('/me/avatar', null, 'DELETE')
+      .then(() => { setMe((m) => ({ ...m, avatarUrl: null })); setMsg('Photo removed.'); })
+      .catch((x) => setErr(x.message))
+      .finally(() => setBusy(false));
+  };
+
+  const save = () => {
+    setBusy(true); setErr(''); setMsg('');
+    api('/me', { name: (me.name || '').trim(), phone: (me.phone || '').trim() }, 'PUT')
+      .then(() => nav('/settings'))
+      .catch((x) => setErr(x.message || 'Could not save. Try again.'))
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="sub1">
       <Back />
 
       <div className="who2">
-        <div className="av dark">{initials(me.name)}</div>
-        <button className="ghost">Change photo</button>
+        <Avatar name={me.name} url={me.avatarUrl} className="av dark" />
+
+        {/* Hidden file picker, opened by the button */}
+        <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
+        <button type="button" className="ghost" onClick={() => file.current?.click()} disabled={busy}>
+          {busy ? 'Please wait…' : me.avatarUrl ? 'Change photo' : 'Add photo'}
+        </button>
+        {me.avatarUrl && (
+          <button type="button" className="ghost" onClick={removePhoto} disabled={busy}>
+            Remove
+          </button>
+        )}
       </div>
+
+      {msg && <p style={{ color: '#357a32', fontSize: 13, fontWeight: 600, margin: '8px 0 0' }}>✓ {msg}</p>}
+      {err && <p style={{ color: '#ca3120', fontSize: 13, fontWeight: 600, margin: '8px 0 0' }}>{err}</p>}
 
       <div className="card1">
         <label>Full name</label>
@@ -184,19 +252,14 @@ export function EditProfile() {
         <input value={me.email || ''} readOnly />
 
         <label>Phone number</label>
-        <input value={me.phone || ''} onChange={set('phone')} />
+        <input value={me.phone || ''} onChange={set('phone')} placeholder="e.g. 17123456" />
 
         <div className="acts">
-          <button className="ghost" onClick={() => nav('/settings')}>
+          <button type="button" className="ghost" onClick={() => nav('/settings')}>
             Cancel
           </button>
-          <button
-            className="ghost"
-            onClick={() =>
-              api('/me', { name: me.name, phone: me.phone }, 'PUT').then(() => nav('/settings'))
-            }
-          >
-            Save changes
+          <button type="button" className="ghost" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
@@ -299,7 +362,7 @@ export function MyModules() {
               <b>{m.name}</b>
               <small>{m.code}</small>
             </div>
-            <span className={'pc ' + cls(m.pct)}>{Math.round(m.pct)}%</span>
+            <span className={'pc ' + (m.pct == null ? '' : cls(m.pct))}>{m.pct == null ? '–' : `${Math.round(m.pct)}%`}</span>
           </div>
         ))}
       </div>
@@ -422,7 +485,7 @@ export function Enrol() {
             </small>
           </p>
 
-          {chosen.enrolled && <p className="foot" style={{ color: '#16a34a', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
+          {chosen.enrolled && <p className="foot" style={{ color: '#357a32', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
           {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
           {!chosen.enrolled && (<>
           <label>Enrolment Key</label>
@@ -448,7 +511,7 @@ export function Enrol() {
         </div>
       )}
 
-      {msg.text && <p className="foot" style={{ color: msg.ok ? '#16a34a' : '#b42318', fontWeight: 600 }}>{msg.text}</p>}
+      {msg.text && <p className="foot" style={{ color: msg.ok ? '#357a32' : '#ca3120', fontWeight: 600 }}>{msg.text}</p>}
     </div>
   );
 }
@@ -476,7 +539,7 @@ export function BrowseModules() {
       (!f.module || m.id === f.module)
   );
 
-  const icons = ['#ede9fe', '#dbeafe', '#d1fae5'];
+  const icons = ['#e7f1fa', '#e7f1fa', '#d7e6d7'];
 
   return (
     <div className="sub1" style={{ maxWidth: 760 }}>

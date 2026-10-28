@@ -1,10 +1,162 @@
-.record{background:#f2f2f2;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 4px 8px #0002;display:flex;flex-direction:column;gap:4px;margin-bottom:28px}
-.record small{color:var(--muted);font-size:11px}.entry{display:flex;gap:14px;margin-top:10px}.entry input{background:#fff}
-.entry button{background:#fff;border:0;border-radius:8px;padding:0 28px;font-weight:600;cursor:pointer;box-shadow:0 1px 3px #0003}.msg{color:#3bb54a;font-weight:600;font-size:13px;margin:8px 0 0}
-.calbox{border:1px solid var(--ink);border-radius:16px;padding:18px;background:#fff}.calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.nav{background:var(--blue);color:#fff;border:0;border-radius:6px;width:30px;height:26px;cursor:pointer}
-.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center}.grid b{font-size:11px}
-.day{height:70px;border:1px solid var(--line);border-radius:8px;display:grid;place-items:center;font-weight:600;font-size:13px}
-.day.present{color:var(--green)}.day.absent{color:var(--red)}.day.flagged{color:var(--orange)}
-.legend{display:flex;gap:16px;font-size:10px;margin-top:14px}.legend i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px}
-.g{background:var(--green)}.r{background:var(--red)}
+/* ===== Record attendance box ===== */
+.record{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-bottom:28px;
+  padding:18px;
+  background:#f2f2f2;
+  border:1px solid var(--line);
+  border-radius:8px;
+  box-shadow:0 4px 8px #0002;
+}
+.record small{color:var(--muted);font-size:11px}
+
+.entry{display:flex;gap:14px;margin-top:10px}
+.entry input{background:#fff}
+.entry button{
+  padding:0 28px;
+  background:#fff;
+  border:0;
+  border-radius:8px;
+  box-shadow:0 1px 3px #0003;
+  font-weight:600;
+  cursor:pointer;
+}
+.entry button:disabled{opacity:.6;cursor:not-allowed}
+
+.msg{margin:8px 0 0;color:#3bb54a;font-size:13px;font-weight:600}
+
+/* ===== Building cards (4 buildings + workshop) ===== */
+.places{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:12px;
+  margin-top:12px;
+}
+.place{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:14px 10px;
+  background:#fff;
+  border:2px solid transparent;
+  border-radius:8px;
+  box-shadow:0 1px 3px #0003;
+  font:inherit;
+  cursor:pointer;
+  transition:transform .12s,border-color .12s;
+}
+.place:not(:disabled):hover{transform:translateY(-2px)}
+.place.on{border-color:var(--blue)}
+.place:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.place .outline{width:56px;height:56px}
+.place .outline path{fill:#dbe7ff;stroke:var(--blue);stroke-width:2;stroke-linejoin:round}
+.place.ws .outline path{fill:var(--blue);stroke:none}
+.place .outline .ring{fill:none;stroke:var(--blue);stroke-width:2;stroke-dasharray:6 5}
+.place .outline .dot{fill:#fff}
+.pname{font-weight:700;font-size:13px;text-align:center}
+.pinfo{font-size:11px;color:var(--muted)}
+.place:not(:disabled) .pinfo{color:#2b6328;font-weight:600}
+
+/* ===== Choose class + enter code ===== */
+.step{display:flex;flex-direction:column;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.classes{display:flex;flex-direction:column;gap:8px}
+.cls{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+  padding:10px 12px;
+  background:#fff;
+  border:2px solid transparent;
+  border-radius:8px;
+  box-shadow:0 1px 3px #0002;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.cls.on{border-color:var(--blue)}
+.cls b{font-size:13px}
+.cls span{font-size:11px;color:var(--muted)}
+
+/* ===== Calendar ===== */
+.calbox{
+  padding:18px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+.calhead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+.nav{
+  width:30px;
+  height:26px;
+  background:var(--blue);
+  color:#fff;
+  border:0;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:10px;
+  text-align:center;
+}
+.grid b{font-size:11px}
+
+.day{
+  display:grid;
+  place-items:center;
+  height:70px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+}
+
+/* Present = green box, Absent = red box */
+.day.present{background:#d7e6d7;border-color:#357a32;color:#2b6328}
+.day.absent{background:#f4d6d2;border-color:#ca3120;color:#ca3120}
+
+/* ===== Legend ===== */
+.legend{display:flex;gap:16px;margin-top:14px;font-size:10px}
+.legend i{
+  display:inline-block;
+  width:6px;
+  height:6px;
+  margin-right:5px;
+  border-radius:50%;
+}
+.g{background:#357a32}
+.r{background:#ca3120}
+
+/* Clickable calendar days + the day's classes */
+.day.click{cursor:pointer;font:inherit;font-weight:600;transition:transform .1s}
+.day.click:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.day.click:focus-visible{outline:2px solid #0f6cbf;outline-offset:2px}
+.day.sel{outline:2px solid #0f6cbf;outline-offset:1px}
+.day.out{opacity:.35}
+.legend .hint{margin-left:auto;color:#6a737b}
+.dayinfo{margin-top:16px;border:1px solid #dee2e6;border-radius:8px;padding:14px 16px;background:#fff}
+.dayinfo-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.dayinfo-h button{background:none;border:0;font-size:14px;cursor:pointer;color:#6a737b;padding:4px 8px;border-radius:6px}
+.dayinfo-h button:hover{background:#f8f9fa}
+.dayinfo ul{list-style:none;margin:0;padding:0}
+.dayinfo li{display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #dee2e6}
+.dayinfo .dt{font-weight:700;font-size:13px;width:46px;flex-shrink:0}
+.dayinfo .dm{flex:1;min-width:0;font-size:13px}
+.dayinfo .dm small{display:block;color:#6a737b;font-size:11px;margin-top:2px}
+.dayinfo .ds{font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;white-space:nowrap}
+.dayinfo .ds.present{background:#d7e6d7;color:#2b6328}
+.dayinfo .ds.absent{background:#f4d6d2;color:#ca3120}
+.dayinfo .ds.flagged{background:#fcefdc;color:#8a5a00}
+.dayinfo .ds.not_attended{background:#f8f9fa;color:#495057}
+.dayinfo .mutd{color:#6a737b}
