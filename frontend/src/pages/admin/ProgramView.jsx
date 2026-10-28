@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { StatusPill, StatusButton } from './AccountStatus';
 import './programview.css';
@@ -9,7 +9,6 @@ const E = encodeURIComponent;
 
 export default function ProgramView({ focus = 'students' }) {
   const { program } = useParams();
-  const nav = useNavigate();
 
   const [stu, setStu] = useState([]);
   const [tut, setTut] = useState([]);
@@ -69,7 +68,6 @@ export default function ProgramView({ focus = 'students' }) {
 
   return (
     <div className="pv">
-      <button className="pv-back" onClick={() => nav(-1)}>&lt; Back</button>
       <h2 className="pv-title">{program}</h2>
 
       {/* 3 stat cards */}

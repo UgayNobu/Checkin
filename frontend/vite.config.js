@@ -6,12 +6,17 @@ import { defineConfig, loadEnv } from 'vite';
 // app to phones. allowedHosts lets the tunnel's hostname through.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const backend = env.VITE_PROXY_TARGET || 'http://localhost:5001'; // team default (macOS uses 5000); set VITE_PROXY_TARGET if yours differs
   return {
     plugins: [react()],
     publicDir: 'photo',
     server: {
       allowedHosts: true,
-      proxy: { '/api': env.VITE_PROXY_TARGET || 'http://localhost:5001' },
+      proxy: {
+        '/api': backend,
+        // uploaded files (profile photos, evidence documents) live on the backend too
+        '/uploads': backend,
+      },
     },
   };
 });
