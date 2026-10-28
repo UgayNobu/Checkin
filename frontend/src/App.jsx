@@ -300,6 +300,15 @@ function Shell({ user, children, title, sub }) {
   const [more, setMore] = useState(false); // "More" dropdown
   const [userMenu, setUserMenu] = useState(false);
 
+  // Latest profile (name + photo), reloaded on every page change
+  // so a new photo or name shows in the top bar right after saving it.
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    api('/me').then(setMe).catch(() => {});
+  }, [loc.pathname]);
+  const name = me?.name || user.name;
+  const photo = me?.avatarUrl || null;
+
   // Close menus after moving to another page
   useEffect(() => { setMenu(false); setMore(false); setUserMenu(false); }, [loc.pathname]);
   // Close dropdowns when clicking anywhere else
@@ -310,12 +319,27 @@ function Shell({ user, children, title, sub }) {
     return () => document.removeEventListener('click', close);
   }, [more, userMenu]);
 
-  const ini = user.name
+  const ini = name
     .split(' ')
     .map((w) => w[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  // Profile circle: photo if the user has one, otherwise the initials
+  const avatar = (
+    <span className="avatar" style={{ overflow: 'hidden' }}>
+      {photo ? (
+        <img
+          src={photo}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+        />
+      ) : (
+        ini
+      )}
+    </span>
+  );
 
   useEffect(() => {
     if (user.role === 'teacher') {
@@ -367,9 +391,9 @@ function Shell({ user, children, title, sub }) {
         <div className="vnav-right">
           {user.role === 'student' && <Bell />}
           <div className="vuser">
-            <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={user.name}>
-              <span className="avatar">{ini}</span>
-              <span className="vuser-name">{user.name}<small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></span>
+            <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={name}>
+              {avatar}
+              <span className="vuser-name">{name}<small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></span>
               <i className="caret" />
             </button>
             {userMenu && (
@@ -386,8 +410,8 @@ function Shell({ user, children, title, sub }) {
       <div className="vshade" onClick={() => setMenu(false)} aria-hidden="true" />
       <aside className="vdrawer" aria-label="Menu">
         <div className="vdrawer-head">
-          <span className="avatar">{ini}</span>
-          <div><b>{user.name}</b><small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></div>
+          {avatar}
+          <div><b>{name}</b><small>{(SUB[user.role] || (() => (user.role === 'admin' ? 'Admin' : '')))(user)}</small></div>
         </div>
         <nav>{links.map(link)}</nav>
         <button className="vdrawer-out" onClick={doLogout}>Log out</button>
