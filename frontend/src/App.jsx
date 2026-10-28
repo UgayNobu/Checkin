@@ -10,7 +10,7 @@ import {
   useSearchParams,
   useLocation,
 } from 'react-router-dom';
-import { api, auth, logout } from './api';
+import { api, auth, fileHref, logout } from './api';
 import './base.css';
 import './vle.css';
 import './pages/public/public.css';
@@ -307,7 +307,7 @@ function Shell({ user, children, title, sub }) {
     api('/me').then(setMe).catch(() => {});
   }, [loc.pathname]);
   const name = me?.name || user.name;
-  const photo = me?.avatarUrl || null;
+  const photo = fileHref(me?.avatarUrl); // /api/files/… → full backend address, works on any port
 
   // Close menus after moving to another page
   useEffect(() => { setMenu(false); setMore(false); setUserMenu(false); }, [loc.pathname]);

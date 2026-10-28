@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, logout } from '../../api';
+import { api, fileHref, logout } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
@@ -26,7 +26,7 @@ const Avatar = ({ name, url, className = 'av' }) => (
   <div className={className} style={{ overflow: 'hidden' }}>
     {url ? (
       <img
-        src={url}
+        src={fileHref(url)}
         alt="Profile"
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
       />
