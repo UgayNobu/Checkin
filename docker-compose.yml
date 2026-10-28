@@ -1,7 +1,7 @@
 # Full CheckIn stack on your own machine (and in CI), with its own local PostgreSQL.
 #   cp .env.example .env      # then set JWT_SECRET
 #   docker compose up -d --build
-#   open http://localhost:8080   (log in as U001 / Test@1234)
+#   open http://localhost:8080   (log in as CST-ICT01 / Test@1234)
 # Production uses docker-compose.prod.yml (Supabase, prebuilt images) instead.
 
 x-db-env: &db-env
@@ -50,7 +50,15 @@ services:
       <<: *db-env
       PORT: 5000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
-      GEOFENCE_METRES: ${GEOFENCE_METRES:-10}
+      GEOFENCE_METRES: ${GEOFENCE_METRES:-40}
+      ACCURACY_FLAG_METRES: ${ACCURACY_FLAG_METRES:-150}
+      NETWORK_GRACE_SECONDS: ${NETWORK_GRACE_SECONDS:-120}
+      # Email is optional: without SMTP_HOST, reset codes are printed in the backend log
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       TRUST_PROXY: 1
     depends_on:
       db-setup:

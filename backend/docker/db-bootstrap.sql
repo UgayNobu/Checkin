@@ -20,3 +20,12 @@ CREATE SEQUENCE IF NOT EXISTS seq_notif;
 CREATE SEQUENCE IF NOT EXISTS seq_audit;
 CREATE SEQUENCE IF NOT EXISTS seq_rooms;
 CREATE SEQUENCE IF NOT EXISTS seq_slots;
+CREATE SEQUENCE IF NOT EXISTS seq_class_changes;
+
+-- The current semester's code, the default for sections / enrollments / class_changes.academic_session.
+-- plpgsql (not sql like in Supabase) so it can be created before academic_sessions exists.
+CREATE OR REPLACE FUNCTION current_academic_session() RETURNS varchar
+LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN (SELECT session_code FROM academic_sessions WHERE is_current LIMIT 1);
+END $$;

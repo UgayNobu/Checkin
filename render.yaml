@@ -27,4 +27,14 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: GEOFENCE_METRES
-        value: "10"
+        value: "40"
+      - key: ACCURACY_FLAG_METRES
+        value: "150"
+      - key: NETWORK_GRACE_SECONDS
+        value: "120"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

@@ -48,7 +48,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 docker compose up -d --build
 ```
 
-Open **http://localhost:8080** and log in as `U001` / `Test@1234` (other test accounts are in the README).
+Open **http://localhost:8080** and log in as `CST-ICT01` / `Test@1234` (other test accounts are in the README).
 
 The first start takes a few minutes. The `db-setup` container creates the tables and loads the seed data, then exits. That is expected: it shows as `Exited (0)`.
 
@@ -70,15 +70,15 @@ The first start takes a few minutes. The `db-setup` container creates the tables
 
 The real schema lives in Supabase. `database.sql` only holds *changes* to it, so it can't build a database from nothing. On an empty database, `backend/docker/db-setup.sh` does this:
 
-1. `db-bootstrap.sql`: creates the `gen_id()` function and the `seq_*` sequences that the table defaults use (`gen_id('U','seq_users')` → `U001`).
+1. `db-bootstrap.sql`: creates the `gen_id()` and `current_academic_session()` functions and the `seq_*` sequences that the table defaults use (`gen_id('CC','seq_class_changes')` → `CC001`).
 2. `prisma db push`: creates the tables from `schema.prisma`.
-3. `db-legacy.sql`: adds Supabase-only columns that the seed still writes (`enrollments.academic_year`).
+3. `db-after-push.sql`: adds the current semester (AS2026) and the partial unique indexes Prisma can't describe.
 4. `node seed.js`: loads the seed data from `database.sql`.
 5. `scripts/set-test-passwords.js`: sets every seeded account's password to `Test@1234`.
 
 On later starts it only re-runs the seed (which skips existing rows). The script **refuses to run if `DATABASE_URL` points at Supabase**.
 
-> If a future `database.sql` change adds a Supabase column that the seed uses but `schema.prisma` doesn't have, `db-setup` will fail with `column "…" does not exist`. Add that column to `backend/docker/db-legacy.sql`, or better, add it to `schema.prisma`.
+> If a future `database.sql` change adds a Supabase column that the seed uses but `schema.prisma` doesn't have, `db-setup` will fail with `column "…" does not exist`. Add that column to `backend/docker/db-after-push.sql`, or better, add it to `schema.prisma`.
 
 ---
 

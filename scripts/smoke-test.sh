@@ -17,13 +17,13 @@ curl -fsS "$BASE/" | grep -q '<div id="root"' || { echo "smoke: index.html looks
 echo "smoke: SPA route falls back to index.html"
 curl -fsS -o /dev/null "$BASE/some/deep/link"
 
-echo "smoke: login through /api (seeded admin U001)"
+echo "smoke: login through /api (seeded admin CST-ICT01)"
 TOKEN=$(curl -fsS -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
-  -d '{"userId":"U001","password":"Test@1234"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+  -d '{"userId":"CST-ICT01","password":"Test@1234"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
 [ -n "$TOKEN" ] || { echo "smoke: login returned no token"; exit 1; }
 
 echo "smoke: authenticated request"
-curl -fsS "$BASE/api/me" -H "Authorization: Bearer $TOKEN" | grep -q '"U001"' || { echo "smoke: /api/me failed"; exit 1; }
+curl -fsS "$BASE/api/me" -H "Authorization: Bearer $TOKEN" | grep -q '"CST-ICT01"' || { echo "smoke: /api/me failed"; exit 1; }
 
 echo "smoke: unauthenticated request is rejected"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/me")

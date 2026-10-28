@@ -18,8 +18,8 @@ elif [ "$has_schema" = 1 ]; then
   echo "db-setup: creating tables from schema.prisma"
   npx prisma db push --skip-generate
 
-  echo "db-setup: adding Supabase-only columns used by the seed"
-  npx prisma db execute --file docker/db-legacy.sql --schema prisma/schema.prisma
+  echo "db-setup: adding the current semester and Supabase-only indexes"
+  npx prisma db execute --file docker/db-after-push.sql --schema prisma/schema.prisma
 
   echo "db-setup: loading seed data"
   node prisma/seed.js
