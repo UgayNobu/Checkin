@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, logout } from '../../api';
+import { api, fileHref, logout } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
@@ -15,11 +15,26 @@ const initials = (n = '') =>
 const Back = ({ to = '/settings', label = 'Settings' }) => {
   const nav = useNavigate();
   return (
-    <button className="back" onClick={() => nav(to)}>
+    <button type="button" className="back" onClick={() => nav(to)}>
       ← {label}
     </button>
   );
 };
+
+/* Profile circle: the uploaded photo if there is one, otherwise the initials */
+const Avatar = ({ name, url, className = 'av' }) => (
+  <div className={className} style={{ overflow: 'hidden' }}>
+    {url ? (
+      <img
+        src={fileHref(url)}
+        alt="Profile"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+      />
+    ) : (
+      initials(name)
+    )}
+  </div>
+);
 
 /* =========================================================
    Settings (main page)
@@ -96,7 +111,7 @@ export default function Settings() {
           <hr />
 
           <div className="who">
-            <div className="av">{initials(me.name)}</div>
+            <Avatar name={me.name} url={me.avatarUrl} />
             <div>
               <b>{me.name}</b> <span className="tag">ACTIVE STUDENT</span>
               <br />
@@ -152,27 +167,78 @@ export default function Settings() {
 
 /* =========================================================
    Edit profile
+   Photo uses the same upload route as the teacher profile (/me/avatar)
    ========================================================= */
 export function EditProfile() {
   const nav = useNavigate();
   const [me, setMe] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const file = useRef(null);
 
   useEffect(() => {
-    api('/me').then(setMe);
+    api('/me').then(setMe).catch((e) => setErr(e.message));
   }, []);
 
-  if (!me) return null;
+  if (!me) return err ? <p className="err">{err}</p> : null;
 
-  const set = (k) => (e) => setMe({ ...me, [k]: e.target.value });
+  const set = (k) => (e) => { setMe({ ...me, [k]: e.target.value }); setErr(''); setMsg(''); };
+
+  // Upload a new photo straight away (PNG, JPG or WEBP, up to 2 MB)
+  const upload = (e) => {
+    const pic = e.target.files?.[0];
+    e.target.value = ''; // lets the same file be picked again
+    if (!pic) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(pic.type)) return setErr('Choose a PNG, JPG or WEBP image.');
+    if (pic.size > 2 * 1024 * 1024) return setErr('The photo must be 2 MB or smaller.');
+    const fd = new FormData();
+    fd.append('file', pic);
+    setBusy(true); setErr(''); setMsg('');
+    api('/me/avatar', fd)
+      .then(() => api('/me')) // get the fresh photo address from the backend
+      .then((u) => { setMe((m) => ({ ...m, avatarUrl: u.avatarUrl })); setMsg('Photo updated.'); })
+      .catch((x) => setErr(x.message))
+      .finally(() => setBusy(false));
+  };
+
+  const removePhoto = () => {
+    setBusy(true); setErr(''); setMsg('');
+    api('/me/avatar', null, 'DELETE')
+      .then(() => { setMe((m) => ({ ...m, avatarUrl: null })); setMsg('Photo removed.'); })
+      .catch((x) => setErr(x.message))
+      .finally(() => setBusy(false));
+  };
+
+  const save = () => {
+    setBusy(true); setErr(''); setMsg('');
+    api('/me', { name: (me.name || '').trim(), phone: (me.phone || '').trim() }, 'PUT')
+      .then(() => nav('/settings'))
+      .catch((x) => setErr(x.message || 'Could not save. Try again.'))
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="sub1">
       <Back />
 
       <div className="who2">
-        <div className="av dark">{initials(me.name)}</div>
-        <button className="ghost">Change photo</button>
+        <Avatar name={me.name} url={me.avatarUrl} className="av dark" />
+
+        {/* Hidden file picker, opened by the button */}
+        <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
+        <button type="button" className="ghost" onClick={() => file.current?.click()} disabled={busy}>
+          {busy ? 'Please wait…' : me.avatarUrl ? 'Change photo' : 'Add photo'}
+        </button>
+        {me.avatarUrl && (
+          <button type="button" className="ghost" onClick={removePhoto} disabled={busy}>
+            Remove
+          </button>
+        )}
       </div>
+
+      {msg && <p style={{ color: '#357a32', fontSize: 13, fontWeight: 600, margin: '8px 0 0' }}>✓ {msg}</p>}
+      {err && <p style={{ color: '#ca3120', fontSize: 13, fontWeight: 600, margin: '8px 0 0' }}>{err}</p>}
 
       <div className="card1">
         <label>Full name</label>
@@ -186,19 +252,14 @@ export function EditProfile() {
         <input value={me.email || ''} readOnly />
 
         <label>Phone number</label>
-        <input value={me.phone || ''} onChange={set('phone')} />
+        <input value={me.phone || ''} onChange={set('phone')} placeholder="e.g. 17123456" />
 
         <div className="acts">
-          <button className="ghost" onClick={() => nav('/settings')}>
+          <button type="button" className="ghost" onClick={() => nav('/settings')}>
             Cancel
           </button>
-          <button
-            className="ghost"
-            onClick={() =>
-              api('/me', { name: me.name, phone: me.phone }, 'PUT').then(() => nav('/settings'))
-            }
-          >
-            Save changes
+          <button type="button" className="ghost" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>

@@ -5,7 +5,7 @@
 //  • Settings → Account changes the password (PUT /me/password: checks the current
 //    password, saves a new bcrypt hash in users.password_hash).
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../api';
+import { api, fileHref } from '../../api';
 import { COLLEGE_EMAIL, PASSWORD_HINT, passwordChecks, passwordOk } from '../../validation';
 import './profile.css';
 
@@ -97,7 +97,7 @@ export function Profile() {
   return (
     <div className="prof">
       <div className="pcard">
-        {me.avatarUrl ? <img className="bigav img" src={me.avatarUrl} alt="" /> : <div className="bigav">{ini(me.name)}</div>}
+        {me.avatarUrl ? <img className="bigav img" src={fileHref(me.avatarUrl)} alt="" /> : <div className="bigav">{ini(me.name)}</div>}
         <b>{me.name}</b>
         <small>{[me.designation, me.department && `Dept. of ${me.department}`].filter(Boolean).join(' · ') || 'Tutor'}</small>
         <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
