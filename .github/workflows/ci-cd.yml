@@ -5,8 +5,10 @@
 #     3. docker    - build all images, start the full stack, run scripts/smoke-test.sh
 #   Push to dev/main (after 1-3 pass):
 #     4. publish   - push images to GitHub Container Registry (ghcr.io)
+#   Push to the Render branch (repo variable RENDER_BRANCH, default main), after 1-3 pass:
+#     5. render    - trigger the Render deploy hook (secret RENDER_DEPLOY_HOOK)
 #   Push to main, only when the DEPLOY_HOST repo variable is set:
-#     5. deploy    - SSH to the server and roll out the new images
+#     6. deploy    - SSH to the server and roll out the new images
 # See docs/DEPLOYMENT.md for the one-time setup.
 name: CI/CD
 
@@ -96,6 +98,23 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  render:
+    name: Deploy backend to Render
+    needs: docker
+    if: github.event_name == 'push' && github.ref_name == (vars.RENDER_BRANCH || 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK secret is not set, skipping the Render deploy"
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Render deploy started for $GITHUB_REF_NAME ($GITHUB_SHA)"
 
   publish:
     name: Publish images
