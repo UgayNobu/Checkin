@@ -9,3 +9,4 @@ Dockerfile
 uploads/*
 !uploads/.gitkeep
 prisma/timetable_AS2026.sql
+tests

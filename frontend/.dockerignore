@@ -6,3 +6,4 @@ dist
 !.env.example
 Dockerfile
 .dockerignore
+src/__tests__

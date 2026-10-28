@@ -109,4 +109,4 @@ const buildingFromCode = (row) =>
 /** What the frontend needs to draw the cards (no secrets in here). */
 const publicBuildings = () => BUILDINGS.map(({ key, name, polygons, rooms }) => ({ key, name, polygons, rooms }));
 
-module.exports = { BUILDINGS, BUILDING_KEYS, EDGE_TOLERANCE_M, buildingByKey, buildingForRoom, buildingFromCode, publicBuildings };
+module.exports = { BUILDINGS, BUILDING_KEYS, EDGE_TOLERANCE_M, buildingByKey, buildingForRoom, buildingFromCode, publicBuildings, roomKey };
