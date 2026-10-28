@@ -15,7 +15,7 @@ hosted links below. A `http://192.168.x.x` address from a laptop won't work.
 
 | Piece | Where |
 |---|---|
-| Phone layout: menu button + slide-in sidebar, stacked cards, sideways-scrolling tables | `frontend/src/base.css` (section 14), `Shell` in `frontend/src/App.jsx` |
+| Phone layout: menu button + slide-in sidebar, stacked cards, sideways-scrolling tables | `frontend/src/vle.css`, `Shell` in `frontend/src/App.jsx` |
 | App name, colours, icons | `frontend/photo/manifest.webmanifest`, `frontend/photo/icon-*.png` |
 | Offline app shell, never caches API data | `frontend/photo/sw.js` (registered in `src/main.jsx`, built app only) |
 | Phone meta tags (iPhone icon, theme colour) | `frontend/index.html` |
@@ -29,6 +29,21 @@ hosted links below. A `http://192.168.x.x` address from a laptop won't work.
    - `FRONTEND_URL`: leave as `https://example.com` for now; it's fixed in step 3.
    - `JWT_SECRET` is generated automatically.
 4. Wait for the deploy, then open `https://<your-service>.onrender.com/health`. It should show `"status":"ok"`.
+
+### Let GitHub Actions start the deploys
+
+`render.yaml` turns Render's own auto-deploy off. Instead, the `render` job in
+`.github/workflows/ci-cd.yml` starts a deploy only after the backend checks, unit
+tests, frontend build and Docker smoke test have all passed.
+
+1. Render → your service → **Settings → Deploy Hook** → copy the URL (keep it secret).
+2. GitHub → repo **Settings → Secrets and variables → Actions**:
+   - **Secrets** tab → **New repository secret**: `RENDER_DEPLOY_HOOK` = the URL.
+   - **Variables** tab → **New repository variable**: `RENDER_BRANCH` = the branch Render
+     deploys (`dev` while testing; delete it or set `main` for the real release).
+3. Push to that branch. In GitHub → **Actions**, the run shows **Deploy backend to Render** at the end.
+
+The branch in Render (**Settings → Branch**) and `RENDER_BRANCH` must be the same.
 
 Free Render services sleep after 15 minutes without traffic, so the first request
 after a break takes about 50 seconds. Open the `/health` link a minute before a demo.
@@ -55,7 +70,7 @@ On the first check-in, allow location access when the phone asks.
 
 ## Updating
 
-Pushing to the deployed branch redeploys both Vercel and Render automatically.
+Pushing to the deployed branch redeploys Vercel straight away, and Render once the GitHub Actions checks pass.
 Installed apps pick up the new version the next time they are opened.
 
 The Docker setup (`docs/DEPLOYMENT.md`) is unchanged and serves the same mobile
