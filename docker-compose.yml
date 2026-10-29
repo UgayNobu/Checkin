@@ -54,6 +54,7 @@ services:
       ACCURACY_FLAG_METRES: ${ACCURACY_FLAG_METRES:-150}
       NETWORK_GRACE_SECONDS: ${NETWORK_GRACE_SECONDS:-120}
       # Email is optional: without SMTP_HOST, reset codes are printed in the backend log
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

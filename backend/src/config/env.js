@@ -40,6 +40,9 @@ const env = {
     bucket: process.env.SUPABASE_BUCKET || 'checkin-files',
   },
 
+  // Brevo email API (HTTPS). Used instead of SMTP when set: Render's free plan blocks SMTP ports.
+  brevoApiKey: process.env.BREVO_API_KEY || '',
+
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: num(process.env.SMTP_PORT, 587),

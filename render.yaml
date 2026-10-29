@@ -34,6 +34,12 @@ services:
         value: "150"
       - key: NETWORK_GRACE_SECONDS
         value: "120"
+      # Email: Render's free plan blocks SMTP, so the live site sends through Brevo's API.
+      # MAIL_FROM must be a sender verified in Brevo, e.g. CheckIn <you@gmail.com>
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER

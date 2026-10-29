@@ -15,10 +15,10 @@ const server = createApp().listen(env.port, () => {
   // Say straight away whether emails (reset codes, notifications) will work.
   if (isSmtpConfigured()) {
     verifyMail().then((r) => (r.ok
-      ? console.log(`Email ready: sending as ${env.smtp.user} via ${env.smtp.host}`)
+      ? console.log(`Email ready: sending via ${r.via}`)
       : console.warn(`Email NOT working: ${r.error}`)));
   } else {
-    console.log('Email not set up (no SMTP_HOST in .env): reset codes are printed here instead.');
+    console.log('Email not set up (no BREVO_API_KEY or SMTP_HOST in .env): reset codes are printed here instead.');
   }
 });
 

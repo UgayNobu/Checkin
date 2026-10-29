@@ -70,7 +70,7 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 | Database | PostgreSQL on Supabase, Prisma ORM |
 | Auth | JWT (bcrypt-hashed passwords) |
 | Geolocation | Browser Geolocation API; building outlines (point-in-polygon) and Haversine distance |
-| Email | Nodemailer (Gmail SMTP for the project) |
+| Email | Brevo email API on the live site; Gmail SMTP (Nodemailer) when running locally |
 | Exports | CSV, PDF (pdfkit) |
 | Hosting | Vercel (frontend), Render (backend), Supabase (database) |
 | CI/CD | GitHub Actions; Docker images on GitHub Packages |
@@ -129,7 +129,7 @@ Copy `.env.example` to `.env` in **both** `backend/` and `frontend/`, then fill 
 
 | File | Variables |
 |---|---|
-| `backend/.env` | `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT`; email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`; optional: `GEOFENCE_METRES` (40), `REVIEW_MINUTES` (3), `START_EARLY_MINUTES` (15), `REQUIRED_ATTENDANCE_PERCENT` (90), `AT_RISK_ATTENDANCE_PERCENT` (80) |
+| `backend/.env` | `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT`; email: `BREVO_API_KEY` (live site) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` (local), and `MAIL_FROM`; optional: `GEOFENCE_METRES` (40), `REVIEW_MINUTES` (3), `START_EARLY_MINUTES` (15), `REQUIRED_ATTENDANCE_PERCENT` (90), `AT_RISK_ATTENDANCE_PERCENT` (80) |
 | `frontend/.env` | `VITE_API` – the backend URL, e.g. `http://localhost:5001/api` |
 
 ### 3. Run (two terminals)
@@ -259,7 +259,7 @@ When something is merged into **`main`**:
 - **Frontend:** Vercel builds and deploys `main` by itself. Other branches and pull requests get a Vercel preview link.
 - **Docker images** are published to GitHub Packages (`checkin-backend`, `checkin-frontend`).
 
-Hosting settings (database URLs, JWT secret, email) are kept in the Render and Vercel dashboards, never in the repo. Details: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) and [docs/MOBILE.md](./docs/MOBILE.md).
+Hosting settings (database URLs, JWT secret, email) are kept in the Render and Vercel dashboards, never in the repo. Render's free plan blocks the email ports, so the live backend sends email (reset codes, alerts) through **Brevo**'s API with `BREVO_API_KEY`; on a laptop, Gmail SMTP works as before. Details: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) and [docs/MOBILE.md](./docs/MOBILE.md).
 
 **Making a release:** open a pull request from `dev` into `main`, merge it when green, then tag it (`git tag vX.Y.Z && git push origin vX.Y.Z`) and publish it under [Releases](https://github.com/UgayNobu/Checkin/releases).
 
