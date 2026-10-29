@@ -48,6 +48,21 @@ The branch in Render (**Settings → Branch**) and `RENDER_BRANCH` must be the s
 Free Render services sleep after 15 minutes without traffic, so the first request
 after a break takes about 50 seconds. Open the `/health` link a minute before a demo.
 
+### Email on Render (reset codes, alerts)
+
+Render's free plan blocks the email ports (25, 465, 587), so Gmail SMTP cannot send from there. The backend
+sends through **Brevo**'s email API over HTTPS instead (free: 300 emails a day):
+
+1. Sign up at <https://www.brevo.com> (free plan).
+2. **Senders, domains & dedicated IPs → Senders → Add a sender**: the address emails come from
+   (e.g. the team Gmail). Brevo emails a link to that inbox; click it to verify.
+3. **SMTP & API → API keys → Generate a new API key**, copy it once.
+4. Render → your service → **Environment**: add `BREVO_API_KEY` (the key) and
+   `MAIL_FROM` = `CheckIn <the verified address>`. Save; Render restarts.
+5. The Render log shows `Email ready: sending via Brevo API as …`. Test with **Forgot password**.
+
+When `BREVO_API_KEY` is set it is used instead of SMTP. On a laptop you can keep using Gmail SMTP.
+
 ## 2. Frontend on Vercel (free)
 
 1. Sign in at <https://vercel.com> with GitHub. **Add New → Project**, import `Checkin`.
