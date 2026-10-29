@@ -19,9 +19,45 @@ function parseFrom(from) {
   return { name: 'CheckIn', email: String(from || '').trim() };
 }
 
-const toHtml = (text) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5">
-    <p>${String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>
-    <p style="color:#777;font-size:12px">CheckIn · College of Science and Technology</p></div>`;
+// ---------- Email design ----------
+const NAVY = '#1F3A5F';
+const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** The live site's address (first https FRONTEND_URL), used for the button and the logo. */
+function appUrl() {
+  const urls = env.frontendUrls || [];
+  return urls.find((u) => /^https:\/\//.test(u)) || urls[0] || '';
+}
+
+/**
+ * One email layout for everything CheckIn sends: navy header with the logo, "Hello NAME",
+ * the message, an optional big code, an "Open CheckIn" button and a footer.
+ * Table-based with inline styles so it looks the same in Gmail, Outlook and phone apps.
+ */
+function renderEmail({ name, text, code, link = appUrl(), button = 'Open CheckIn' }) {
+  const body = esc(text).replace(/\n/g, '<br>');
+  const logo = link ? `<img src="${esc(link.replace(/\/$/, ''))}/logo.jpg" width="40" height="40" alt="" style="border-radius:50%;vertical-align:middle;margin-right:10px;background:#fff">` : '';
+  const codeBox = code ? `<tr><td style="padding:4px 32px 8px"><div style="font-size:13px;color:#5f6368;margin-bottom:6px">Your code</div>
+      <div style="display:inline-block;font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:${NAVY};background:#EAF1F8;border:1px solid #BFD0E3;border-radius:8px;padding:12px 20px">${esc(code)}</div></td></tr>` : '';
+  const btn = link ? `<tr><td style="padding:16px 32px 8px"><a href="${esc(link)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:6px">${esc(button)}</a></td></tr>` : '';
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f1f3f4">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f3f4;padding:24px 0"><tr><td align="center">
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#1f1f1f">
+    <tr><td style="background:${NAVY};padding:16px 32px;color:#ffffff;font-size:20px;font-weight:700">${logo}CheckIn</td></tr>
+    <tr><td style="padding:28px 32px 8px;font-size:16px">Hello ${esc(name || 'there')},</td></tr>
+    <tr><td style="padding:8px 32px;font-size:15px;line-height:1.6">${body}</td></tr>
+    ${codeBox}${btn}
+    <tr><td style="padding:24px 32px 24px;font-size:12px;color:#80868b;line-height:1.5;border-top:1px solid #eceff1">
+      CheckIn · Student Attendance System<br>College of Science and Technology, Royal University of Bhutan<br>
+      This is an automatic message, please don't reply.${code ? '' : ' Students can turn these emails off in CheckIn → Settings.'}</td></tr>
+  </table></td></tr></table></body></html>`;
+}
+
+/** The plain-text version (for clients that don't show HTML). */
+function renderText({ name, text, code, link = appUrl() }) {
+  return [`Hello ${name || 'there'},`, '', text, ...(code ? ['', `Your code: ${code}`] : []), ...(link ? ['', `Open CheckIn: ${link}`] : []),
+    '', '--', 'CheckIn · College of Science and Technology'].join('\n');
+}
 
 // ---------- Brevo (HTTPS) ----------
 async function brevo(path, init = {}) {
@@ -53,13 +89,16 @@ function getTransport() {
   return transport;
 }
 
-async function sendMail({ to, subject, text }) {
+/** sendMail({ to, subject, text, name?, code?, link? }) — text is the message without the greeting. */
+async function sendMail({ to, subject, text, name, code, link }) {
   if (!isSmtpConfigured() || !to) return false;
-  const html = toHtml(text);
+  const opts = { name, text, code, ...(link !== undefined && { link }) };
+  const html = renderEmail(opts);
+  const plain = renderText(opts);
   if (useBrevo()) {
-    await brevo('/smtp/email', { method: 'POST', body: JSON.stringify({ sender: parseFrom(env.smtp.from), to: [{ email: to }], subject, textContent: String(text), htmlContent: html }) });
+    await brevo('/smtp/email', { method: 'POST', body: JSON.stringify({ sender: parseFrom(env.smtp.from), to: [{ email: to }], subject, textContent: plain, htmlContent: html }) });
   } else {
-    await getTransport().sendMail({ from: env.smtp.from, to, subject, text, html });
+    await getTransport().sendMail({ from: env.smtp.from, to, subject, text: plain, html });
   }
   return true;
 }
@@ -101,4 +140,4 @@ async function verifyMail() {
   }
 }
 
-module.exports = { sendMail, sendMailInBackground, isSmtpConfigured, verifyMail, explain, parseFrom, provider };
+module.exports = { sendMail, sendMailInBackground, isSmtpConfigured, verifyMail, explain, parseFrom, provider, renderEmail, renderText, appUrl };

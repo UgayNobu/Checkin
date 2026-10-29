@@ -14,8 +14,8 @@ async function notify(userId, message, category, options = {}) {
   try {
     await prisma.notification.create({ data: { userId, message, category } });
     if (options.email) {
-      const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, prefs: true } });
-      if (u?.email && u.prefs?.email !== false) sendMailInBackground({ to: u.email, subject: options.email, text: message });
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, prefs: true, name: true } });
+      if (u?.email && u.prefs?.email !== false) sendMailInBackground({ to: u.email, subject: options.email, text: message, name: u.name });
     }
   } catch (e) {
     console.warn('[notify] failed:', e.message);
