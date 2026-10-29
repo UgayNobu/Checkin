@@ -131,9 +131,9 @@ async function forgotPassword({ userId }) {
     prisma.passwordReset.create({ data: { userId: u.id, codeHash: await hashPassword(code), expiresAt: new Date(now.getTime() + RESET_MINUTES * 60_000) } }),
   ]);
 
-  const text = `Hello ${u.name || ''},\n\nYour CheckIn password reset code is ${code}.\nIt expires in ${RESET_MINUTES} minutes. If you didn't ask for this, you can ignore this email.`;
+  const text = `Use this code to reset your CheckIn password. It works once and expires in ${RESET_MINUTES} minutes.\nIf you didn't ask for this, you can ignore this email: your password stays the same.`;
   if (isSmtpConfigured()) {
-    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text })
+    sendMail({ to: u.email, subject: 'Your CheckIn password reset code', text, name: u.name, code })
       .then(() => console.log(`[forgot-password] code emailed to ${u.id}`))
       .catch((e) => {
         console.warn('[mailer] reset email failed:', explain(e));

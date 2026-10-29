@@ -57,3 +57,25 @@ describe('sending through Brevo', () => {
     expect(r.error).toMatch(/BREVO_API_KEY/);
   });
 });
+
+describe('email design', () => {
+  const m = load({ FRONTEND_URL: 'https://checkin-cst-group2.vercel.app' });
+  test('TC-UNIT-47: every email starts with "Hello NAME" and has an Open CheckIn button to the live site', () => {
+    const html = m.renderEmail({ name: 'Sanjuck Subba', text: 'Your attendance in IDE201 is 82%.' });
+    expect(html).toContain('Hello Sanjuck Subba,');
+    expect(html).toContain('href="https://checkin-cst-group2.vercel.app"');
+    expect(html).toContain('Open CheckIn');
+  });
+  test('TC-UNIT-48: a reset code is shown in its own large box, in both HTML and plain text', () => {
+    expect(m.renderEmail({ name: 'A', text: 't', code: '657827' })).toMatch(/font-size:32px[^>]*>657827</);
+    expect(m.renderText({ name: 'A', text: 't', code: '657827' })).toContain('Your code: 657827');
+  });
+  test('TC-UNIT-49: bad input - names and messages are escaped, so no HTML can be injected', () => {
+    const html = m.renderEmail({ name: '<script>x</script>', text: 'a <b>bold</b> & more' });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;b&gt;bold&lt;/b&gt; &amp; more');
+  });
+  test('TC-UNIT-50: edge case - without a name it says "Hello there"', () => {
+    expect(m.renderText({ text: 't' })).toMatch(/^Hello there,/);
+  });
+});
