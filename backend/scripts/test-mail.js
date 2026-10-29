@@ -16,7 +16,7 @@ const { verifyMail, sendMail } = require('../src/lib/mailer');
     process.exit(1);
   }
   console.log('✓ Settings OK: ' + v.via);
-  await sendMail({ to, subject: 'CheckIn test email', text: 'This is a test email from CheckIn. If you can read this, password reset codes will arrive by email.' });
+  await sendMail({ to, subject: 'CheckIn test email', text: 'This is a test email from CheckIn. If you can read this, password reset codes will arrive by email.', name: 'CheckIn team', code: '123456' });
   console.log(`✓ Test email sent to ${to}. Check the inbox (and the Spam folder).`);
 })().catch((e) => {
   console.error('✗ ' + (require('../src/lib/mailer').explain(e)));
