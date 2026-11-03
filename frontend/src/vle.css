@@ -559,3 +559,10 @@
 .vle .bellpanel small { font-size: 11px; margin-top: 3px; }
 .vle .bellpanel .bellempty { color: var(--vle-muted); text-align: center; padding: 18px; }
 @media (max-width: 760px) { .vle .bellpanel { position: fixed; top: 60px; left: 10px; right: 10px; width: auto; } }
+
+/* Location status under the check-in code (students) and the workshop radius (tutors) */
+.gps { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4; border-left: 4px solid; }
+.gps.wait { background: #eef3f8; border-color: #8aa4bf; color: #34495e; }
+.gps.weak { background: #fcefdc; border-color: #e07b16; color: #8a5a00; }
+.gps.good { background: #e3f1e1; border-color: #357a32; color: #24561f; font-weight: 600; }
+.gps.bad { background: #fbe3e0; border-color: #ca3120; color: #8f2216; }
