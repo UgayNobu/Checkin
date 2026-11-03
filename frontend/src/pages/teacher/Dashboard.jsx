@@ -11,6 +11,6 @@ export default function Dashboard() {
       <div className="two"><div className="big blue"><small>Total Module</small><b>{m.length}</b></div>
         <div className="big green"><small>Total Students</small><b>{total}</b><small>Across {m.length} modules</small></div></div>
       <h4>Each Module</h4>
-      <div className="tbl"><table><thead><tr><th>Module</th><th>total student</th></tr></thead>
+      <div className="tbl tbl-fit"><table><thead><tr><th>Module</th><th>Students</th></tr></thead>
         <tbody>{m.map((x) => <tr key={x.id}><td>{x.code} – {x.name}</td><td className="blue-t">{x.students}</td></tr>)}</tbody></table></div></div>);
 }
