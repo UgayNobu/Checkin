@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
-import { bestPosition } from '../../geo';
+import { bestPosition, useLocationWarmup } from '../../geo';
 import './startform.css';
 
 const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
@@ -166,6 +166,8 @@ export default function StartAttendance() {
     setF({ ...f, type, where: type === 'practical' ? 'WORKSHOP' : f.where === 'WORKSHOP' ? '' : f.where });
   };
   const workshop = f.where === 'WORKSHOP';
+  // Workshop sessions use the tutor's own position as the centre: start GPS early so it is accurate
+  const gps = useLocationWarmup(workshop && !sid);
   const roomBuilding = buildingOfRoom(f.room, buildings);
   const chosen = buildings.find((b) => b.key === f.where); // the building picked under "Where students must be"
   // Picking a building keeps the room only if it is in that building; otherwise choose again from its list
@@ -340,6 +342,7 @@ export default function StartAttendance() {
               <small className="sa-help">
                 Stand in the middle of the workshop when you generate the code. Students must be within this distance of you.
               </small>
+              {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
             </div>
           )}
         </div>
