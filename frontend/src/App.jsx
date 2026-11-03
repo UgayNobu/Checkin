@@ -13,6 +13,7 @@ import {
 import { api, auth, fileHref, logout } from './api';
 import './base.css';
 import './vle.css';
+import './phone.css';
 import './pages/public/public.css';
 
 /* ---------- Public pages ---------- */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { bestPosition } from '../../geo';
+import { bestPosition, useLocationWarmup } from '../../geo';
 import './attendance.css';
 
 // Students only see present (green) or absent (red).
@@ -70,6 +70,8 @@ export default function Attendance() {
   const classesIn = (k) => live.classes.filter((c) => cardOf(c) === k);
   const here = card ? classesIn(card) : [];
   const chosen = here.find((c) => c.sessionId === pick);
+  // Start the location as soon as a building is tapped, so GPS can lock on while the class and code are chosen
+  const gps = useLocationWarmup(!!card);
 
   // A class closed or was checked in: drop the selection
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function Attendance() {
 
     if (!navigator.geolocation) return send({ locationError: true });
 
-    // Waits up to 10 s for a GPS-quality reading instead of taking the first rough one
+    // Uses the location that has been improving since the building was tapped (waits up to 15 s if it isn't good yet)
     bestPosition()
       .then((p) => send(p))
       .catch((e) => send(e.code === 1 ? { permissionDenied: true } : { locationError: true }));
@@ -161,6 +163,7 @@ export default function Attendance() {
                   <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="A1B2C3" autoFocus />
                   <button onClick={checkIn} disabled={busy}>{busy ? 'Checking in…' : 'Check In'}</button>
                 </div>
+                {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
               </>
             )}
           </div>

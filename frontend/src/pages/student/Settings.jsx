@@ -416,7 +416,6 @@ export function Enrol() {
   return (
     <div className="sub1">
       <Back label="Back" />
-      <h1>My Enroll Modules</h1>
 
       {/* Step 1: year */}
       <label>Year</label>
