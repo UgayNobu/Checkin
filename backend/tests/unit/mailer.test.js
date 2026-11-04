@@ -11,24 +11,24 @@ afterEach(() => { delete global.fetch; });
 
 describe('parseFrom', () => {
   const { parseFrom } = load({});
-  test('TC-UNIT-40: "Name <email>" is split into name and email', () => {
+  test('TC-UNIT-42: "Name <email>" is split into name and email', () => {
     expect(parseFrom('CheckIn <me@gmail.com>')).toEqual({ name: 'CheckIn', email: 'me@gmail.com' });
   });
-  test('TC-UNIT-41: edge case - a bare address gets the name CheckIn', () => {
+  test('TC-UNIT-43: edge case - a bare address gets the name CheckIn', () => {
     expect(parseFrom('me@gmail.com')).toEqual({ name: 'CheckIn', email: 'me@gmail.com' });
   });
 });
 
 describe('choosing how to send', () => {
-  test('TC-UNIT-42: with BREVO_API_KEY, Brevo is used even if SMTP is also set', () => {
+  test('TC-UNIT-44: with BREVO_API_KEY, Brevo is used even if SMTP is also set', () => {
     const m = load({ BREVO_API_KEY: 'k', SMTP_HOST: 'smtp.gmail.com' });
     expect(m.provider()).toBe('brevo');
     expect(m.isSmtpConfigured()).toBe(true);
   });
-  test('TC-UNIT-43: with only SMTP_HOST, SMTP is used', () => {
+  test('TC-UNIT-45: with only SMTP_HOST, SMTP is used', () => {
     expect(load({ SMTP_HOST: 'smtp.gmail.com' }).provider()).toBe('smtp');
   });
-  test('TC-UNIT-44: bad input - with neither, nothing is sent', async () => {
+  test('TC-UNIT-46: bad input - with neither, nothing is sent', async () => {
     const m = load({});
     expect(m.provider()).toBeNull();
     await expect(m.sendMail({ to: 'a@b.c', subject: 's', text: 't' })).resolves.toBe(false);
@@ -36,7 +36,7 @@ describe('choosing how to send', () => {
 });
 
 describe('sending through Brevo', () => {
-  test('TC-UNIT-45: posts the sender, recipient, subject and both text and HTML', async () => {
+  test('TC-UNIT-47: posts the sender, recipient, subject and both text and HTML', async () => {
     const m = load({ BREVO_API_KEY: 'key123', MAIL_FROM: 'CheckIn <me@gmail.com>' });
     global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ messageId: 'x' }) });
     await expect(m.sendMail({ to: 'student@rub.edu.bt', subject: 'Code', text: 'Your code is 123456' })).resolves.toBe(true);
@@ -49,7 +49,7 @@ describe('sending through Brevo', () => {
     expect(body.textContent).toContain('123456');
     expect(body.htmlContent).toContain('123456');
   });
-  test('TC-UNIT-46: bad input - a wrong API key gives a clear message', async () => {
+  test('TC-UNIT-48: bad input - a wrong API key gives a clear message', async () => {
     const m = load({ BREVO_API_KEY: 'wrong' });
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({ code: 'unauthorized', message: 'Key not found' }) });
     const r = await m.verifyMail();
@@ -60,22 +60,22 @@ describe('sending through Brevo', () => {
 
 describe('email design', () => {
   const m = load({ FRONTEND_URL: 'https://checkin-cst-group2.vercel.app' });
-  test('TC-UNIT-47: every email starts with "Hello NAME" and has an Open CheckIn button to the live site', () => {
+  test('TC-UNIT-49: every email starts with "Hello NAME" and has an Open CheckIn button to the live site', () => {
     const html = m.renderEmail({ name: 'Sanjuck Subba', text: 'Your attendance in IDE201 is 82%.' });
     expect(html).toContain('Hello Sanjuck Subba,');
     expect(html).toContain('href="https://checkin-cst-group2.vercel.app"');
     expect(html).toContain('Open CheckIn');
   });
-  test('TC-UNIT-48: a reset code is shown in its own large box, in both HTML and plain text', () => {
+  test('TC-UNIT-50: a reset code is shown in its own large box, in both HTML and plain text', () => {
     expect(m.renderEmail({ name: 'A', text: 't', code: '657827' })).toMatch(/font-size:32px[^>]*>657827</);
     expect(m.renderText({ name: 'A', text: 't', code: '657827' })).toContain('Your code: 657827');
   });
-  test('TC-UNIT-49: bad input - names and messages are escaped, so no HTML can be injected', () => {
+  test('TC-UNIT-51: bad input - names and messages are escaped, so no HTML can be injected', () => {
     const html = m.renderEmail({ name: '<script>x</script>', text: 'a <b>bold</b> & more' });
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;b&gt;bold&lt;/b&gt; &amp; more');
   });
-  test('TC-UNIT-50: edge case - without a name it says "Hello there"', () => {
+  test('TC-UNIT-52: edge case - without a name it says "Hello there"', () => {
     expect(m.renderText({ text: 't' })).toMatch(/^Hello there,/);
   });
 });
