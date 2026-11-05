@@ -198,3 +198,19 @@
 }
 .sdm-tbl tbody tr:last-child td{border-bottom:none}
 .sdm-empty{text-align:center;color:#6a737b}
+/* ===== No modules yet ===== */
+.dash-loading{color:#6b7280;font-size:14px;padding:24px 0}
+.dash-empty{
+  max-width:520px;margin:12px auto;padding:32px 24px;
+  border:1px solid var(--line);border-radius:8px;background:#fff;
+  text-align:center;
+}
+.dash-empty-icon{font-size:40px;line-height:1;margin-bottom:10px}
+.dash-empty h3{margin:0 0 8px;font-size:18px}
+.dash-empty p{margin:0 0 18px;color:#4b5563;font-size:14px;line-height:1.5}
+.dash-empty button{
+  background:var(--vle-primary,#0f6cbf);color:#fff;border:0;border-radius:6px;
+  padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;min-height:44px;
+}
+.dash-empty button:hover{background:var(--vle-primary-dark,#0c589c)}
+@media (max-width:760px){.dash-empty{margin:4px 0;padding:28px 18px}.dash-empty button{width:100%}}
