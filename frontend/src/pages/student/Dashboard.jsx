@@ -1,5 +1,6 @@
 import { pattern } from '../teacher/Modules.jsx';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import './dashboard.css';
 
@@ -8,11 +9,12 @@ const AXIS = [100, 80, 60, 40, 20, 0];
 const cap = (n) => Math.min(Math.max(n, 0), 100); // attendance can never show above 100%
 
 export default function Dashboard() {
-  const [modules, setModules] = useState([]);
+  const nav = useNavigate();
+  const [modules, setModules] = useState(null); // null = still loading
   const [selected, setSelected] = useState(null);
   const [records, setRecords] = useState(null);
 
-  useEffect(() => { api('/student/dashboard').then(setModules); }, []);
+  useEffect(() => { api('/student/dashboard').then(setModules).catch(() => setModules([])); }, []);
 
   const open = (m) => {
     setSelected(m);
@@ -21,7 +23,7 @@ export default function Dashboard() {
   const close = () => { setSelected(null); setRecords(null); };
 
   // modules with no classes held yet have pct = null: no warning, no bar
-  const lowModule = modules.find((m) => m.pct != null && m.pct < 90);
+  const lowModule = (modules || []).find((m) => m.pct != null && m.pct < 90);
 
   /* ---------- One module: theory + practical, title on top, table below ---------- */
   if (selected) {
@@ -70,6 +72,22 @@ export default function Dashboard() {
             </section>
           );
         })}
+      </div>
+    );
+  }
+
+  if (!modules) return <div className="dash"><p className="dash-loading">Loading…</p></div>;
+
+  /* ---------- Not enrolled in any module yet: say so, instead of an empty chart ---------- */
+  if (!modules.length) {
+    return (
+      <div className="dash">
+        <div className="dash-empty">
+          <div className="dash-empty-icon" aria-hidden="true">📚</div>
+          <h3>You're not enrolled in any modules yet</h3>
+          <p>Join your classes to see your attendance here. You'll need the enrolment key from your tutor.</p>
+          <button type="button" onClick={() => nav('/settings/enrol')}>Enrol in a module</button>
+        </div>
       </div>
     );
   }
