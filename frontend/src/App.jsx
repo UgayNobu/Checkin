@@ -95,12 +95,38 @@ const NAV = {
   ],
 };
 
-const FOOT = {
-  student: 'College of Science and Technology',
-  teacher: 'College of Science and Technology',
-  admin: 'CST • Fair, Fast & Honest',
-  management: 'CST • Fair, Fast & Honest',
-};
+/* One footer for every role, laid out like the college website's footer (cst.edu.bt) */
+function Footer() {
+  return (
+    <footer className="vfoot">
+      <div className="vfoot-cols">
+        <div className="vfoot-brand">
+          <img src="/logo.jpg" alt="" />
+          <div>
+            <b>CheckIn</b>
+            <span>Student Attendance System</span>
+            <span>College of Science and Technology, RUB</span>
+          </div>
+        </div>
+        <div>
+          <h4>Contact</h4>
+          <p>
+            College of Science and Technology,
+            <br />Rinchending, Phuentsholing,
+            <br />Chukha, Bhutan · Post Box 450 · 21101
+          </p>
+          <p>Email: <a href="mailto:info.cst@rub.edu.bt">info.cst@rub.edu.bt</a></p>
+        </div>
+        <div>
+          <h4>Links</h4>
+          <a href="https://www.cst.edu.bt" target="_blank" rel="noreferrer">College website</a>
+          <a href="https://www.rub.edu.bt" target="_blank" rel="noreferrer">Royal University of Bhutan</a>
+        </div>
+      </div>
+      <div className="vfoot-bar">© {new Date().getFullYear()} CheckIn · College of Science and Technology, RUB. All rights reserved.</div>
+    </footer>
+  );
+}
 
 /* =========================================================
    Login page (student + teacher)
@@ -426,7 +452,7 @@ function Shell({ user, children, title, sub }) {
           </div>
         )}
         <div className="page">{children}</div>
-        <footer className="vfoot">{FOOT[user.role]}</footer>
+        <Footer />
       </div>
     </div>
   );

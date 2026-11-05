@@ -566,3 +566,20 @@
 .gps.weak { background: #fcefdc; border-color: #e07b16; color: #8a5a00; }
 .gps.good { background: #e3f1e1; border-color: #357a32; color: #24561f; font-weight: 600; }
 .gps.bad { background: #fbe3e0; border-color: #ca3120; color: #8f2216; }
+
+/* ---------- Footer (the same on every page and for every role) ---------- */
+.vfoot { padding-top: 26px; padding-bottom: 0; font-size: 13px; line-height: 1.6; }
+.vfoot-cols { display: grid; grid-template-columns: 1.3fr 1.4fr 1fr; gap: 28px; padding-bottom: 22px; }
+.vfoot-brand { display: flex; gap: 12px; align-items: flex-start; }
+.vfoot-brand img { width: 44px; height: 44px; border-radius: 50%; background: #fff; flex-shrink: 0; }
+.vfoot-brand b { display: block; color: #fff; font-size: 17px; }
+.vfoot-brand span { display: block; }
+.vfoot h4 { margin: 0 0 6px; color: #fff; font-size: 13px; letter-spacing: .4px; text-transform: uppercase; }
+.vfoot p { margin: 0 0 6px; }
+.vle .vfoot a { display: block; color: #c9dcef; text-decoration: none; }
+.vle .vfoot p a { display: inline; }
+.vle .vfoot a:hover { color: #fff; text-decoration: underline; }
+.vfoot-bar { border-top: 1px solid rgba(255, 255, 255, 0.15); padding: 12px 0 14px; font-size: 12px; color: #9fbad6; }
+@media (max-width: 760px) {
+  .vfoot-cols { grid-template-columns: 1fr; gap: 16px; padding-bottom: 16px; }
+}
