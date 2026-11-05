@@ -121,6 +121,19 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
 }
 
 /**
+ * The geofence a student's phone needs to show "inside / outside" before they press Check In:
+ * the edge allowance in metres, and for a workshop the tutor's position (the circle's centre).
+ * The server still makes the real decision in checkIn().
+ */
+function whereToBe(codeRow) {
+  const loc = locationOf(codeRow);
+  if (!loc) return null;
+  const extra = { edge: codeRow.geofenceRadius };
+  if (loc.mode === 'workshop' && codeRow.latitude != null) extra.centre = { lat: codeRow.latitude, lng: codeRow.longitude };
+  return { ...loc, ...extra };
+}
+
+/**
  * Classes the student can check in to right now (enrolled, session ongoing, code not expired),
  * grouped by the 5 cards on the attendance page. The code itself is never sent.
  */
@@ -150,7 +163,7 @@ async function liveClasses(student) {
       type: se.sessionType, room: se.section.room,
       tutor: se.taker?.name || se.section.tutor?.name || null,
       expiresAt: se.codes[0].expiryTimestamp,
-      location: locationOf(se.codes[0]),
+      location: whereToBe(se.codes[0]),
     }));
   return { buildings: publicBuildings(), classes };
 }
