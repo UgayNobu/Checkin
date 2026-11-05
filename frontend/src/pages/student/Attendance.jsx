@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
+import { placeStatus } from '../../geofence';
 import './attendance.css';
 
 // Students only see present (green) or absent (red).
@@ -72,6 +73,11 @@ export default function Attendance() {
   const chosen = here.find((c) => c.sessionId === pick);
   // Start the location as soon as a building is tapped, so GPS can lock on while the class and code are chosen
   const gps = useLocationWarmup(!!card);
+  // Green only when the phone is actually inside the class's area; yellow near the edge; red outside.
+  // While the location is still being found (or is blocked / only approximate) that message is shown instead.
+  const polygons = chosen?.location?.mode === 'building' ? live.buildings.find((b) => b.key === chosen.location.building)?.polygons : null;
+  const place = gps.status && ['good', 'weak'].includes(gps.status.level) ? placeStatus(gps.fix, chosen?.location, polygons) : null;
+  const gpsLine = place || gps.status;
 
   // A class closed or was checked in: drop the selection
   useEffect(() => {
@@ -163,7 +169,7 @@ export default function Attendance() {
                   <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="A1B2C3" autoFocus />
                   <button onClick={checkIn} disabled={busy}>{busy ? 'Checking in…' : 'Check In'}</button>
                 </div>
-                {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
+                {gpsLine && <p className={'gps ' + gpsLine.level} role="status">{gpsLine.text}</p>}
               </>
             )}
           </div>
