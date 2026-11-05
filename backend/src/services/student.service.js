@@ -92,7 +92,10 @@ async function enrol(studentId, { module, key }) {
   const exists = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId: m.id, academicSession } } });
   if (exists) throw Conflict(`You are already enrolled in ${m.name}`, 'ALREADY_ENROLLED');
   await prisma.enrollment.create({ data: { studentId, moduleId: m.id, academicSession } });
+  await syncStudentYear(studentId).catch(() => {}); // keep the profile year in step with the modules joined
   return { message: `Joined ${m.name}`, module: { id: m.id, code: m.code, name: m.name } };
 }
+
+const { syncStudentYear } = require('../lib/studentYear');
 
 module.exports = { dashboard, summary, moduleRecords, browseModules, enrol };

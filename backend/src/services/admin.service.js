@@ -12,6 +12,7 @@ const { loadMatrix, overallFor } = require('./stats.service');
 const { writeAuditLog } = require('./audit.service');
 const { notify } = require('./notifications.service');
 const { currentAcademicSession } = require('../lib/academicSession');
+const { yearsFromEnrolments, enrolledInProgramme } = require('../lib/studentYear');
 const { hashPassword } = require('../utils/password');
 const { isSmtpConfigured } = require('../lib/mailer');
 
@@ -130,6 +131,21 @@ async function removeModuleFromProgram(adminId, name, moduleId) {
 async function listUsers({ role, department, programme, year }) {
   const where = { role: roleIn(role), AND: [] };
   if (department) where.AND.push({ department });
+
+  // Students on a programme page: everyone whose profile names the programme, plus everyone enrolled
+  // this semester in its modules. Their year comes from those enrolments (lib/studentYear.js).
+  if (roleIn(role) === 'student' && programme) {
+    const term = await currentAcademicSession();
+    const enrolled = await enrolledInProgramme(programme, term);
+    where.AND.push({ OR: [{ programme }, { department: programme }, { id: { in: enrolled } }] });
+    let users = await prisma.user.findMany({ where, orderBy: { name: 'asc' } });
+    const fromEnrol = await yearsFromEnrolments(users.map((u) => u.id), programme, term);
+    users = users.map((u) => ({ ...u, year: fromEnrol.get(u.id) ?? u.year ?? 1 })); // no year on old accounts → Year 1
+    if (year) users = users.filter((u) => u.year === year);
+    const pct = await overallFor(users.map((u) => u.id));
+    return users.map((u) => ({ ...userOut(u), pct: pct.get(u.id) }));
+  }
+
   if (programme) where.AND.push({ OR: [{ programme }, { department: programme }] });
   if (year) where.AND.push({ OR: year === 1 ? [{ year: 1 }, { year: null }] : [{ year }] }); // older accounts have no year → treat as year 1
   const users = await prisma.user.findMany({ where, orderBy: { name: 'asc' } });
