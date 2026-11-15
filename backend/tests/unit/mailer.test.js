@@ -79,3 +79,23 @@ describe('email design', () => {
     expect(m.renderText({ text: 't' })).toMatch(/^Hello there,/);
   });
 });
+
+describe('addresses that cannot receive mail', () => {
+  const m = load({});
+  test('TC-UNIT-94: test addresses (example.com, .test, .invalid, localhost) are never emailed', () => {
+    for (const a of ['test.student01@example.com', 'a@sub.example.org', 'tutor@school.test', 'x@nowhere.invalid', 'me@localhost']) {
+      expect(m.isDeliverable(a)).toBe(false);
+    }
+  });
+  test('TC-UNIT-95: real addresses are still emailed', () => {
+    for (const a of ['02250349.cst@rub.edu.bt', 'unorbu582+demo1@gmail.com', 'me@contest.com', 'a@latest.io']) {
+      expect(m.isDeliverable(a)).toBe(true);
+    }
+  });
+  test('TC-UNIT-96: edge case - sendMail skips a test address without calling Brevo', async () => {
+    const b = load({ BREVO_API_KEY: 'k' });
+    global.fetch = jest.fn();
+    await expect(b.sendMail({ to: 'test.student01@example.com', subject: 's', text: 't' })).resolves.toBe(false);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

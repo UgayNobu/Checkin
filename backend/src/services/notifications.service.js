@@ -14,8 +14,12 @@ async function notify(userId, message, category, options = {}) {
   try {
     await prisma.notification.create({ data: { userId, message, category } });
     if (options.email) {
-      const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, prefs: true, name: true } });
-      if (u?.email && u.prefs?.email !== false) sendMailInBackground({ to: u.email, subject: options.email, text: message, name: u.name });
+      // Only active accounts get emails. A deactivated or rejected user still gets the in-app notification
+      // (they see it if the account is turned back on); a deleted user gets nothing.
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, prefs: true, name: true, isActive: true, status: true } });
+      if (u?.email && u.isActive && u.status !== 'inactive' && u.prefs?.email !== false) {
+        sendMailInBackground({ to: u.email, subject: options.email, text: message, name: u.name });
+      }
     }
   } catch (e) {
     console.warn('[notify] failed:', e.message);
