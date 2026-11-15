@@ -59,6 +59,13 @@ describe('logged-in account removed or deactivated', () => {
     expect(err.message).toMatch(/deactivated by the admin/);
   });
 
+  test('TC-UNIT-93: after logging out or changing the password (token version +1), an older token is refused', async () => {
+    mockUsers.set('02250001', await student({ tokenVersion: 1 }));
+    const old = signAuthToken({ id: '02250001', role: 'student', tokenVersion: 0 });
+    expect(await run(old)).toMatchObject({ status: 401, code: 'SESSION_ENDED' });
+    expect(await run(signAuthToken({ id: '02250001', role: 'student', tokenVersion: 1 }))).toBeNull();
+  });
+
   test('TC-UNIT-74: bad input - a forged token is just "Please log in", with no account message', async () => {
     const err = await run('not-a-real-token');
     expect(err).toMatchObject({ status: 401, code: 'UNAUTHORIZED' });

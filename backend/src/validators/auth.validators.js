@@ -1,4 +1,4 @@
-const { z, id, optionalText } = require('./common');
+const { z, id, optionalText, blankToUndef } = require('./common');
 const { isStrongPassword, PASSWORD_RULE } = require('../utils/password');
 
 const strongPassword = z.string().refine(isStrongPassword, PASSWORD_RULE);
@@ -18,7 +18,7 @@ const registerSchema = z.object({
   role: z.enum(['student', 'teacher']).default('student'),
   programme: optionalText(100),
   department: optionalText(100),
-  year: z.coerce.number().int().min(1).max(5).optional(), // students: the year they are in now (1-5)
+  year: z.preprocess(blankToUndef, z.coerce.number().int().min(1).max(5).optional()), // students: the year they are in now (1-5)
 }).superRefine((b, ctx) => {
   const student = b.role === 'student';
   if (student && !STUDENT_ID.test(b.userId)) ctx.addIssue({ code: 'custom', path: ['userId'], message: 'must be your 8-digit student number, e.g. 02250368' });

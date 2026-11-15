@@ -1,13 +1,14 @@
 // Mounted at /api/files. Serves files saved in the stored_files table.
 //
 // No login check here on purpose: <img> and <iframe> can't send the
-// Authorization header. The id is a random UUID (impossible to guess)
-// and the API only gives it to people allowed to see the file
-// (see canSee in evidence.service.js) — the same idea as a signed URL.
+// Authorization header. Instead every link is signed and runs out after a few
+// hours (see signedFilePath in lib/storage.js), and the API only hands links
+// to people allowed to see the file (canSee in evidence.service.js).
+// So a forwarded or copied link stops working.
 const { Router } = require('express');
-const { readFile } = require('../lib/storage');
+const { readFile, checkFileLink } = require('../lib/storage');
 const { env } = require('../config/env');
-const { NotFound } = require('../utils/errors');
+const { NotFound, Forbidden } = require('../utils/errors');
 
 const router = Router();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,6 +16,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 router.get('/:id', async (req, res, next) => {
   try {
     if (!UUID.test(req.params.id)) throw NotFound('File not found');
+    if (!checkFileLink(req.params.id, req.query.exp, req.query.sig)) {
+      throw Forbidden('This link has expired. Open the document again from CheckIn.', 'LINK_EXPIRED');
+    }
     const f = await readFile(req.params.id);
     if (!f) throw NotFound('File not found');
 

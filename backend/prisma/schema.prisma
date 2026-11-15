@@ -56,6 +56,7 @@ model User {
   deactivatedBy      String?            @map("deactivated_by") @db.VarChar(10)
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
   prefs              Json               @default("{}") @map("notification_prefs")
+  tokenVersion       Int                @default(0) @map("token_version") // +1 on logout / password change: older logins stop working
   createdAt          DateTime           @default(now()) @map("created_at")
   sections           Section[]
   attendance         Attendance[]

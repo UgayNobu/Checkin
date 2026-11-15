@@ -5,7 +5,7 @@
 //  • Settings → Account changes the password (PUT /me/password: checks the current
 //    password, saves a new bcrypt hash in users.password_hash).
 import { useEffect, useRef, useState } from 'react';
-import { api, fileHref } from '../../api';
+import { api, fileHref, keepNewToken } from '../../api';
 import { COLLEGE_EMAIL, PASSWORD_HINT, passwordChecks, passwordOk } from '../../validation';
 import './profile.css';
 
@@ -178,6 +178,7 @@ export function TeacherSettings() {
     if (pw.next === pw.current) return setErr('The new password must be different from the current one.');
     setBusy(true);
     api('/me/password', { current: pw.current, next: pw.next }, 'PUT')
+      .then(keepNewToken) // other devices are logged out; this one stays logged in
       .then(() => { setMsg('Password updated. Use the new password next time you log in.'); setPw({ current: '', next: '', again: '' }); })
       .catch((x) => setErr(x.message))
       .finally(() => setBusy(false));

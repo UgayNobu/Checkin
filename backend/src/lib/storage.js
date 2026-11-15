@@ -50,10 +50,31 @@ async function saveFile(file, folder, ownerId) {
   return DB + row.id;
 }
 
+// Database files are served at /api/files/<id>?exp=…&sig=… : the link only works for a few hours, so a
+// forwarded or copied link stops working (like Supabase's signed URLs). The expiry is rounded up to the
+// hour, so the same file gets the same link for a while and the browser can cache it.
+const LINK_HOURS = 6;
+const HOUR_S = 3600;
+const sign = (id, exp) => crypto.createHmac('sha256', env.jwtSecret).update(`file:${id}.${exp}`).digest('base64url').slice(0, 32);
+
+/** A link to a database file that stops working after LINK_HOURS hours. */
+function signedFilePath(id, now = Date.now()) {
+  const exp = Math.ceil((now / 1000 + LINK_HOURS * HOUR_S) / HOUR_S) * HOUR_S;
+  return `/api/files/${id}?exp=${exp}&sig=${sign(id, exp)}`;
+}
+
+/** true when ?exp & sig are ours and the link has not run out */
+function checkFileLink(id, exp, sig, now = Date.now()) {
+  const e = Number(exp);
+  if (!Number.isInteger(e) || e * 1000 < now || typeof sig !== 'string') return false;
+  const want = Buffer.from(sign(id, e)), got = Buffer.from(sig);
+  return want.length === got.length && crypto.timingSafeEqual(want, got);
+}
+
 /** Turns a stored value into something a browser can open. */
 async function fileUrl(stored) {
   if (!stored) return null;
-  if (stored.startsWith(DB)) return `/api/files/${stored.slice(DB.length)}`;
+  if (stored.startsWith(DB)) return signedFilePath(stored.slice(DB.length));
   if (!stored.startsWith(PREFIX)) return stored; // old local path or absolute URL
   if (!useSupabase()) return null;
   const { data, error } = await supabase().storage.from(env.supabase.bucket).createSignedUrl(stored.slice(PREFIX.length), 60 * 60);
@@ -77,4 +98,4 @@ async function deleteFile(stored) {
 /** Reads a database-stored file by id (for GET /api/files/:id). */
 const readFile = (id) => prisma.storedFile.findUnique({ where: { id }, select: { mimeType: true, originalName: true, content: true } });
 
-module.exports = { saveFile, fileUrl, deleteFile, readFile, LOCAL_DIR, useSupabase };
+module.exports = { saveFile, fileUrl, deleteFile, readFile, LOCAL_DIR, useSupabase, signedFilePath, checkFileLink };

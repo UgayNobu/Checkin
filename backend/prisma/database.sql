@@ -467,6 +467,11 @@ CREATE INDEX IF NOT EXISTS idx_pending_signups_email ON pending_signups (email);
 -- Not reachable through Supabase's public web API (the backend connects as the owner, so it is unaffected)
 ALTER TABLE pending_signups ENABLE ROW LEVEL SECURITY;
 
+-- ===== Part 15: logging out really ends the login =====
+-- Each login token carries the user's token_version. Logging out, changing or resetting the
+-- password adds 1, so every older token (on any device) stops working straight away.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
 COMMIT;
 
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, fileHref, logout } from '../../api';
+import { api, fileHref, logout, keepNewToken } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
 import './settings.css';
 
@@ -283,6 +283,7 @@ export function ChangePassword() {
       : f.next !== f.again
       ? setMsg('New passwords do not match')
       : api('/me/password', f, 'PUT')
+          .then(keepNewToken) // other devices are logged out; this one stays logged in
           .then(() => nav('/settings'))
           .catch((e) => setMsg(e.message));
 

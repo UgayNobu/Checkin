@@ -57,7 +57,7 @@ async function claimRosterAccount(rawId, password, expectedRole, passwordHash) {
 async function signupStudent({ userId, password, passwordHash }) {
   if (env.emailVerify && !passwordHash) throw BadRequest('Please use the sign-up form, which emails you a code first.', 'USE_SIGNUP_FORM');
   const u = await claimRosterAccount(userId, password, 'student', passwordHash);
-  return { token: signAuthToken({ id: u.id, role: 'student' }), user: authUser(u) };
+  return { token: signAuthToken({ id: u.id, role: 'student', tokenVersion: u.tokenVersion }), user: authUser(u) };
 }
 
 async function requestTutorAccount({ userId, password, passwordHash }) {
@@ -194,7 +194,7 @@ async function login({ userId, password }) {
     if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your account is waiting for admin approval.', 'ACCOUNT_PENDING');
     throw Forbidden('This account has been deactivated. If you have returned to the college, ask the admin to activate it again.', 'ACCOUNT_NOT_ACTIVE');
   }
-  return { token: signAuthToken({ id: u.id, role: roleOut(u.role) }), user: authUser(u) };
+  return { token: signAuthToken({ id: u.id, role: roleOut(u.role), tokenVersion: u.tokenVersion }), user: authUser(u) };
 }
 
 async function getMe(userId) {
@@ -203,13 +203,19 @@ async function getMe(userId) {
   return userOut(u);
 }
 
+/** Logging out ends every login of this account (on all devices): older tokens stop working. */
+async function logout(userId) {
+  if (userId) await prisma.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } }).catch(() => {});
+}
+
 async function changePassword(userId, { current, next }) {
   const u = await prisma.user.findUnique({ where: { id: userId } });
   if (!u?.passwordHash || !(await verifyPassword(current, u.passwordHash))) throw BadRequest('Current password is wrong', 'WRONG_CURRENT_PASSWORD');
   if (await verifyPassword(next, u.passwordHash)) throw BadRequest('New password must be different from the current one', 'PASSWORD_UNCHANGED');
-  await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next) } });
+  // +1 token version: every other device is logged out; this device gets a fresh token
+  const v = await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(next), tokenVersion: { increment: 1 } } });
   await notify(u.id, 'Your CheckIn password was changed. If this wasn\'t you, reset it with "Forgot password" and contact ICT Services.', 'System', { email: 'Your CheckIn password was changed' });
-  return { message: 'Password updated' };
+  return { message: 'Password updated', token: signAuthToken({ id: v.id, role: roleOut(v.role), tokenVersion: v.tokenVersion }) };
 }
 
 // ── Forgot password (6-digit code by email) ───────────────────
@@ -263,11 +269,11 @@ async function resetPassword({ userId, code, password }) {
     throw invalid();
   }
   await prisma.$transaction([
-    prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } }),
+    prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), tokenVersion: { increment: 1 } } }), // logs out every device
     prisma.passwordReset.update({ where: { id: r.id }, data: { usedAt: new Date() } }),
   ]);
   await notify(id, 'Your password was reset. If this wasn\'t you, contact ICT Services.', 'System', { email: 'Your CheckIn password was reset' });
   return { message: 'Password changed. You can log in with your new password.' };
 }
 
-module.exports = { lookupId, signupStudent, requestTutorAccount, register, verifySignup, resendSignupCode, maskEmail, login, getMe, changePassword, forgotPassword, resetPassword };
+module.exports = { logout, lookupId, signupStudent, requestTutorAccount, register, verifySignup, resendSignupCode, maskEmail, login, getMe, changePassword, forgotPassword, resetPassword };

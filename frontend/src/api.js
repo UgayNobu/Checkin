@@ -3,8 +3,8 @@ export const FILES = BASE.replace(/\/api$/, '');
 /** Link for a file the API returned: full URLs (Supabase) as-is, server paths on the backend. */
 export const fileHref = (u) => (!u ? null : /^https?:\/\//.test(u) ? u : FILES + u);
 
-/** Codes the backend sends when a logged-in account was removed or deactivated by the admin */
-const GONE_CODES = ['ACCOUNT_REMOVED', 'ACCOUNT_NOT_ACTIVE'];
+/** Codes the backend sends when a login stops working: account removed or deactivated, or logged out elsewhere */
+const GONE_CODES = ['ACCOUNT_REMOVED', 'ACCOUNT_NOT_ACTIVE', 'SESSION_ENDED'];
 
 /** A one-time message shown on the next page (e.g. "You have been logged out because…") */
 export const notice = {
@@ -34,6 +34,9 @@ export function deviceId() {
     return undefined; // storage blocked (private mode): check in without it
   }
 }
+
+/** After a password change the server issues a new token (older ones stop working): keep it. */
+export const keepNewToken = (r) => { const a = auth.get(); if (r?.token && a) auth.set({ ...a, token: r.token }); return r; };
 
 export const auth = {
   get: () => JSON.parse(localStorage.getItem('checkin') || 'null'),
