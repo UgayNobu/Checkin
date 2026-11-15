@@ -440,6 +440,12 @@ BEGIN
   END IF;
 END $$;
 
+-- ===== Part 13: which phone each check-in came from =====
+-- A random ID the browser keeps (not the phone's real identity). When ONE_DEVICE_CHECK=on,
+-- a second student checking in from the same phone in the same session is flagged for the tutor.
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS device_id varchar(64);
+CREATE INDEX IF NOT EXISTS idx_attendance_session_device ON attendance (session_id, device_id);
+
 COMMIT;
 
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { api, deviceId } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
 import { placeStatus } from '../../geofence';
 import './attendance.css';
@@ -96,7 +96,7 @@ export default function Attendance() {
 
   // If location fails, the check-in is still sent, so the teacher can review it and decide.
   const send = (extra) =>
-    api('/attendance/checkin', { code: code.trim().toUpperCase(), sessionId: pick, ...extra })
+    api('/attendance/checkin', { code: code.trim().toUpperCase(), sessionId: pick, deviceId: deviceId(), ...extra })
       .then((r) => { setMsg(r.message); setCode(''); setCard(null); setPick(null); load(); loadLive(); })
       .catch((e) => setMsg(e.message))
       .finally(() => setBusy(false));

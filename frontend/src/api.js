@@ -18,6 +18,23 @@ export const notice = {
   },
 };
 
+/**
+ * A random ID this browser keeps for good (not the phone's real identity), sent with each
+ * check-in so the server can notice one phone checking in several students. Logging out keeps it.
+ */
+export function deviceId() {
+  try {
+    let id = localStorage.getItem('checkin_device');
+    if (!id) {
+      id = (crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
+      localStorage.setItem('checkin_device', id);
+    }
+    return id;
+  } catch {
+    return undefined; // storage blocked (private mode): check in without it
+  }
+}
+
 export const auth = {
   get: () => JSON.parse(localStorage.getItem('checkin') || 'null'),
   set: (v) => localStorage.setItem('checkin', JSON.stringify(v)),

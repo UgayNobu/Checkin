@@ -21,6 +21,9 @@ const env = {
   // A timetable class can be started this many minutes before it begins (until it ends)
   startEarlyMinutes: num(process.env.START_EARLY_MINUTES, 15),
   accuracyFlagMetres: num(process.env.ACCURACY_FLAG_METRES, 50),
+  // ONE_DEVICE_CHECK=on: a second student checking in from the same phone in one session is flagged.
+  // Off by default, so a team can test several accounts on one phone.
+  oneDeviceCheck: /^(on|true|1)$/i.test(process.env.ONE_DEVICE_CHECK || ''),
   // how long a check-in code stays valid (CHECKIN_WINDOW_MINUTES is the older name for the same setting)
   codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),
   // extra time for a check-in that the app held back because of bad internet

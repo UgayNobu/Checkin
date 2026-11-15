@@ -32,6 +32,9 @@ services:
         value: "40"
       - key: ACCURACY_FLAG_METRES
         value: "150"
+      # on = a second student checking in from the same phone in one session is flagged (off while testing)
+      - key: ONE_DEVICE_CHECK
+        value: "off"
       - key: NETWORK_GRACE_SECONDS
         value: "120"
       # Email: Render's free plan blocks SMTP, so the live site sends through Brevo's API.

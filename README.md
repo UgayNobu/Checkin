@@ -226,6 +226,7 @@ The building outlines and room lists are in `backend/src/config/buildings.js` (n
   - **Buildings** (IT, LT, Academic, Library): the building's outline from the map plus a **10 m** margin.
   - **Workshop** (labs, LH-01, unmapped rooms): a circle around the tutor's location when they start, radius chosen by the tutor (default 30 m, 5–500 m). If the tutor starts from a laptop, use a bigger radius, because laptops have no GPS.
 - **Accuracy tolerance** (`ACCURACY_FLAG_METRES` in `backend/.env`): a reading less precise than this is flagged even inside the geofence. We use **150 m**, because laptops guess their location from Wi-Fi and phones indoors often report 50–150 m. It does not widen the geofence: the reported point must still be inside the building (or circle). Set it lower (e.g. 50) for stricter checks.
+- **One phone per check-in** (`ONE_DEVICE_CHECK` in `backend/.env` / Render): each browser keeps a random device ID (not the phone's real identity). With `on`, a second student checking in from the same phone in the same session is **flagged** ("Same phone as another student") for the tutor to decide; the first student is not affected. Keep it `off` while testing several accounts on one phone. It stops one friend checking in others; it can't stop fake-GPS apps or a fresh private tab.
 - Cancelled classes don't count, so nobody is marked absent for them.
 
 ## Environment variables & secrets

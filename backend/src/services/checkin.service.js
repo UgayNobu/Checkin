@@ -18,6 +18,8 @@
 //         could put them inside           → Flagged (low_accuracy)
 //       GPS accuracy worse than 50 m      → Flagged (low_accuracy)
 //       arrived after expiry (offline)    → Flagged (network_issue)
+//       same phone as another student in
+//         this session (ONE_DEVICE_CHECK=on) → Flagged (shared_device)
 //       otherwise                         → Present
 // Flagged check-ins don't count until the tutor accepts them.
 // ─────────────────────────────────────────────────────────────
@@ -33,7 +35,7 @@ const { buildingFromCode, publicBuildings } = require('../config/buildings');
 const { locateInBuilding } = require('../utils/geofence');
 const { locationOf } = require('./session.service');
 
-async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissionDenied, locationError, offline }) {
+async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissionDenied, locationError, offline, deviceId }) {
   const c = normalizeCode(code);
   if (!isValidCodeFormat(c)) throw BadRequest('That code doesn’t look right. Check it and try again.', 'CODE_INVALID');
 
@@ -85,13 +87,26 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
     } else if (accuracy !== undefined && accuracy > env.accuracyFlagMetres) flagReason = FLAG_REASONS.ACCURACY;
   }
   if (!flagReason && late) flagReason = FLAG_REASONS.NETWORK;
+  // One phone, one student per session: someone checking friends in from their own phone is flagged
+  // (the first student on that phone is not affected). The tutor still decides.
+  let sharedWith = null;
+  if (env.oneDeviceCheck && deviceId) {
+    const other = await prisma.attendance.findFirst({
+      where: { sessionId: row.sessionId, deviceId, studentId: { not: student.id } },
+      select: { studentId: true },
+    });
+    if (other) { flagReason = FLAG_REASONS.SHARED_DEVICE; sharedWith = other.studentId; }
+  }
   const ok = !flagReason;
 
   try {
     await prisma.attendance.create({
       data: {
-        studentId: student.id, sessionId: row.sessionId, status: ok ? 'Present' : 'Flagged', flagReason, distanceMeters: distance,
+        studentId: student.id, sessionId: row.sessionId, status: ok ? 'Present' : 'Flagged',
+        // 'shared_device - 02250001' keeps who else used the phone, shown to the tutor
+        flagReason: sharedWith ? `${flagReason} - ${sharedWith}` : flagReason, distanceMeters: distance,
         submittedLat: distance === null ? null : lat, submittedLng: distance === null ? null : lng, accuracy: accuracy ?? null,
+        deviceId: deviceId ?? null,
       },
     });
   } catch (e) {
@@ -106,6 +121,7 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
       [FLAG_REASONS.PERMISSION]: 'without sharing location',
       [FLAG_REASONS.LOCATION]: 'but their browser could not get a location',
       [FLAG_REASONS.NETWORK]: 'after the code expired (poor internet connection)',
+      [FLAG_REASONS.SHARED_DEVICE]: `from the same phone as ${sharedWith}`,
     }[flagReason];
     await notify(sec.tutorId, `${student.name} checked in ${why} (${m.code}). Please verify.`, 'Attendance');
   }
@@ -116,7 +132,9 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
     // CHANGED: a flagged student is told to tell the teacher before the timer ends
     message: ok
       ? `Present in ${m.name}`
-      : 'Your check-in is flagged (your location could not be confirmed). Tell your teacher now so they can mark you present before the timer ends.',
+      : flagReason === FLAG_REASONS.SHARED_DEVICE
+        ? 'Your check-in is flagged because another student already checked in from this phone. Tell your teacher now so they can mark you present before the timer ends.'
+        : 'Your check-in is flagged (your location could not be confirmed). Tell your teacher now so they can mark you present before the timer ends.',
   };
 }
 

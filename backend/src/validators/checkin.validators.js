@@ -11,6 +11,8 @@ const checkInSchema = z.object({
   permissionDenied: z.coerce.boolean().optional(),
   locationError: z.coerce.boolean().optional(), // the browser's location API failed
   offline: z.coerce.boolean().optional(),       // the app held the check-in back because of bad internet
+  // random ID the browser keeps for this phone (letters, digits and dashes); anything else is ignored
+  deviceId: z.preprocess((v) => (typeof v === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v) ? v : undefined), z.string().optional()),
 });
 
 module.exports = { checkInSchema };
