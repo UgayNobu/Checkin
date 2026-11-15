@@ -39,6 +39,8 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 - Attendance % per module (theory and practical, hour-weighted), a monthly calendar (tap a day to see each class), and the 90% rule warnings.
 - Weekly timetable with cancelled, cover, extra and optional classes (a Sunday tab appears for Sunday extra classes); notifications when a class changes.
 - Join modules with the tutor's enrolment key; upload evidence documents (PDF/images) for missed classes.
+- Choose your **year at sign-up**; the timetable then shows only your programme and year (plus modules you joined). Classes of your year you haven't enrolled in, and classes that ended with no attendance, are dimmed.
+- Clear login messages: no account for this ID, wrong password, or not signed up yet.
 
 **Tutors**
 - Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, or book an extra class (free periods, free rooms and clash checks). Optional classes take attendance but never count.
@@ -50,7 +52,7 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 - Programmes, modules and tutor assignments.
 - Add tutor (Admin home → Tutors view → + Add tutor): creates a tutor account that works straight away with the default password (`DEFAULT_TUTOR_PASSWORD`, default `Tutor@2026`); the tutor can change it in Settings → Account.
 - Tutor requests on the Admin home page: approve or reject tutors who signed up themselves and aren't in the system yet. New tutors also show in their programme's Tutors view before they get a module.
-- Activate/deactivate students and tutors with a reason (graduated, resigned …); accounts are never deleted.
+- Activate/deactivate students and tutors with a reason (graduated, resigned …); accounts are never deleted. A deactivated (or removed) person is **logged out within 30 seconds**, with a message saying why.
 - Semesters: add the next semester and start it; past semesters stay viewable.
 
 **Management**
@@ -60,6 +62,7 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 
 **Other**
 - Forgot password with a 6-digit code by email; works on phones (slide-in menu) and big screens.
+- Logging out, or changing your password, ends the login on **every device**.
 
 ## Tech stack
 
@@ -129,7 +132,7 @@ Copy `.env.example` to `.env` in **both** `backend/` and `frontend/`, then fill 
 
 | File | Variables |
 |---|---|
-| `backend/.env` | `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT`; email: `BREVO_API_KEY` (live site) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` (local), and `MAIL_FROM`; optional: `GEOFENCE_METRES` (40), `REVIEW_MINUTES` (3), `START_EARLY_MINUTES` (15), `REQUIRED_ATTENDANCE_PERCENT` (90), `AT_RISK_ATTENDANCE_PERCENT` (80) |
+| `backend/.env` | `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT`; email: `BREVO_API_KEY` (live site) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` (local), and `MAIL_FROM`; optional: `GEOFENCE_METRES` (40), `REVIEW_MINUTES` (3), `START_EARLY_MINUTES` (15), `REQUIRED_ATTENDANCE_PERCENT` (90), `AT_RISK_ATTENDANCE_PERCENT` (80), `ACCURACY_FLAG_METRES` (150), `DEFAULT_TUTOR_PASSWORD` (`Tutor@2026`), `ONE_DEVICE_CHECK` (off), `EMAIL_VERIFY` (off) – see [Security](#security) |
 | `frontend/.env` | `VITE_API` – the backend URL, e.g. `http://localhost:5001/api` |
 
 ### 3. Run (two terminals)
@@ -212,8 +215,12 @@ The whole team shares **one** Supabase database, so database changes go through 
 | 9 | Semesters (academic sessions); assignments and enrolments belong to a semester |
 | 10 | Deactivated accounts (reason, note, date, by whom) |
 | 11 | Class changes (cancelled, cover, extra/optional classes) |
+| 12 | Removes the old `enrollments.academic_year` (replaced by the semester) |
+| 13 | `attendance.device_id`: which phone each check-in came from (one phone per check-in) |
+| 14 | `pending_signups`: sign-ups waiting for their email code (row-level security on) |
+| 15 | `users.token_version`: logging out or changing the password ends every older login |
 
-Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `notifications`, `audit_logs`.
+Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
 
 The building outlines and room lists are in `backend/src/config/buildings.js` (no database table).
 
@@ -226,10 +233,25 @@ The building outlines and room lists are in `backend/src/config/buildings.js` (n
   - **Buildings** (IT, LT, Academic, Library): the building's outline from the map plus a **10 m** margin.
   - **Workshop** (labs, LH-01, unmapped rooms): a circle around the tutor's location when they start, radius chosen by the tutor (default 30 m, 5–500 m). If the tutor starts from a laptop, use a bigger radius, because laptops have no GPS.
 - **Accuracy tolerance** (`ACCURACY_FLAG_METRES` in `backend/.env`): a reading less precise than this is flagged even inside the geofence. We use **150 m**, because laptops guess their location from Wi-Fi and phones indoors often report 50–150 m. It does not widen the geofence: the reported point must still be inside the building (or circle). Set it lower (e.g. 50) for stricter checks.
-- **One phone per check-in** (`ONE_DEVICE_CHECK` in `backend/.env` / Render): each browser keeps a random device ID (not the phone's real identity). With `on`, a second student checking in from the same phone in the same session is **flagged** ("Same phone as another student") for the tutor to decide; the first student is not affected. Keep it `off` while testing several accounts on one phone. It stops one friend checking in others; it can't stop fake-GPS apps or a fresh private tab.
-- **Email check at sign-up** (`EMAIL_VERIFY` in `backend/.env` / Render): with `on`, signing up emails a 6-digit code to the college address and the account is only created once it is entered (so nobody can take someone else's ID or email). Needs email set up (Brevo or SMTP) and the `pending_signups` table (database.sql Part 14). Keep it `off` while testers sign up with other people's addresses.
-- **Security extras:** changes (POST/PUT/PATCH/DELETE) are only accepted from the CheckIn website (stops other sites sending forms in a user's name); document and photo links are signed and stop working after about 6 hours; logging out, or changing / resetting a password, ends that account's login on **every** device (`users.token_version`, database.sql Part 15); the frontend sends a Content-Security-Policy (vercel.json) so only CheckIn's own scripts can run.
+- **One phone per check-in** (`ONE_DEVICE_CHECK`): see [Security](#security).
 - Cancelled classes don't count, so nobody is marked absent for them.
+
+## Security
+
+- **Roles:** every page and API route checks the user's role; tutors can only change their own modules, and students only see their own records and evidence.
+- **Passwords and codes** are hashed (bcrypt); login, sign-up, reset and check-in attempts are rate-limited.
+- **Logging out** (or changing / resetting a password) ends that account's login on every device (`users.token_version`, Part 15). An account the admin deactivates or removes is logged out within 30 seconds.
+- **Only our website can change data:** POST/PUT/PATCH/DELETE requests from other sites are refused (stops forged forms, CSRF).
+- **File links** (evidence documents, profile photos) are signed and stop working after about 6 hours.
+- **Content-Security-Policy** (frontend `vercel.json`): only CheckIn's own scripts can run.
+- **Packages:** run `npm audit --omit=dev` in `backend/` and `frontend/`; both report 0 known vulnerabilities (November 2026).
+
+Two checks have an on/off switch (Render → checkin-backend → Environment). Both are **off** while the team tests:
+
+| Setting | When `on` |
+|---|---|
+| `ONE_DEVICE_CHECK` | Each browser keeps a random device ID (not the phone's real identity). A second student checking in from the **same phone in the same session** is **flagged** ("Same phone as another student") for the tutor; the first student isn't affected. Stops one friend checking in others; it can't stop fake-GPS apps or a fresh private tab. |
+| `EMAIL_VERIFY` | Sign-up emails a **6-digit code** to the college address and the account is only created once it is entered, so nobody can take someone else's ID or email. Unconfirmed sign-ups never block the real owner. Needs email set up (Brevo or SMTP). |
 
 ## Environment variables & secrets
 
