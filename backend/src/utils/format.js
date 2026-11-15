@@ -17,7 +17,14 @@ const sessionStart = (x) => new Date(x.date.toISOString().slice(0, 10) + 'T' + x
 const round1 = (n) => Math.round(n * 10) / 10;
 
 /** Readable flag reason. A tutor's note may be appended as " - note". */
-const flagText = (reason) => (reason ? FLAG_TEXT[String(reason).split(' - ')[0]] || reason : null);
+// 'low_accuracy' → 'Weak GPS accuracy'; 'shared_device - 02250001' → 'Same phone as another student (02250001)'
+const flagText = (reason) => {
+  if (!reason) return null;
+  const [key, detail] = String(reason).split(' - ');
+  const text = FLAG_TEXT[key];
+  if (!text) return reason;
+  return key === 'shared_device' && detail ? `${text} (${detail})` : text;
+};
 const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const initials = (name = '') => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 

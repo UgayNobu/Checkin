@@ -1,12 +1,16 @@
 // Landing page: choose Student or Tutor.
 // Full-screen campus photo with a dark overlay, heading on the left, frosted card on the right.
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { notice } from '../../api';
 import './public.css';
 // Images live in frontend/photo, which Vite serves at the site root (publicDir in vite.config.js)
 const logo = '/logo.jpg';
 
 export default function Landing() {
   const nav = useNavigate();
+  // e.g. "Your account has been deactivated by the admin…" after being logged out
+  const [msg] = useState(() => notice.take());
   return (
     <div className="lx">
       <header className="lx-head">
@@ -36,6 +40,7 @@ export default function Landing() {
           <h2>CheckIn</h2>
           <small>College of Science and Technology</small>
           <div className="lx-line" />
+          {msg && <p className="lx-notice" role="alert">{msg}</p>}
           <div className="lx-cont">CONTINUE AS</div>
           <button type="button" className="lx-opt lx-primary" onClick={() => nav('/login')}>
             <span>

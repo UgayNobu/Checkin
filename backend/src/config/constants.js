@@ -13,6 +13,7 @@ const SESSION_STATUS = { SCHEDULED: 'scheduled', ONGOING: 'ongoing', ENDED: 'end
 
 const FLAG_REASONS = {
   PERMISSION: 'permission_denied', LOCATION: 'location_error', OUTSIDE: 'outside_radius', ACCURACY: 'low_accuracy', NETWORK: 'network_issue',
+  SHARED_DEVICE: 'shared_device',
 };
 // Readable text for each flag reason (shown to tutors)
 const FLAG_TEXT = {
@@ -21,6 +22,7 @@ const FLAG_TEXT = {
   outside_radius: 'Outside classroom area',
   low_accuracy: 'Weak GPS accuracy',
   network_issue: 'Sent late (poor internet)',
+  shared_device: 'Same phone as another student',
 };
 
 const FILES = {

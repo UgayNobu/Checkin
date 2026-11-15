@@ -121,7 +121,8 @@ export default function Timetable() {
   // No tutor assigned to the module this semester: the class doesn't happen and its room is free
   const unassigned = (x) => x.kind === 'slot' && x.assigned === false;
   const off = (x) => cancelled(x) || unassigned(x);
-  const next = isToday ? classes.find((x) => x.start > now && !off(x)) : null;
+  // "Next" = the next class the student can actually attend (not one they haven't enrolled in)
+  const next = isToday ? classes.find((x) => x.start > now && !off(x) && !(!teacher && x.kind === 'slot' && x.enrolled === false)) : null;
   const count = (i) => itemsOn(i).filter((x) => !off(x)).length;
   // Tutor view: which class it is for (programme + year) instead of the tutor's own name
   const forWhom = (x) => {
@@ -188,12 +189,23 @@ export default function Timetable() {
     return out;
   };
 
+  // Student: a class of their year that they haven't joined (enrolled) yet
+  const notEnrolled = (x) => !teacher && x.kind === 'slot' && x.enrolled === false;
+  // Student: their class has ended today and no attendance was taken
+  const noAttendance = (x) => !teacher && !off(x) && !notEnrolled(x) && !x.session && x.date === today && over(x);
+
   const studentActions = (x) => {
     const se = x.session;
     if (off(x)) return null;
+    if (notEnrolled(x)) {
+      return (
+        <button className="tt-link" onClick={() => nav('/settings/enrol')}>Enrol</button>
+      );
+    }
     if (se?.myStatus) return <span className={'pill ' + (ATT[se.myStatus] || 'b')}>{se.myStatus}</span>;
     if (se?.status === 'ongoing') return <button className="pbtn" onClick={() => nav('/attendance')}>Check in</button>;
-    if (x.kind === 'slot' && x.enrolled === false) return <small className="mut">Not enrolled</small>;
+    if (noAttendance(x)) return <small className="mut">No attendance taken</small>;
+    if (x.date === today && !over(x)) return <small className="mut">Check-in opens when your tutor starts it</small>;
     return null;
   };
 
@@ -253,15 +265,26 @@ export default function Timetable() {
           {list.length === 0 && !changes.length
             ? teacher
               ? 'No classes yet. Once the admin assigns you a module that is on the timetable, its classes appear here.'
-              : 'No classes yet. Set your programme and year in your profile, or enrol in a module.'
-            : isToday ? 'No classes today.' : `No classes on ${DAYS[day]}.`}
+              : <>
+                  <b>No classes to show yet.</b>
+                  <br />
+                  Your timetable shows the classes of your programme and year, and of every module you enrol in.
+                  To add a module, go to Settings → Enrol with the key from your tutor. If your programme or year is
+                  wrong, ask the admin to correct it.
+                  <br />
+                  <button className="tt-link" onClick={() => nav('/settings/enrol')}>Enrol in a module</button>
+                </>
+            : isToday
+              ? 'No classes today. Pick another day above to see the rest of your week.'
+              : `No classes on ${days[day] || DAYS[day]}. Pick another day above.`}
         </div>
       ) : (
         <div className="tt-list">
           {classes.map((x) => {
             const live = isToday && x.start <= now && now < x.end && !off(x);
             const c = x.change;
-            const cls = ['tt-card', live && 'live', over(x) && 'done', off(x) && 'off', unassigned(x) && 'na', x.kind === 'extra' && 'extra', c?.type === 'cover' && 'cover'].filter(Boolean).join(' ');
+            const cls = ['tt-card', live && 'live', over(x) && 'done', off(x) && 'off', unassigned(x) && 'na', x.kind === 'extra' && 'extra', c?.type === 'cover' && 'cover',
+              (notEnrolled(x) || noAttendance(x)) && 'dim'].filter(Boolean).join(' ');
             return (
               <div key={x.key} className={cls}>
                 <div className="tt-time">
@@ -275,6 +298,7 @@ export default function Timetable() {
                     {next && next.key === x.key && <span className="pill o">Next</span>}
                     {cancelled(x) && <span className="pill red">Cancelled</span>}
                     {unassigned(x) && <span className="pill gr">Module not assigned</span>}
+                    {notEnrolled(x) && !off(x) && <span className="pill gr">Not enrolled</span>}
                     {c?.type === 'cover' && <span className="pill v">Cover</span>}
                     {x.kind === 'extra' && <span className={'pill ' + (c.counts ? 'g' : 'gr')}>{c.counts ? 'Extra class' : 'Optional'}</span>}
                     <span className={'tt-type ' + x.type}>{TYPE[x.type] || x.type}</span>
@@ -288,6 +312,7 @@ export default function Timetable() {
                       : `${x.kind === 'slot' && x.tutors && !c && !unassigned(x) ? ` · ${x.tutors}` : ''}${x.year ? ` · Year ${x.year}` : ''}`}
                   </small>
                   {unassigned(x) ? <small className="tt-why">No tutor is assigned to this module yet, so this class doesn't run.</small> : changeInfo(x)}
+                  {notEnrolled(x) && !off(x) && <small className="tt-why">This is a class of your year, but you haven't joined the module. Enrol with the key from your tutor to check in.</small>}
                   {x.session?.takenBy && c?.type !== 'cover' && <small className="mut">Taken by {x.session.takenBy}</small>}
                 </div>
 

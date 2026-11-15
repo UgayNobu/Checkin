@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const { env } = require('./config/env');
 const { LOCAL_DIR } = require('./lib/storage');
+const { sameOrigin } = require('./middleware/sameOrigin');
 const { apiLimiter } = require('./middleware/rateLimits');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
@@ -50,6 +51,7 @@ function createApp() {
 
   // ── API
   app.use('/api', apiLimiter);
+  app.use('/api', sameOrigin); // changes must come from our own pages (CSRF)
   app.get('/api', (req, res) => res.json({ name: 'CheckIn API', version: '3.0.0' }));
   app.use('/api/files', fileRoutes);
   app.use('/api/auth', authRoutes);

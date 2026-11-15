@@ -1,4 +1,4 @@
-const { z, id, optionalText } = require('./common');
+const { z, id, optionalText, blankToUndef } = require('./common');
 const { isStrongPassword, PASSWORD_RULE } = require('../utils/password');
 
 const strongPassword = z.string().refine(isStrongPassword, PASSWORD_RULE);
@@ -18,11 +18,13 @@ const registerSchema = z.object({
   role: z.enum(['student', 'teacher']).default('student'),
   programme: optionalText(100),
   department: optionalText(100),
+  year: z.preprocess(blankToUndef, z.coerce.number().int().min(1).max(5).optional()), // students: the year they are in now (1-5)
 }).superRefine((b, ctx) => {
   const student = b.role === 'student';
   if (student && !STUDENT_ID.test(b.userId)) ctx.addIssue({ code: 'custom', path: ['userId'], message: 'must be your 8-digit student number, e.g. 02250368' });
   if (!student && !STAFF_ID.test(b.userId)) ctx.addIssue({ code: 'custom', path: ['userId'], message: 'must be your staff ID, e.g. CST-0142' });
   if (student && !b.programme) ctx.addIssue({ code: 'custom', path: ['programme'], message: 'Please choose your programme' });
+  if (student && !b.year) ctx.addIssue({ code: 'custom', path: ['year'], message: 'Please choose your year' });
   if (!student && !b.department) ctx.addIssue({ code: 'custom', path: ['department'], message: 'Please choose your department' });
 });
 
@@ -36,6 +38,13 @@ const resetPasswordSchema = z.object({
 
 const loginSchema = z.object({ userId: id, password: z.string().min(1, 'is required') });
 
+// Sign-up email check (EMAIL_VERIFY=on): the 6-digit code, or a request for a new one
+const verifySignupSchema = z.object({
+  userId: z.string().trim().min(1, 'Enter your ID').max(20),
+  code: z.string().trim().regex(/^\d{6}$/, 'must be the 6-digit code from the email'),
+});
+const resendSignupSchema = z.object({ userId: z.string().trim().min(1, 'Enter your ID').max(20) });
+
 // Roster sign-up: the ID already exists (loaded by admin), the person only sets a password.
 const lookupIdQuerySchema = z.object({ id });
 const rosterSignupSchema = z.object({ userId: id, password: strongPassword });
@@ -46,4 +55,4 @@ const changePasswordSchema = z.preprocess(
   z.object({ current: z.string().min(1, 'Current password is required'), next: strongPassword }),
 );
 
-module.exports = { registerSchema, forgotPasswordSchema, resetPasswordSchema, loginSchema, lookupIdQuerySchema, rosterSignupSchema, changePasswordSchema };
+module.exports = { verifySignupSchema, resendSignupSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, loginSchema, lookupIdQuerySchema, rosterSignupSchema, changePasswordSchema };

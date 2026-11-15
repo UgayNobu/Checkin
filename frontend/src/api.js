@@ -3,6 +3,41 @@ export const FILES = BASE.replace(/\/api$/, '');
 /** Link for a file the API returned: full URLs (Supabase) as-is, server paths on the backend. */
 export const fileHref = (u) => (!u ? null : /^https?:\/\//.test(u) ? u : FILES + u);
 
+/** Codes the backend sends when a login stops working: account removed or deactivated, or logged out elsewhere */
+const GONE_CODES = ['ACCOUNT_REMOVED', 'ACCOUNT_NOT_ACTIVE', 'SESSION_ENDED'];
+
+/** A one-time message shown on the next page (e.g. "You have been logged out because…") */
+export const notice = {
+  set: (text) => { try { sessionStorage.setItem('checkin_notice', text); } catch { /* private mode */ } },
+  take: () => {
+    try {
+      const t = sessionStorage.getItem('checkin_notice');
+      sessionStorage.removeItem('checkin_notice');
+      return t;
+    } catch { return null; }
+  },
+};
+
+/**
+ * A random ID this browser keeps for good (not the phone's real identity), sent with each
+ * check-in so the server can notice one phone checking in several students. Logging out keeps it.
+ */
+export function deviceId() {
+  try {
+    let id = localStorage.getItem('checkin_device');
+    if (!id) {
+      id = (crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
+      localStorage.setItem('checkin_device', id);
+    }
+    return id;
+  } catch {
+    return undefined; // storage blocked (private mode): check in without it
+  }
+}
+
+/** After a password change the server issues a new token (older ones stop working): keep it. */
+export const keepNewToken = (r) => { const a = auth.get(); if (r?.token && a) auth.set({ ...a, token: r.token }); return r; };
+
 export const auth = {
   get: () => JSON.parse(localStorage.getItem('checkin') || 'null'),
   set: (v) => localStorage.setItem('checkin', JSON.stringify(v)),
@@ -44,8 +79,10 @@ export async function api(path, body, method) {
       body: form || !body ? body : JSON.stringify(body),
     });
     const d = await r.json();
-    // Saved login has expired or is no longer valid: forget it and go back to the start page
+    // Saved login has expired or is no longer valid: forget it and go back to the start page.
+    // If the admin removed or deactivated the account, say so on the next page.
     if (r.status === 401 && !path.startsWith('/auth/') && auth.get()) {
+      if (GONE_CODES.includes(d.code)) notice.set(d.error);
       auth.clear();
       window.location.replace('/welcome');
     }

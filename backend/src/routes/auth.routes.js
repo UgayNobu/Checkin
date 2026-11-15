@@ -10,6 +10,8 @@ const router = Router();
 
 // Public
 router.post('/register', authLimiter, validateBody(v.registerSchema), c.register);           // full sign-up form
+router.post('/register/verify', resetLimiter, validateBody(v.verifySignupSchema), c.verifySignup); // 6-digit code (EMAIL_VERIFY=on)
+router.post('/register/resend', resetLimiter, validateBody(v.resendSignupSchema), c.resendSignupCode); // new code
 router.post('/login', authLimiter, validateBody(v.loginSchema), c.login);
 router.post('/logout', c.logout);
 router.get('/me', c.me);                                                                      // null when logged out

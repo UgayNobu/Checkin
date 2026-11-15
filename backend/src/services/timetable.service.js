@@ -99,7 +99,8 @@ async function forStudent(studentId, { week } = {}) {
   ]);
   const enrolled = en.map((e) => e.moduleId);
   const or = [];
-  if (u?.programme) or.push({ program: { name: u.programme }, year: u.year || 1 });
+  // Their own year only (chosen at sign-up, kept up to date when they enrol): a 3rd-year never sees 1st-year classes
+  if (u?.programme && u.year) or.push({ program: { name: u.programme }, year: u.year });
   if (enrolled.length) or.push({ moduleId: { in: enrolled } });
   if (!or.length) return [];
   const list = (await slots({ OR: or })).map((x) => ({ ...x, enrolled: enrolled.includes(x.module.id) }));
