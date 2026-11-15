@@ -286,6 +286,26 @@ model TimetableSlot {
   @@map("timetable_slots")
 }
 
+/// Sign-ups waiting for their email code (EMAIL_VERIFY=on). The account is created from this row once
+/// the code is entered, then the row is deleted. Only bcrypt hashes of the password and code are kept.
+model PendingSignup {
+  userId       String   @id @map("user_id") @db.VarChar(10)
+  name         String?  @db.VarChar(100)
+  email        String   @db.VarChar(255)
+  role         String   @db.VarChar(20)
+  programme    String?  @db.VarChar(100)
+  department   String?  @db.VarChar(100)
+  year         Int?
+  passwordHash String   @map("password_hash")
+  codeHash     String   @map("code_hash")
+  attempts     Int      @default(0)
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([email], map: "idx_pending_signups_email")
+  @@map("pending_signups")
+}
+
 /// Forgot-password codes (only a bcrypt hash of the 6-digit code is stored)
 model PasswordReset {
   id        Int       @id @default(autoincrement()) @map("reset_id")

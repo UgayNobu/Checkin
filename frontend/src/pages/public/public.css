@@ -184,3 +184,6 @@
   line-height: 1.45;
   text-align: left;
 }
+
+/* Sign-up email code */
+.lcard .codebox { text-align: center; font-size: 22px; letter-spacing: 8px; font-family: 'Courier New', monospace; }

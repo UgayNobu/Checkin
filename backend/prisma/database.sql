@@ -446,6 +446,25 @@ END $$;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS device_id varchar(64);
 CREATE INDEX IF NOT EXISTS idx_attendance_session_device ON attendance (session_id, device_id);
 
+-- ===== Part 14: sign-ups waiting for their email code =====
+-- Used when EMAIL_VERIFY=on: the details wait here until the 6-digit code emailed to the college
+-- address is entered; then the account is created and the row is deleted. Only hashes are stored.
+CREATE TABLE IF NOT EXISTS pending_signups (
+  user_id       VARCHAR(10) PRIMARY KEY,
+  name          VARCHAR(100),
+  email         VARCHAR(255) NOT NULL,
+  role          VARCHAR(20) NOT NULL,
+  programme     VARCHAR(100),
+  department    VARCHAR(100),
+  year          INTEGER,
+  password_hash TEXT NOT NULL,
+  code_hash     TEXT NOT NULL,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_email ON pending_signups (email);
+
 COMMIT;
 
 

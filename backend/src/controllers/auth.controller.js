@@ -9,6 +9,8 @@ const withSession = (res, result) => { if (result.token) setAuthCookie(res, resu
 
 module.exports = {
   register: asyncHandler(async (req, res) => withSession(res, await auth.register(req.body))),
+  verifySignup: asyncHandler(async (req, res) => withSession(res, await auth.verifySignup(req.body))),
+  resendSignupCode: asyncHandler(async (req, res) => res.json(await auth.resendSignupCode(req.body))),
   login: asyncHandler(async (req, res) => withSession(res, await auth.login(req.body))),
   logout: (req, res) => { clearAuthCookie(res); res.json({ ok: true }); },
   // Design doc: /api/auth/me answers 200 with null when not logged in (never 401) — handy on page load.

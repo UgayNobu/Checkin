@@ -24,6 +24,9 @@ const env = {
   // ONE_DEVICE_CHECK=on: a second student checking in from the same phone in one session is flagged.
   // Off by default, so a team can test several accounts on one phone.
   oneDeviceCheck: /^(on|true|1)$/i.test(process.env.ONE_DEVICE_CHECK || ''),
+  // EMAIL_VERIFY=on: sign-up emails a 6-digit code to the college address and the account is only
+  // created once it is entered. Off by default, so testers can sign up with other people's addresses.
+  emailVerify: /^(on|true|1)$/i.test(process.env.EMAIL_VERIFY || ''),
   // how long a check-in code stays valid (CHECKIN_WINDOW_MINUTES is the older name for the same setting)
   codeValidityMinutes: num(process.env.CODE_VALIDITY_MINUTES, num(process.env.CHECKIN_WINDOW_MINUTES, 5)),
   // extra time for a check-in that the app held back because of bad internet

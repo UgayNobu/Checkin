@@ -38,6 +38,13 @@ const resetPasswordSchema = z.object({
 
 const loginSchema = z.object({ userId: id, password: z.string().min(1, 'is required') });
 
+// Sign-up email check (EMAIL_VERIFY=on): the 6-digit code, or a request for a new one
+const verifySignupSchema = z.object({
+  userId: z.string().trim().min(1, 'Enter your ID').max(20),
+  code: z.string().trim().regex(/^\d{6}$/, 'must be the 6-digit code from the email'),
+});
+const resendSignupSchema = z.object({ userId: z.string().trim().min(1, 'Enter your ID').max(20) });
+
 // Roster sign-up: the ID already exists (loaded by admin), the person only sets a password.
 const lookupIdQuerySchema = z.object({ id });
 const rosterSignupSchema = z.object({ userId: id, password: strongPassword });
@@ -48,4 +55,4 @@ const changePasswordSchema = z.preprocess(
   z.object({ current: z.string().min(1, 'Current password is required'), next: strongPassword }),
 );
 
-module.exports = { registerSchema, forgotPasswordSchema, resetPasswordSchema, loginSchema, lookupIdQuerySchema, rosterSignupSchema, changePasswordSchema };
+module.exports = { verifySignupSchema, resendSignupSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, loginSchema, lookupIdQuerySchema, rosterSignupSchema, changePasswordSchema };

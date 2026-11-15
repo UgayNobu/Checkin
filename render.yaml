@@ -35,6 +35,9 @@ services:
       # on = a second student checking in from the same phone in one session is flagged (off while testing)
       - key: ONE_DEVICE_CHECK
         value: "off"
+      # on = sign-up emails a 6-digit code to the college address before the account is created (off while testing)
+      - key: EMAIL_VERIFY
+        value: "off"
       - key: NETWORK_GRACE_SECONDS
         value: "120"
       # Email: Render's free plan blocks SMTP, so the live site sends through Brevo's API.

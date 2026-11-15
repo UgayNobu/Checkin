@@ -54,6 +54,9 @@ export default function Register() {
   const [serverErr, setServerErr] = useState({});
   const [show, setShow] = useState(false);    // show / hide password
   const [busy, setBusy] = useState(false);
+  // Email check (when the server has EMAIL_VERIFY on): { userId, email } while waiting for the code
+  const [pending, setPending] = useState(null);
+  const [code, setCode] = useState('');
   const lists = { prog: PROG, dept: DEPT }; // CHANGED: use the lists above directly
 
   const set = (k) => (e) => {
@@ -88,6 +91,7 @@ export default function Register() {
       password: f.password,
     })
       .then((r) => {
+        if (r.verify) { setPending({ userId: r.userId, email: r.email }); setCode(''); setMsg({ text: '', ok: false }); return; }
         setMsg({ text: r.message, ok: true });
         setTimeout(() => nav(back), 1800);
       })
@@ -97,6 +101,24 @@ export default function Register() {
         if (field) setServerErr(field);
         setMsg({ text: field ? 'Please fix the highlighted fields.' : x.message, ok: false });
       })
+      .finally(() => setBusy(false));
+  };
+
+  // Step 2 (email check): the 6-digit code from the college inbox
+  const confirm = (e) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code.trim())) return setMsg({ text: 'Enter the 6-digit code from the email.', ok: false });
+    setBusy(true);
+    api('/auth/register/verify', { userId: pending.userId, code: code.trim() })
+      .then((r) => { setMsg({ text: `${r.message || 'Account created'}. You can log in now.`, ok: true }); setTimeout(() => nav(back), 1800); })
+      .catch((x) => setMsg({ text: x.message, ok: false }))
+      .finally(() => setBusy(false));
+  };
+  const resend = () => {
+    setBusy(true);
+    api('/auth/register/resend', { userId: pending.userId })
+      .then(() => setMsg({ text: `A new code has been sent to ${pending.email}.`, ok: true }))
+      .catch((x) => setMsg({ text: x.message, ok: false }))
       .finally(() => setBusy(false));
   };
 
@@ -141,7 +163,31 @@ export default function Register() {
         <small>College of Science and Technology · Royal University of Bhutan</small>
       </div>
 
-      {/* Form card */}
+      {/* Email check: enter the code (only when the server asks for it) */}
+      {pending ? (
+        <form className="lcard" style={{ width: 360 }} onSubmit={confirm}>
+          <a className="alt" onClick={() => { setPending(null); setMsg({ text: '', ok: false }); }} style={{ display: 'block', textAlign: 'left' }}>
+            ← Change my details
+          </a>
+          <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
+          <h2>Check your email</h2>
+          <p className="sub">We sent a 6-digit code to <b>{pending.email}</b>. Enter it below to finish signing up.</p>
+          <label>Code</label>
+          <input
+            className="codebox" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+            value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setMsg({ text: '', ok: false }); }}
+            placeholder="123456"
+          />
+          {msg.text && <p className={msg.ok ? 'okmsg' : 'err'}>{msg.text}</p>}
+          <button className={'btn ' + (tutor ? '' : 'purple')} style={{ width: '100%', borderRadius: 20 }} disabled={busy}>
+            {busy ? 'Please wait…' : 'Confirm and create account'}
+          </button>
+          <p className="alt">
+            No email? Check the spam folder, or <a onClick={() => !busy && resend()}>send a new code</a>.
+          </p>
+        </form>
+      ) : (
+      /* Form card */
       <form className="lcard" style={{ width: 360 }} onSubmit={go}>
         <a
           className="alt"
@@ -217,6 +263,7 @@ export default function Register() {
           Already have an account? <a onClick={() => nav(back)}>Log in</a>
         </p>
       </form>
+      )}
     </div>
   );
 }
