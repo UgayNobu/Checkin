@@ -338,7 +338,7 @@ export function MyModules() {
   const cls = (p) => (p >= 90 ? 'hi' : p >= 80 ? 'mid' : 'lo');
 
   return (
-    <div className="sub1">
+    <div className="sub1 wide">
       {/* Row 1: back link */}
       <Back />
 
@@ -414,10 +414,13 @@ export function Enrol() {
   const chosen = all.find((m) => m.id === f.module);
 
   return (
-    <div className="sub1">
+    <div className="sub1 wide">
       <Back label="Back" />
 
+      {/* Steps 1-4 side by side on wide screens, one under another on phones */}
+      <div className="en-steps">
       {/* Step 1: year */}
+      <div className="en-field">
       <label>Year</label>
       <select className="en-select" value={f.year} onChange={set('year')}>
         <option value="">Select year</option>
@@ -427,10 +430,11 @@ export function Enrol() {
           </option>
         ))}
       </select>
+      </div>
 
       {/* Step 2: programme */}
       {f.year && (
-        <>
+        <div className="en-field">
           <label>Programme</label>
           <select className="en-select" value={f.department} onChange={set('department')}>
             <option value="">Select programme</option>
@@ -438,24 +442,24 @@ export function Enrol() {
               <option key={d}>{d}</option>
             ))}
           </select>
-        </>
+        </div>
       )}
 
       {/* Step 3: semester */}
       {f.year && f.department && (
-        <>
+        <div className="en-field">
           <label>Semester</label>
           <select className="en-select" value={f.semester} onChange={set('semester')}>
             <option value="">Select semester</option>
             <option value="1">Semester 1</option>
             <option value="2">Semester 2</option>
           </select>
-        </>
+        </div>
       )}
 
       {/* Step 4: module */}
       {ready && (
-        <>
+        <div className="en-field en-module">
           <label>Module</label>
           <select className="en-select" value={f.module} onChange={set('module')}>
             <option value="">Select module</option>
@@ -471,8 +475,9 @@ export function Enrol() {
           {mods.length > 0 && mods.every((m) => blocked(m) && !m.enrolled) && (
             <p className="foot">None of these modules can be joined yet: the admin assigns a tutor first, then the tutor sets an enrolment key.</p>
           )}
-        </>
+        </div>
       )}
+      </div>
 
       {/* Step 5: enrolment key, only after a module is chosen */}
       {chosen && (

@@ -560,3 +560,55 @@
   transform: translateY(0);
   box-shadow: none;
 }
+/* =========================================================
+   My modules + Enrol use the full page width (was a narrow
+   column on the left with empty space on the right)
+   ========================================================= */
+.sub1.wide {
+  max-width: none;
+}
+/* Enrolled modules: cards fill the row, 2-3 per row on a laptop */
+.sub1.wide .mm-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  max-width: none;
+}
+.sub1.wide .mm-info b {
+  font-size: 15px;
+}
+/* Enrol: Year, Programme, Semester and Module side by side */
+.sub1 .en-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+.sub1 .en-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sub1.wide .en-select {
+  max-width: none;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+.sub1.wide .en-key {
+  max-width: 520px;
+}
+@media (max-width: 900px) {
+  .sub1 .en-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sub1 .en-module {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 560px) {
+  .sub1 .en-steps {
+    grid-template-columns: 1fr;
+  }
+  .sub1.wide .mm-list {
+    grid-template-columns: 1fr;
+  }
+}
