@@ -595,6 +595,8 @@
 }
 .sub1.wide .en-key {
   max-width: 520px;
+  margin-left: auto; /* centred under the four choices */
+  margin-right: auto;
 }
 @media (max-width: 900px) {
   .sub1 .en-steps {
