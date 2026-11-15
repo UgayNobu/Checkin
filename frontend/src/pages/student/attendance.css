@@ -160,3 +160,6 @@
 .dayinfo .ds.flagged{background:#fcefdc;color:#8a5a00}
 .dayinfo .ds.not_attended{background:#f8f9fa;color:#495057}
 .dayinfo .mutd{color:#6a737b}
+
+/* Explains an empty month on the calendar */
+.calempty { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #eef3f8; color: #34495e; font-size: 12.5px; line-height: 1.5; }

@@ -3,7 +3,7 @@ const { z, id, optionalText, blankToUndef } = require('./common');
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a date (YYYY-MM-DD)');
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be a time like 09:00');
 const reason = z.enum(['on_leave', 'college_event', 'exam', 'holiday', 'make_up', 'extra_lecture', 'revision', 'swap', 'other'], {
-  errorMap: () => ({ message: 'Choose a reason' }),
+  error: 'Choose a reason',
 });
 const bool = z.preprocess((v) => (v === 'false' || v === false ? false : v === 'true' || v === true ? true : undefined), z.boolean().optional());
 

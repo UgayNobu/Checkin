@@ -9,8 +9,15 @@ const withSession = (res, result) => { if (result.token) setAuthCookie(res, resu
 
 module.exports = {
   register: asyncHandler(async (req, res) => withSession(res, await auth.register(req.body))),
+  verifySignup: asyncHandler(async (req, res) => withSession(res, await auth.verifySignup(req.body))),
+  resendSignupCode: asyncHandler(async (req, res) => res.json(await auth.resendSignupCode(req.body))),
   login: asyncHandler(async (req, res) => withSession(res, await auth.login(req.body))),
-  logout: (req, res) => { clearAuthCookie(res); res.json({ ok: true }); },
+  logout: asyncHandler(async (req, res) => {
+    const u = await identify(req);
+    await auth.logout(u?.id); // the token stops working on the server too, not only in this browser
+    clearAuthCookie(res);
+    res.json({ ok: true });
+  }),
   // Design doc: /api/auth/me answers 200 with null when not logged in (never 401) — handy on page load.
   me: asyncHandler(async (req, res) => { const u = await identify(req); res.json(u ? await auth.getMe(u.id) : null); }),
   lookupId: asyncHandler(async (req, res) => res.json(await auth.lookupId(req.query.id))),
@@ -18,5 +25,5 @@ module.exports = {
   tutorRequest: asyncHandler(async (req, res) => res.json(await auth.requestTutorAccount(req.body))),
   forgotPassword: asyncHandler(async (req, res) => res.json(await auth.forgotPassword(req.body))),
   resetPassword: asyncHandler(async (req, res) => res.json(await auth.resetPassword(req.body))),
-  changePassword: asyncHandler(async (req, res) => res.json(await auth.changePassword(req.user.id, req.body))),
+  changePassword: asyncHandler(async (req, res) => withSession(res, await auth.changePassword(req.user.id, req.body))),
 };

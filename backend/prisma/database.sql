@@ -440,6 +440,38 @@ BEGIN
   END IF;
 END $$;
 
+-- ===== Part 13: which phone each check-in came from =====
+-- A random ID the browser keeps (not the phone's real identity). When ONE_DEVICE_CHECK=on,
+-- a second student checking in from the same phone in the same session is flagged for the tutor.
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS device_id varchar(64);
+CREATE INDEX IF NOT EXISTS idx_attendance_session_device ON attendance (session_id, device_id);
+
+-- ===== Part 14: sign-ups waiting for their email code =====
+-- Used when EMAIL_VERIFY=on: the details wait here until the 6-digit code emailed to the college
+-- address is entered; then the account is created and the row is deleted. Only hashes are stored.
+CREATE TABLE IF NOT EXISTS pending_signups (
+  user_id       VARCHAR(10) PRIMARY KEY,
+  name          VARCHAR(100),
+  email         VARCHAR(255) NOT NULL,
+  role          VARCHAR(20) NOT NULL,
+  programme     VARCHAR(100),
+  department    VARCHAR(100),
+  year          INTEGER,
+  password_hash TEXT NOT NULL,
+  code_hash     TEXT NOT NULL,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_email ON pending_signups (email);
+-- Not reachable through Supabase's public web API (the backend connects as the owner, so it is unaffected)
+ALTER TABLE pending_signups ENABLE ROW LEVEL SECURITY;
+
+-- ===== Part 15: logging out really ends the login =====
+-- Each login token carries the user's token_version. Logging out, changing or resetting the
+-- password adds 1, so every older token (on any device) stops working straight away.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
 COMMIT;
 
 

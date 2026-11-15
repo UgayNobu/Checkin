@@ -20,5 +20,6 @@ Progress, daily and technical reports written by the CheckIn team (IDE201 Capsto
 | 28 Oct | [Docker and CI/CD Report](./2026-10-28_Docker_and_CI_CD_Report_Damchey_Lhendup.pdf) | Damchey Lhendup | Docker set-up (4 containers), smoke test and the GitHub Actions pipeline |
 | 28 Oct | [Deployment Report — Docker, CI/CD & v2.0.0](./2026-10-28_Deployment_Report_v2.0.0_Ugyen_Norbu.pdf) | Ugyen Norbu | Docker review and fixes, CI/CD, Render + Vercel deployment, branch protection, release v2.0.0 |
 | 30 Oct | [Daily Report — Live Email, Account Clean-up & Email Design](./2026-10-30_Daily_Report_Live_Email_Ugyen_Norbu.pdf) | Ugyen Norbu | Why reset codes didn't arrive, email through Brevo, fake accounts removed, new email design |
+| 15 Nov | [Daily Report — Tester Feedback Fixes & Security Review](./2026-11-15_Daily_Report_Testing_Fixes_and_Security_Ugyen_Norbu.pdf) | Ugyen Norbu | 10 issues from the testing session fixed, student pages full width, security review (7 issues fixed), database Parts 13–15 |
 
 New reports go in this folder as PDF (or Markdown), named `YYYY-MM-DD_Title.pdf`, and get a row in the table above.

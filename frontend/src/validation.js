@@ -38,6 +38,7 @@ export function validateRegister(f, tutor) {
   else if (!COLLEGE_EMAIL.test(email)) e.email = 'Use your college email ending in @rub.edu.bt.';
 
   if (!f.pick) e.pick = tutor ? 'Choose your department.' : 'Choose your programme.';
+  if (!tutor && !f.year) e.year = 'Choose your year.';
 
   if (!f.password) e.password = 'Choose a password.';
   else if (!passwordOk(f.password)) e.password = 'Password does not meet all the rules below.';
