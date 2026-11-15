@@ -50,6 +50,7 @@ export default function Timetable() {
   const [dialog, setDialog] = useState(null); // { kind, item | change | module }
   const [menu, setMenu] = useState(null); // key of the card whose ⋯ menu is open
   const [reload, setReload] = useState(0);
+  const [booked, setBooked] = useState(null); // date of an extra class just booked (keeps its Sunday tab open while the list reloads)
 
   useEffect(() => {
     api('/academic-sessions/current').then(setTerm).catch(() => {});
@@ -111,7 +112,7 @@ export default function Timetable() {
   if (!list) return <p className="tt-empty">Loading timetable…</p>;
 
   // Sunday has no timetable classes, so its tab only shows when it is today or has an extra class
-  const showSun = (monday === thisMonday && todayIdx === 6) || itemsOn(6).length > 0;
+  const showSun = (monday === thisMonday && todayIdx === 6) || itemsOn(6).length > 0 || booked === addDays(monday, 6);
   const days = showSun ? [...DAYS, 'Sunday'] : DAYS;
   if (day === 6 && !showSun) { setDay(0); return null; }
   const date = addDays(monday, day);
@@ -338,8 +339,10 @@ export default function Timetable() {
           date={date >= today ? date : today}
           onClose={() => setDialog(null)}
           onDone={(c) => {
+            // Open the day the class was booked for (Sunday included: an extra class makes its tab show)
             setMonday(mondayOf(c.date));
-            setDay(Math.min((new Date(c.date + 'T00:00:00Z').getUTCDay() || 7) - 1, 5));
+            setDay((new Date(c.date + 'T00:00:00Z').getUTCDay() || 7) - 1);
+            setBooked(c.date);
             done('Class booked. Students have been told.')();
           }}
         />
