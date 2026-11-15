@@ -9,6 +9,7 @@ const goodStudent = {
   pick: 'BE in Software Engineering',
   password: 'Cst@2026',
   again: 'Cst@2026',
+  year: '3',
 };
 
 describe('validateLogin', () => {
@@ -31,9 +32,9 @@ describe('validateRegister', () => {
   });
 
   test('TC-UNIT-36: an empty form gives an error for every field', () => {
-    const empty = { name: '', userId: '', email: '', pick: '', password: '', again: '' };
+    const empty = { name: '', userId: '', email: '', pick: '', year: '', password: '', again: '' };
     expect(Object.keys(validateRegister(empty, false)).sort())
-      .toEqual(['again', 'email', 'name', 'password', 'pick', 'userId']);
+      .toEqual(['again', 'email', 'name', 'password', 'pick', 'userId', 'year']);
   });
 
   test('TC-UNIT-37: bad input - non-college email, 7-digit ID and mismatched passwords are refused', () => {

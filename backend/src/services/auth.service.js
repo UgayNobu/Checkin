@@ -57,12 +57,15 @@ async function requestTutorAccount({ userId, password }) {
 }
 
 // ── B) Open register form ─────────────────────────────────────
-async function register({ userId, name, email, password, role, programme, department }) {
+async function register({ userId, name, email, password, role, programme, department, year }) {
   const id = normalizeId(userId);
   const existing = await prisma.user.findUnique({ where: { id } });
   // Someone on the roster who hasn't signed up yet → use the roster flow instead of failing.
   if (existing && !existing.passwordHash) {
-    return role === 'teacher' ? requestTutorAccount({ userId: id, password }) : { ...(await signupStudent({ userId: id, password })), message: 'Account created' };
+    if (role === 'teacher') return requestTutorAccount({ userId: id, password });
+    const out = await signupStudent({ userId: id, password });
+    if (year) await prisma.user.update({ where: { id }, data: { year } }); // the year they chose on the form
+    return { ...out, message: 'Account created' };
   }
   if (existing) throw Conflict('That ID already has an account. Please log in.', 'ALREADY_SIGNED_UP');
   if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } }))
@@ -71,7 +74,7 @@ async function register({ userId, name, email, password, role, programme, depart
   await prisma.user.create({
     data: {
       id, name, email, passwordHash: await hashPassword(password), role: roleIn(role), programme,
-      department: department || departmentFromProgramme(programme), isActive: isStudent, status: 'active', year: isStudent ? 1 : null,
+      department: department || departmentFromProgramme(programme), isActive: isStudent, status: 'active', year: isStudent ? year || 1 : null,
     },
   });
   if (!isStudent) {
@@ -84,9 +87,14 @@ async function register({ userId, name, email, password, role, programme, depart
 // ── Login ─────────────────────────────────────────────────────
 async function login({ userId, password }) {
   const u = await prisma.user.findUnique({ where: { id: normalizeId(userId) } });
-  // Always run bcrypt, so "no such user" takes as long as "wrong password".
+  // (Student and staff IDs are not secret, so saying "no account" vs "wrong password" is fine here.)
   const ok = await verifyPassword(password, u?.passwordHash || DUMMY_HASH);
-  if (!u || !u.passwordHash || !ok) throw Unauthorized('Wrong ID or password', 'INVALID_CREDENTIALS');
+  // Say exactly what is wrong, so the person knows what to do next.
+  if (!u) {
+    throw Unauthorized('No account found for this ID. Check the ID, or sign up if you are new. If you had an account before, it may have been removed by the admin.', 'ACCOUNT_NOT_FOUND');
+  }
+  if (!u.passwordHash) throw Unauthorized('This ID has not been signed up yet. Tap Sign up to create your password.', 'NOT_SIGNED_UP');
+  if (!ok) throw Unauthorized('Wrong password. Try again, or use Forgot password.', 'WRONG_PASSWORD');
   if (!u.isActive) {
     if (u.role === 'tutor' && u.status === 'active') throw Forbidden('Your account is waiting for admin approval.', 'ACCOUNT_PENDING');
     throw Forbidden('This account has been deactivated. If you have returned to the college, ask the admin to activate it again.', 'ACCOUNT_NOT_ACTIVE');

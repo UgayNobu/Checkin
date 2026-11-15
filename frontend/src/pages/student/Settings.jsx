@@ -387,7 +387,11 @@ export function Enrol() {
     loadModules();
     // Start from the student's own programme and year (they can still change them)
     api('/me')
-      .then((u) => setF((x) => ({ ...x, year: x.year || String(u.year || 1), department: x.department || u.programme || '' })))
+      .then((u) => setF((x) => ({ ...x, year: x.year || (u.year ? String(u.year) : ''), department: x.department || u.programme || '' })))
+      .catch(() => {});
+    // Autumn = semester 1, Spring = semester 2
+    api('/academic-sessions/current')
+      .then((t) => t?.term && setF((x) => ({ ...x, semester: x.semester || (t.term === 'spring' ? '2' : '1') })))
       .catch(() => {});
   }, []);
 
@@ -464,7 +468,7 @@ export function Enrol() {
           <select className="en-select" value={f.module} onChange={set('module')}>
             <option value="">Select module</option>
             {mods.map((m) => (
-              <option key={m.id} value={m.id} disabled={Boolean(blocked(m)) && !m.enrolled}>
+              <option key={m.id} value={m.id}>
                 {m.code} – {m.name}
                 {m.tutor ? ` · ${m.tutor}` : ''}
                 {blocked(m) ? ` (${blocked(m)})` : ''}
@@ -490,8 +494,17 @@ export function Enrol() {
           </p>
 
           {chosen.enrolled && <p className="foot" style={{ color: '#357a32', fontWeight: 600 }}>✓ You are enrolled in this module.</p>}
-          {chosen.selfEnrol === false && <p className="foot">Self-enrolment is closed for this module. Ask your tutor to add you.</p>}
-          {!chosen.enrolled && (<>
+          {/* Can't be joined yet: explain why instead of asking for a key */}
+          {!chosen.enrolled && !chosen.tutor && (
+            <p className="en-why">No tutor is assigned to this module yet, so it can't be joined. Once the admin assigns a tutor, the tutor gives you an enrolment key.</p>
+          )}
+          {!chosen.enrolled && chosen.tutor && !chosen.hasKey && (
+            <p className="en-why">{chosen.tutor} hasn't set an enrolment key for this module yet. Ask them for it, then come back.</p>
+          )}
+          {!chosen.enrolled && chosen.tutor && chosen.hasKey && chosen.selfEnrol === false && (
+            <p className="en-why">Self-enrolment is closed for this module. Ask your tutor to add you.</p>
+          )}
+          {!chosen.enrolled && !blocked(chosen) && (<>
           <label>Enrolment Key</label>
           <input
             className="grey"
@@ -594,9 +607,17 @@ export function BrowseModules() {
             <small>
               Section {m.section} · {m.students} students
             </small>
-            <button className="pb" onClick={() => nav('/settings/enrol')}>
-              Enrolment_key
-            </button>
+            {m.enrolled ? (
+              <span className="pb done">Enrolled ✓</span>
+            ) : !m.tutor ? (
+              <span className="pb off">No tutor yet</span>
+            ) : !m.hasKey ? (
+              <span className="pb off">No key yet</span>
+            ) : m.selfEnrol === false ? (
+              <span className="pb off">Closed</span>
+            ) : (
+              <button className="pb" onClick={() => nav('/settings/enrol')}>Enrol with key</button>
+            )}
           </div>
         ))}
       </div>

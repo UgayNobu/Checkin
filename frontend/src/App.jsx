@@ -10,7 +10,7 @@ import {
   useSearchParams,
   useLocation,
 } from 'react-router-dom';
-import { api, auth, fileHref, logout } from './api';
+import { api, auth, fileHref, logout, notice } from './api';
 import './base.css';
 import './vle.css';
 import './phone.css';
@@ -137,7 +137,7 @@ function Login() {
   const teacher = p.get('as') === 'teacher';
 
   const [f, setF] = useState({ userId: '', password: '' });
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState(() => notice.take() || '');
   const [fe, setFe] = useState({});
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -333,6 +333,14 @@ function Shell({ user, children, title, sub }) {
   useEffect(() => {
     api('/me').then(setMe).catch(() => {});
   }, [loc.pathname]);
+  // Check the account every 30 seconds and when the tab comes back into view, so someone the
+  // admin deactivates or removes is logged out straight away (with a message), not only on their next click.
+  useEffect(() => {
+    const check = () => { if (document.visibilityState === 'visible') api('/me').then(setMe).catch(() => {}); };
+    const t = setInterval(check, 30000);
+    document.addEventListener('visibilitychange', check);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', check); };
+  }, []);
   const name = me?.name || user.name;
   const photo = fileHref(me?.avatarUrl); // /api/files/… → full backend address, works on any port
 

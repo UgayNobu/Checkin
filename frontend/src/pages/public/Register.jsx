@@ -18,6 +18,10 @@ const PROG = [
   'Master in Construction Management',
   'Master of Science in Engineering (by Research)',
 ];
+// How many years each programme runs (default 4), for the Year dropdown
+const yearsOf = (p) => (/Architecture/.test(p) ? 5 : /^Master/.test(p) ? 2 : 4);
+const ORD = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+
 const DEPT = [
   'Architecture',
   'Civil & Environmental Engineering',
@@ -41,6 +45,7 @@ export default function Register() {
     email: '',
     pick: '',
     tprog: '', // CHANGED: tutor's programme
+    year: '', // students: the year they are in now
     password: '',
     again: '',
   });
@@ -51,7 +56,13 @@ export default function Register() {
   const [busy, setBusy] = useState(false);
   const lists = { prog: PROG, dept: DEPT }; // CHANGED: use the lists above directly
 
-  const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setServerErr({ ...serverErr, [k]: '' }); };
+  const set = (k) => (e) => {
+    const v = e.target.value;
+    // e.g. Fifth Year picked for Architecture, then the programme changed to a 4-year one
+    const year = k === 'pick' && Number(f.year) > yearsOf(v) ? '' : f.year;
+    setF({ ...f, year, [k]: v });
+    setServerErr({ ...serverErr, [k]: '' });
+  };
   const leave = (k) => () => setTouched({ ...touched, [k]: true });
   const errors = validateRegister(f, tutor);
   const errOf = (k) => (touched[k] && errors[k]) || serverErr[k] || '';
@@ -63,7 +74,7 @@ export default function Register() {
     e.preventDefault();
     setMsg({ text: '', ok: false });
     // Show every problem at once when they press the button
-    setTouched({ name: true, userId: true, email: true, pick: true, password: true, again: true });
+    setTouched({ name: true, userId: true, email: true, pick: true, year: true, password: true, again: true });
     if (Object.keys(errors).length) return setMsg({ text: 'Please fix the highlighted fields.', ok: false });
 
     setBusy(true);
@@ -73,7 +84,7 @@ export default function Register() {
       name: f.name.trim(),
       email: f.email.trim(),
       [tutor ? 'department' : 'programme']: f.pick,
-      ...(tutor ? { programme: f.tprog } : {}), // CHANGED: send tutor's programme
+      ...(tutor ? { programme: f.tprog } : { year: Number(f.year) }), // tutor's programme / student's year
       password: f.password,
     })
       .then((r) => {
@@ -82,7 +93,7 @@ export default function Register() {
       })
       .catch((x) => {
         // e.g. "userId: must be ..." goes under the right box; anything else shows below the form
-        const field = fieldFromServer(x.message, ['name', 'userId', 'email', 'password']);
+        const field = fieldFromServer(x.message, ['name', 'userId', 'email', 'password', 'year']);
         if (field) setServerErr(field);
         setMsg({ text: field ? 'Please fix the highlighted fields.' : x.message, ok: false });
       })
@@ -155,6 +166,19 @@ export default function Register() {
           ))}
         </select>
         {errOf('pick') && <small className="ferr">{errOf('pick')}</small>}
+        {/* Students: which year they are in, so they only see their own year's modules and classes */}
+        {!tutor && (
+          <>
+            <label>Year</label>
+            <select value={f.year} onChange={set('year')} onBlur={leave('year')} className={errOf('year') ? 'bad' : ''}>
+              <option value="">Select</option>
+              {ORD.slice(0, yearsOf(f.pick)).map((y, i) => (
+                <option key={y} value={i + 1}>{y} Year</option>
+              ))}
+            </select>
+            {errOf('year') && <small className="ferr">{errOf('year')}</small>}
+          </>
+        )}
         {/* CHANGED: extra Programme dropdown for tutors */}
         {tutor && (
           <>

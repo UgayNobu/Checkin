@@ -18,11 +18,13 @@ const registerSchema = z.object({
   role: z.enum(['student', 'teacher']).default('student'),
   programme: optionalText(100),
   department: optionalText(100),
+  year: z.coerce.number().int().min(1).max(5).optional(), // students: the year they are in now (1-5)
 }).superRefine((b, ctx) => {
   const student = b.role === 'student';
   if (student && !STUDENT_ID.test(b.userId)) ctx.addIssue({ code: 'custom', path: ['userId'], message: 'must be your 8-digit student number, e.g. 02250368' });
   if (!student && !STAFF_ID.test(b.userId)) ctx.addIssue({ code: 'custom', path: ['userId'], message: 'must be your staff ID, e.g. CST-0142' });
   if (student && !b.programme) ctx.addIssue({ code: 'custom', path: ['programme'], message: 'Please choose your programme' });
+  if (student && !b.year) ctx.addIssue({ code: 'custom', path: ['year'], message: 'Please choose your year' });
   if (!student && !b.department) ctx.addIssue({ code: 'custom', path: ['department'], message: 'Please choose your department' });
 });
 

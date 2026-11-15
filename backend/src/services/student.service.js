@@ -86,9 +86,13 @@ async function enrol(studentId, { module, key }) {
     ? await prisma.module.findUnique({ where: { id: module } })
     : await prisma.module.findFirst({ where: { enrolmentKey: { equals: k, mode: 'insensitive' } } });
   if (!m) throw NotFound(module ? 'Module not found' : 'Enrolment key not found. Check it with your tutor.', module ? 'MODULE_NOT_FOUND' : 'KEY_NOT_FOUND');
-  if (!m.selfEnrol) throw Forbidden('Self-enrolment is closed for this module. Ask your tutor to add you.', 'SELF_ENROL_CLOSED');
-  if (!m.enrolmentKey || m.enrolmentKey.toUpperCase() !== k) throw BadRequest('Wrong enrolment key for this module', 'WRONG_KEY');
   const academicSession = await currentAcademicSession();
+  // No tutor this semester: nobody can give out a key, so the module can't be joined yet
+  const taught = await prisma.section.count({ where: { moduleId: m.id, academicSession } });
+  if (!taught) throw BadRequest(`No tutor is assigned to ${m.name} yet, so it can't be joined. Ask the admin.`, 'NO_TUTOR');
+  if (!m.selfEnrol) throw Forbidden('Self-enrolment is closed for this module. Ask your tutor to add you.', 'SELF_ENROL_CLOSED');
+  if (!m.enrolmentKey) throw BadRequest('Your tutor has not set an enrolment key for this module yet. Ask them for it.', 'NO_KEY');
+  if (m.enrolmentKey.toUpperCase() !== k) throw BadRequest('Wrong enrolment key for this module', 'WRONG_KEY');
   const exists = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId: m.id, academicSession } } });
   if (exists) throw Conflict(`You are already enrolled in ${m.name}`, 'ALREADY_ENROLLED');
   await prisma.enrollment.create({ data: { studentId, moduleId: m.id, academicSession } });

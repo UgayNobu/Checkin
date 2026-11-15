@@ -38,7 +38,7 @@ export default function Attendance() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [mo, setMo] = useState(new Date());
-  const [days, setDays] = useState({});
+  const [days, setDays] = useState(null); // null while the month is loading
   const [sel, setSel] = useState(null); // calendar day clicked: { date, classes } or { date, loading }
   const [live, setLive] = useState({ buildings: [], classes: [] });
   const [card, setCard] = useState(null); // 'IT' | 'LT' | 'ACAD' | 'ARCH' | 'WORKSHOP'
@@ -186,7 +186,7 @@ export default function Attendance() {
         <div className="grid">
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => <b key={d}>{d}</b>)}
           {cells.map((c, i) => {
-            const inMonth = c.getMonth() === m, st = inMonth ? days[c.getDate()] : null;
+            const inMonth = c.getMonth() === m, st = inMonth ? days?.[c.getDate()] : null;
             const ds = `${key}-${String(c.getDate()).padStart(2, '0')}`;
             return inMonth && st ? (
               <button
@@ -230,6 +230,14 @@ export default function Attendance() {
               </ul>
             )}
           </div>
+        )}
+        {/* Nothing recorded this month: say why the calendar is blank */}
+        {days && !Object.values(days).some(Boolean) && (
+          <p className="calempty">
+            No attendance recorded in {mo.toLocaleString('en', { month: 'long' })} yet. A day turns green (present) or red
+            (absent) once your tutor takes attendance in one of your classes. Make sure you have enrolled in your modules
+            in Settings → Enrol.
+          </p>
         )}
         <div className="legend">
           <span><i className="g" />Present</span>

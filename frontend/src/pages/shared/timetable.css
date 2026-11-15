@@ -109,3 +109,7 @@
   .tt-pop { right: 0; }
   .tt-day { min-width: 0; flex: 1 0 calc(33% - 8px); }
 }
+
+/* Student: a class of their year they haven't enrolled in, or one with no attendance taken: dimmed, so their own classes stand out */
+.tt-card.dim { background: #f8f9fa; border-left-color: #ced4da; opacity: 0.6; }
+.tt-card.dim .tt-mod, .tt-card.dim .tt-time b { color: #6a737b; }

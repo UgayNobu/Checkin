@@ -3,6 +3,21 @@ export const FILES = BASE.replace(/\/api$/, '');
 /** Link for a file the API returned: full URLs (Supabase) as-is, server paths on the backend. */
 export const fileHref = (u) => (!u ? null : /^https?:\/\//.test(u) ? u : FILES + u);
 
+/** Codes the backend sends when a logged-in account was removed or deactivated by the admin */
+const GONE_CODES = ['ACCOUNT_REMOVED', 'ACCOUNT_NOT_ACTIVE'];
+
+/** A one-time message shown on the next page (e.g. "You have been logged out because…") */
+export const notice = {
+  set: (text) => { try { sessionStorage.setItem('checkin_notice', text); } catch { /* private mode */ } },
+  take: () => {
+    try {
+      const t = sessionStorage.getItem('checkin_notice');
+      sessionStorage.removeItem('checkin_notice');
+      return t;
+    } catch { return null; }
+  },
+};
+
 export const auth = {
   get: () => JSON.parse(localStorage.getItem('checkin') || 'null'),
   set: (v) => localStorage.setItem('checkin', JSON.stringify(v)),
@@ -44,8 +59,10 @@ export async function api(path, body, method) {
       body: form || !body ? body : JSON.stringify(body),
     });
     const d = await r.json();
-    // Saved login has expired or is no longer valid: forget it and go back to the start page
+    // Saved login has expired or is no longer valid: forget it and go back to the start page.
+    // If the admin removed or deactivated the account, say so on the next page.
     if (r.status === 401 && !path.startsWith('/auth/') && auth.get()) {
+      if (GONE_CODES.includes(d.code)) notice.set(d.error);
       auth.clear();
       window.location.replace('/welcome');
     }

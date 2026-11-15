@@ -17,10 +17,21 @@ function readToken(req) {
   return req.cookies?.[COOKIE_NAME] || null;
 }
 
-/** Returns the user for a request, or null. Never throws. */
-async function identify(req) {
+// What the person is told when their saved login stops working because of the admin
+const GONE = {
+  removed: ['Your account is no longer available. It may have been removed by the admin. Contact ICT Services if this is a mistake.', 'ACCOUNT_REMOVED'],
+  inactive: ['Your account has been deactivated by the admin, so you have been logged out. Contact ICT Services if this is a mistake.', 'ACCOUNT_NOT_ACTIVE'],
+};
+
+/**
+ * Who is making this request. Never throws.
+ * @returns {{ user } | { gone: 'removed' | 'inactive' } | {}}
+ *   user = logged in and active; gone = the token is valid but the account was removed or
+ *   deactivated since; {} = no token or a bad / expired one.
+ */
+async function check(req) {
   const token = readToken(req);
-  if (!token) return null;
+  if (!token) return {};
   try {
     const { id } = verifyAuthToken(token);
     // Cached for a few seconds so every page doesn't wait for this lookup (see utils/userCache.js).
@@ -29,15 +40,22 @@ async function identify(req) {
       u = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, name: true, email: true, isActive: true } });
       userCache.set(id, u);
     }
-    if (!u || !u.isActive) return null;
-    return { id: u.id, role: roleOut(u.role), name: u.name, email: u.email };
+    if (!u) return { gone: 'removed' };
+    if (!u.isActive) return { gone: 'inactive' };
+    return { user: { id: u.id, role: roleOut(u.role), name: u.name, email: u.email } };
   } catch {
-    return null;
+    return {};
   }
 }
 
+/** Returns the user for a request, or null. Never throws. */
+async function identify(req) {
+  return (await check(req)).user || null;
+}
+
 async function requireAuth(req, res, next) {
-  const user = await identify(req);
+  const { user, gone } = await check(req);
+  if (gone) return next(Unauthorized(...GONE[gone]));
   if (!user) return next(Unauthorized('Please log in'));
   req.user = user;
   next();

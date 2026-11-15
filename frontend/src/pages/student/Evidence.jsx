@@ -44,6 +44,13 @@ export default function Evidence() {
 
   const openForm = (key) => { setMsg(''); setDate(today()); setType(key); };
   const closeForm = () => { setType(null); setDate(today()); setReason(''); setFile(null); setFormMsg(''); };
+  // Escape closes the form (not while it is sending)
+  useEffect(() => {
+    if (!type) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) closeForm(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [type, busy]);
 
   const submit = () => {
     if (!date) return setFormMsg('Please choose the date.');
@@ -130,9 +137,10 @@ export default function Evidence() {
 
       {/* Leave form (pop-up) */}
       {type && (
-        <div className="overlay" onClick={closeForm}>
-          <div className="form" onClick={(e) => e.stopPropagation()}>
-            <h3>{type === 'medical' ? 'Medical Leave' : 'Official Leave'}</h3>
+        <div className="overlay" onClick={() => !busy && closeForm()}>
+          <div className="form" role="dialog" aria-modal="true" aria-labelledby="ev-form-title" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="ev-x" onClick={closeForm} disabled={busy} aria-label="Close">✕</button>
+            <h3 id="ev-form-title">{type === 'medical' ? 'Medical Leave' : 'Official Leave'}</h3>
             <small>Please fill in the date and reasons with valid supporting documents.</small>
 
             <label>Date</label>
@@ -155,7 +163,10 @@ export default function Evidence() {
             </div>
 
             {formMsg && <p className="ev-err">{formMsg}</p>}
-            <button className="submit" onClick={submit} disabled={busy}>{busy ? 'Submitting…' : 'Submit'}</button>
+            <div className="ev-btns">
+              <button type="button" className="ev-cancel" onClick={closeForm} disabled={busy}>Cancel</button>
+              <button className="submit" onClick={submit} disabled={busy}>{busy ? 'Submitting…' : 'Submit'}</button>
+            </div>
           </div>
         </div>
       )}

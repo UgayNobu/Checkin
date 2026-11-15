@@ -171,3 +171,16 @@
 .login .hero.teacherlogin { background-image: url(/techer2.jpg) !important; }
 .login .hero.studenthero { background-image: url(/studentsigin.jpeg) !important; }
 .login .hero.teacherhero { background-image: url(/techer1.jpg) !important; }
+
+/* Message after the admin removed or deactivated the account */
+.lx-notice {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-left: 4px solid #ca3120;
+  background: #fbe3e0;
+  color: #8f2216;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
