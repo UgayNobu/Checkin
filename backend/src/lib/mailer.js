@@ -89,9 +89,14 @@ function getTransport() {
   return transport;
 }
 
+// Addresses that can never receive mail: names reserved for testing (RFC 2606 / 6761), e.g. test.student01@example.com.
+// Sending to them only bounces back an "Address not found" email to our own inbox, so they are skipped.
+const RESERVED = /@(?:[^@\s]*\.)?(?:example\.(?:com|net|org)|example|test|invalid|localhost)$/i;
+const isDeliverable = (to) => Boolean(to) && !RESERVED.test(String(to).trim());
+
 /** sendMail({ to, subject, text, name?, code?, link? }) — text is the message without the greeting. */
 async function sendMail({ to, subject, text, name, code, link }) {
-  if (!isSmtpConfigured() || !to) return false;
+  if (!isSmtpConfigured() || !isDeliverable(to)) return false;
   const opts = { name, text, code, ...(link !== undefined && { link }) };
   const html = renderEmail(opts);
   const plain = renderText(opts);
@@ -140,4 +145,4 @@ async function verifyMail() {
   }
 }
 
-module.exports = { sendMail, sendMailInBackground, isSmtpConfigured, verifyMail, explain, parseFrom, provider, renderEmail, renderText, appUrl };
+module.exports = { sendMail, sendMailInBackground, isSmtpConfigured, isDeliverable, verifyMail, explain, parseFrom, provider, renderEmail, renderText, appUrl };
