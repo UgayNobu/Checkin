@@ -464,6 +464,8 @@ CREATE TABLE IF NOT EXISTS pending_signups (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_pending_signups_email ON pending_signups (email);
+-- Not reachable through Supabase's public web API (the backend connects as the owner, so it is unaffected)
+ALTER TABLE pending_signups ENABLE ROW LEVEL SECURITY;
 
 COMMIT;
 
