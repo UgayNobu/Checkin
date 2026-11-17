@@ -1,0 +1,23 @@
+/* Theory / Practical switch at the top of the booking and Start Attendance forms */
+.kind-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #c4cbd2; border-radius: 8px; overflow: hidden; margin: 10px 0 12px; }
+.kind-tabs button {
+  border: 0; background: #fff; color: #1d2125; padding: 9px 10px; font: inherit; cursor: pointer; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.kind-tabs button + button { border-left: 1px solid #c4cbd2; }
+.kind-tabs button b { font-size: 14px; }
+.kind-tabs button small { font-size: 11px; color: #6a737b; }
+.kind-tabs button.on { background: #0f6cbf; color: #fff; }
+.kind-tabs button.on small { color: #e7f1fb; }
+.kind-tabs button:disabled { cursor: default; opacity: .7; }
+.kind-tabs button:focus-visible { outline: 2px solid #0f6cbf; outline-offset: -3px; }
+
+/* Radius chips: 10 / 20 / 30 / 50 / 100 m / Other… */
+.radius-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
+.radius-chips button {
+  border: 1px solid #c4cbd2; background: #fff; color: #1d2125; border-radius: 999px;
+  padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.radius-chips button.on { background: #0f6cbf; border-color: #0f6cbf; color: #fff; font-weight: 600; }
+.radius-chips button:disabled { opacity: .6; cursor: default; }
+.radius-chips input { width: 110px !important; }

@@ -6,6 +6,7 @@ import { span12 } from '../../time12';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import './classchanges.css';
+import './kindtabs.css';
 
 const nice = (d) =>
   new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -121,60 +122,124 @@ export function CoverDialog({ item, onClose, onDone }) {
   );
 }
 
+// Practicals can happen anywhere: the tutor picks how close students must be (or any 5–500 m)
+export const RADII = [10, 20, 30, 50, 100];
+const bhutanNow = () => { const d = new Date(Date.now() + 6 * 3600 * 1000); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+const hm = (x) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+/** "SWE303 – Software Project Management · Software Engineering, Year 3" */
+export const modLabel = (m) => {
+  const prog = m.programme ? m.programme.replace(/^B\.\s*E\.\s*/i, '') : '';
+  const extra = [prog, m.year ? `Year ${m.year}` : ''].filter(Boolean).join(', ');
+  return `${m.code} – ${m.name}${extra ? ` · ${extra}` : ''}`;
+};
+
+/** "Now: 10:05 – 11:05 PM": a class happening right now, rounded down to 5 minutes, for one hour. */
+export function nowSlot() {
+  const m = Math.floor(bhutanNow() / 5) * 5;
+  return { start: hm(m), end: hm(Math.min(m + 60, 23 * 60 + 59)) };
+}
+
+/** What's wrong with the typed times, shown straight away (the server checks again when booking). */
+export function timeProblem({ start, end, date, today, nowMin = bhutanNow() }) {
+  if (!start || !end) return '';
+  if (end <= start) return 'The class must end after it starts.';
+  if (date === today && end <= hm(nowMin)) return 'That end time has already passed today. Pick a later time.';
+  return '';
+}
+
+/** Theory / Practical switch at the top of a form. */
+export function KindTabs({ value, onChange, disabled, idPrefix = 'kind' }) {
+  return (
+    <div className="kind-tabs" role="tablist" aria-label="Type of class">
+      {[['theory', 'Theory', 'In a room'], ['practical', 'Practical', 'Anywhere, around you']].map(([k, label, sub]) => (
+        <button key={k} id={`${idPrefix}-${k}`} type="button" role="tab" aria-selected={value === k}
+          className={value === k ? 'on' : ''} disabled={disabled} onClick={() => onChange(k)}>
+          <b>{label}</b><small>{sub}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Radius chips: 10 / 20 / 30 / 50 / 100 m / Other… */
+export function RadiusPicker({ value, onChange, disabled, inputId = 'radius' }) {
+  const [custom, setCustom] = useState(!RADII.includes(Number(value)));
+  useEffect(() => { if (!RADII.includes(Number(value))) setCustom(true); }, [value]);
+  return (
+    <div className="radius-chips" role="group" aria-label="Check-in radius">
+      {RADII.map((r) => (
+        <button key={r} type="button" className={Number(value) === r && !custom ? 'on' : ''} disabled={disabled}
+          onClick={() => { setCustom(false); onChange(r); }}>{r} m</button>
+      ))}
+      <button type="button" className={custom ? 'on' : ''} disabled={disabled} onClick={() => setCustom(true)}>Other…</button>
+      {custom && (
+        <input id={inputId} type="number" min="5" max="500" value={value} disabled={disabled}
+          onChange={(e) => onChange(e.target.value)} aria-label="Radius in metres" />
+      )}
+    </div>
+  );
+}
+
 /** Book a class that isn't on the timetable. Free periods, free rooms and clashes come from the server. */
 export function ExtraDialog({ mods, date: firstDate, module: firstModule, today, onClose, onDone }) {
   const [f, setF] = useState({
     module: firstModule || (mods.length === 1 ? mods[0].id : ''), date: firstDate, start: '', end: '', room: '',
-    sessionType: 'theory', counts: true, reason: '', note: '',
+    sessionType: 'theory', place: '', radius: 30, counts: true, reason: '', note: '',
   });
   const [info, setInfo] = useState(null); // { periods, clashes, rooms }
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [, setTick] = useState(0); // the "Now" button and "already passed" follow the clock
+  useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 30000); return () => clearInterval(t); }, []);
   const set = (k, v) => { setF((x) => ({ ...x, [k]: v })); setErr(''); };
+  const practical = f.sessionType === 'practical';
+  const setKind = (k) => { setF((x) => ({ ...x, sessionType: k, room: k === 'practical' ? '' : x.room })); setErr(''); };
 
   // Ask the server what's free whenever the module, date, time, room or "counts" changes
   useEffect(() => {
     if (!f.module || !f.date) return setInfo(null);
     const q = new URLSearchParams({ module: f.module, date: f.date, counts: String(f.counts) });
     if (f.start && f.end && f.end > f.start) { q.set('start', f.start); q.set('end', f.end); }
-    if (f.room) q.set('room', f.room);
+    if (f.room && !practical) q.set('room', f.room);
     let stale = false;
     const t = setTimeout(() => {
       api('/class-changes/check?' + q).then((r) => !stale && setInfo(r)).catch((e) => !stale && setErr(e.message));
     }, 200);
     return () => { stale = true; clearTimeout(t); };
-  }, [f.module, f.date, f.start, f.end, f.room, f.counts]);
+  }, [f.module, f.date, f.start, f.end, f.room, f.counts, practical]);
 
-  // "Start now": a class can be booked for right now (rounded down to 5 minutes), for one hour
   const isToday = f.date === today;
-  const startNow = () => {
-    const now = new Date(Date.now() + 6 * 3600 * 1000); // Bhutan time
-    const m = now.getUTCHours() * 60 + Math.floor(now.getUTCMinutes() / 5) * 5;
-    const hm = (x) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
-    set('start', hm(m)); set('end', hm(Math.min(m + 60, 23 * 60 + 59)));
-  };
+  const now = nowSlot();
+  const timeErr = timeProblem({ ...f, today });
 
-  const blockers = (info?.clashes || []).filter((c) => c.blocks);
-  const warnings = (info?.clashes || []).filter((c) => !c.blocks);
-  const roomGone = f.room && info?.rooms && !info.rooms.some((r) => r.id === f.room) && !blockers.some((c) => c.kind === 'room');
+  // a practical has no room, so room clashes don't matter for it
+  const relevant = (info?.clashes || []).filter((c) => !(practical && c.kind === 'room'));
+  const blockers = relevant.filter((c) => c.blocks && !(timeErr && c.kind === 'time'));
+  const warnings = relevant.filter((c) => !c.blocks);
+  const roomGone = !practical && f.room && info?.rooms && !info.rooms.some((r) => r.id === f.room) && !blockers.some((c) => c.kind === 'room');
 
   const save = () => {
     if (!f.module) return setErr('Choose a module.');
-    if (!f.start || !f.end) return setErr('Choose a period, or type a start and end time.');
-    if (f.end <= f.start) return setErr('The class must end after it starts.');
+    if (!f.start || !f.end) return setErr('Choose a time, or type a start and end time.');
+    if (timeErr) return setErr(timeErr);
+    if (practical && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setErr('Choose how close students must be: 5–500 m.');
     if (!f.reason) return setErr('Choose a reason.');
     if (f.reason === 'other' && !f.note.trim()) return setErr('Write a short note for "Other".');
     setBusy(true);
-    api('/class-changes', { type: 'extra', ...f, room: f.room || undefined, note: f.note.trim() })
-      .then(onDone).catch((e) => setErr(e.message)).finally(() => setBusy(false));
+    const body = { type: 'extra', module: f.module, date: f.date, start: f.start, end: f.end, sessionType: f.sessionType, counts: f.counts, reason: f.reason, note: f.note.trim() };
+    if (practical) Object.assign(body, { place: f.place.trim() || undefined, radius: Number(f.radius) });
+    else if (f.room) body.room = f.room;
+    api('/class-changes', body).then(onDone).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   };
 
   return (
-    <Shell title="Book an extra class" sub="For a class that isn't on the timetable" onClose={onClose} busy={busy}>
+    <Shell title={practical ? 'Book a practical class' : 'Book an extra class'} sub="For a class that isn't on the timetable" onClose={onClose} busy={busy}>
+      <KindTabs value={f.sessionType} onChange={setKind} idPrefix="cc-kind" />
+
       <label htmlFor="cc-mod">Module</label>
       <select id="cc-mod" value={f.module} onChange={(e) => set('module', e.target.value)}>
         <option value="">Choose a module</option>
-        {mods.map((m) => <option key={m.id} value={m.id}>{m.code} – {m.name}</option>)}
+        {mods.map((m) => <option key={m.id} value={m.id}>{modLabel(m)}</option>)}
       </select>
 
       <label htmlFor="cc-date">Date</label>
@@ -213,7 +278,13 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
       )}
 
       {isToday && (
-        <button type="button" className="cc-now" onClick={startNow}>Start now (for 1 hour)</button>
+        <div className="cc-nowrow">
+          <button type="button" className={'cc-now' + (f.start === now.start && f.end === now.end ? ' on' : '')}
+            onClick={() => { set('start', now.start); set('end', now.end); }}>
+            Now: {span12(now.start, now.end)}
+          </button>
+          <small>For a class happening right now (1 hour). You can change the end time below.</small>
+        </div>
       )}
       <small className="cc-hint">Pick a time above, or type any start and end time.</small>
       <div className="cc-two">
@@ -223,27 +294,33 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
         </div>
         <div>
           <label htmlFor="cc-end">Ends</label>
-          <input id="cc-end" type="time" value={f.end} onChange={(e) => set('end', e.target.value)} />
+          <input id="cc-end" type="time" value={f.end} aria-invalid={!!timeErr} className={timeErr ? 'bad' : ''}
+            onChange={(e) => set('end', e.target.value)} />
         </div>
       </div>
+      {timeErr && <p className="cc-err" role="alert">{timeErr}</p>}
 
-      <div className="cc-two">
-        <div>
-          <label htmlFor="cc-room">{f.sessionType === 'practical' ? 'Room (optional)' : 'Room'}</label>
+      {practical ? (
+        <>
+          <label htmlFor="cc-place">Place (optional)</label>
+          <input id="cc-place" maxLength={100} value={f.place} onChange={(e) => set('place', e.target.value)}
+            placeholder="e.g. Survey field, EG Lab, Football ground" />
+          <small className="cc-hint">Students see this in their message. No room is booked.</small>
+
+          <label>Students must be within</label>
+          <RadiusPicker value={f.radius} onChange={(v) => set('radius', v)} inputId="cc-radius" />
+          <small className="cc-hint">of where you stand when you start attendance (5–500 m). You can still change it then.</small>
+        </>
+      ) : (
+        <>
+          <label htmlFor="cc-room">Room</label>
           <select id="cc-room" value={f.room} onChange={(e) => set('room', e.target.value)}>
-            <option value="">{f.sessionType === 'practical' ? 'No room – anywhere (practical)' : 'No room / somewhere else'}</option>
+            <option value="">No room / somewhere else</option>
             {(info?.rooms || []).map((r) => <option key={r.id} value={r.id}>{r.name}{r.location ? ` · ${r.location}` : ''}</option>)}
           </select>
           {!info?.rooms && <small className="cc-hint">Choose a time to see free rooms.</small>}
-        </div>
-        <div>
-          <label htmlFor="cc-type">Type</label>
-          <select id="cc-type" value={f.sessionType} onChange={(e) => set('sessionType', e.target.value)}>
-            <option value="theory">Theory</option>
-            <option value="practical">Practical</option>
-          </select>
-        </div>
-      </div>
+        </>
+      )}
 
       {blockers.length > 0 && (
         <div className="cc-clash">
@@ -259,15 +336,17 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
         </div>
       )}
       {roomGone && <p className="cc-err">That room is not free at this time.</p>}
-      {f.start && f.end && info?.clashes && !blockers.length && !warnings.length && <p className="cc-free">✓ Free for you, your students and the room.</p>}
+      {f.start && f.end && !timeErr && info?.clashes && !blockers.length && !warnings.length && (
+        <p className="cc-free">✓ Free for you{practical ? ' and your students' : ', your students and the room'}.</p>
+      )}
 
       <Reason kind="extra" reason={f.reason} setReason={(v) => set('reason', v)} note={f.note} setNote={(v) => set('note', v)} />
 
       {err && <p className="cc-err">{err}</p>}
       <div className="cc-row">
         <button className="cc-btn ghost" onClick={onClose} disabled={busy}>Close</button>
-        <button className="cc-btn blue" onClick={save} disabled={busy || blockers.length > 0}>
-          {busy ? 'Booking…' : f.counts ? 'Book extra class' : 'Book optional class'}
+        <button className="cc-btn blue" onClick={save} disabled={busy || blockers.length > 0 || !!timeErr}>
+          {busy ? 'Booking…' : `Book ${f.counts ? '' : 'optional '}${practical ? 'practical' : 'extra class'}`}
         </button>
       </div>
     </Shell>

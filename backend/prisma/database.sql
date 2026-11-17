@@ -527,6 +527,14 @@ CREATE INDEX IF NOT EXISTS idx_sw_to   ON swap_requests (to_tutor_id, status);
 CREATE INDEX IF NOT EXISTS idx_sw_from ON swap_requests (from_tutor_id, status);
 ALTER TABLE swap_requests ENABLE ROW LEVEL SECURITY;
 
+-- ===== Part 17: practical classes can be booked anywhere =====
+-- A booked practical has no room: the tutor writes where it is (place, optional) and how close
+-- students must be to them (radius_m, 5–500 m). Start Attendance fills these in from the booking.
+ALTER TABLE class_changes ADD COLUMN IF NOT EXISTS place    VARCHAR(100);
+ALTER TABLE class_changes ADD COLUMN IF NOT EXISTS radius_m INTEGER;
+ALTER TABLE class_changes DROP CONSTRAINT IF EXISTS chk_cc_radius;
+ALTER TABLE class_changes ADD CONSTRAINT chk_cc_radius CHECK (radius_m IS NULL OR radius_m BETWEEN 5 AND 500);
+
 COMMIT;
 
 
