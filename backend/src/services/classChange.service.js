@@ -228,7 +228,7 @@ async function loadDay(term, date, moduleId) {
 function clashes(day, { start, end, roomId, tutorId, moduleId, ignore, self }) {
   const out = [], seen = new Set();
   for (const it of day.items) {
-    if (it.id === ignore || !overlaps(start, end, it.start, it.end)) continue;
+    if ([].concat(ignore || []).includes(it.id) || !overlaps(start, end, it.start, it.end)) continue;
     // A class whose attendance is already finished only gives a warning (soft), it doesn't block
     const add = (kind, text) => { if (it.done) text += ' (attendance already taken)'; if (!seen.has(text)) { seen.add(text); out.push({ kind, text, ...(it.done && { soft: true }) }); } };
     const what = `${it.code}${it.extra ? ' (extra class)' : ''} at ${span12(it.start, it.end)}`;
@@ -329,14 +329,13 @@ async function tutors(tutorId) {
 const enrolledStudents = async (moduleId, term) =>
   (await prisma.enrollment.findMany({ where: { moduleId, academicSession: term, student: { isActive: true } }, select: { studentId: true } })).map((e) => e.studentId);
 
-async function tellStudents(moduleId, term, message) {
+/**
+ * Tell every active student of a module about a change: in the bell, and by email
+ * (notify() only emails active accounts with email turned on). subject = the email's subject line.
+ */
+async function tellStudents(moduleId, term, message, subject = 'Class change') {
   const ids = await enrolledStudents(moduleId, term);
-  if (!ids.length) return;
-  try {
-    await prisma.notification.createMany({ data: ids.map((userId) => ({ userId, message: message.slice(0, 500), category: 'Reminders' })) });
-  } catch (e) {
-    console.warn('[class-change] could not notify students:', e.message);
-  }
+  for (const userId of ids) await notify(userId, message.slice(0, 500), 'Reminders', { email: subject });
 }
 
 /** A tutor cancels a timetable class, asks someone to cover it, or books an extra class. */
@@ -367,8 +366,9 @@ async function create(tutorId, b) {
     });
     const o = changeOut(c);
     await tellStudents(o.module.id, term,
-      `${counts ? 'Extra class' : 'Optional class'}: ${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` in ${o.room.name}` : ''}. ` +
-      `${counts ? 'Attendance will be taken and counts.' : 'Attendance is taken but does not count toward your %.'} (${reason})`);
+      `Please come to ${o.module.code} – ${o.module.name} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` in ${o.room.name}` : o.sessionType === 'practical' ? ' (practical: your tutor will tell you where)' : ''}. ` +
+      `${counts ? 'Extra class: attendance will be taken and counts.' : 'Optional class: attendance is taken but does not count toward your %.'} Reason: ${reason}.`,
+      `${counts ? 'Extra class' : 'Optional class'}: ${o.module.code} on ${nice(o.date)}, ${t12(o.start)}`);
     return o;
   }
 
@@ -405,10 +405,10 @@ async function create(tutorId, b) {
   });
   const o = changeOut(c), when = `${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` (${o.room.name})` : ''}`;
   if (b.type === 'cancelled') {
-    await tellStudents(o.module.id, term, `Cancelled: ${when}. ${reason}. You will not be marked absent.`);
+    await tellStudents(o.module.id, term, `Cancelled: ${when}. ${reason}. You will not be marked absent.`, `Cancelled: ${o.module.code} on ${nice(o.date)}`);
   } else {
     await notify(cover.id, `${o.by?.name || 'A tutor'} asked you to take ${when}. ${reason}. Start attendance for it from your Timetable.`, 'Reminders');
-    await tellStudents(o.module.id, term, `${when} will be taken by ${cover.name}.`);
+    await tellStudents(o.module.id, term, `${when} will be taken by ${cover.name}. Come at the usual time.`, `${o.module.code} on ${nice(o.date)}: another tutor`);
   }
   return o;
 }
@@ -427,8 +427,8 @@ async function remove(tutorId, id) {
   await prisma.classChange.delete({ where: { id } });
 
   const when = `${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}`;
-  if (o.type === 'cancelled') await tellStudents(o.module.id, term, `Back on: ${when} is no longer cancelled.`);
-  if (o.type === 'extra') await tellStudents(o.module.id, term, `Called off: the ${o.counts ? 'extra' : 'optional'} class ${when}.`);
+  if (o.type === 'cancelled') await tellStudents(o.module.id, term, `Back on: ${when} is no longer cancelled. Please come at the usual time.`, `Back on: ${o.module.code} on ${nice(o.date)}`);
+  if (o.type === 'extra') await tellStudents(o.module.id, term, `Called off: the ${o.counts ? 'extra' : 'optional'} class ${when}.`, `Called off: ${o.module.code} on ${nice(o.date)}`);
   if (o.type === 'cover' && o.coverTutor) await notify(o.coverTutor.id, `You no longer need to take ${when}.`, 'Reminders');
   return { id, removed: true };
 }
@@ -445,8 +445,8 @@ async function planStart(tutorId, b) {
   const notNow = (start, end) => {
     const from = fromMinutes(Math.max(0, minutes(start) - early()));
     return BadRequest(now >= end
-      ? `This class (${start}–${end}) is already over. To teach now, book an extra class.`
-      : `This class is ${start}–${end}. You can start attendance from ${from}. To teach at another time, book an extra class.`, 'CLASS_NOT_NOW');
+      ? `This class (${span12(start, end)}) is already over. To teach now, book an extra class.`
+      : `This class is ${span12(start, end)}. You can start attendance from ${t12(from)}. To teach at another time, book an extra class.`, 'CLASS_NOT_NOW');
   };
   const duration = (s, e) => minutes(e) - minutes(s);
   const type = (t) => (t === 'practical' ? 'practical' : 'theory');
@@ -618,4 +618,8 @@ async function forManagement({ from, to }) {
   };
 }
 
-module.exports = { REASONS, autoCancel, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow, t12, dayPeriods, clashes, blocks };
+module.exports = {
+  REASONS, autoCancel, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow, t12, dayPeriods, clashes, blocks,
+  // used by swap.service.js
+  internal: { loadDay, sectionsNow, teaches, include, changeOut, tellStudents, checkDate, blocking, dateOf, hhmm, ymd, nice, span12, dowOf, DAY },
+};

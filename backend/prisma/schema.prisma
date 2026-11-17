@@ -71,6 +71,8 @@ model User {
   coversGiven        ClassChange[]      @relation("ChangeCover")
   changesMade        ClassChange[]      @relation("ChangeBy")
   sessionsTaken      ClassSession[]     @relation("SessionTakenBy")
+  swapsAsked         SwapRequest[]      @relation("SwapFrom")
+  swapsReceived      SwapRequest[]      @relation("SwapTo")
 
   @@map("users")
 }
@@ -281,6 +283,8 @@ model TimetableSlot {
   tutor           User?           @relation(fields: [tutorId], references: [id], onUpdate: Cascade, onDelete: SetNull, map: "fk_slots_tutor")
   sessions        ClassSession[]
   changes         ClassChange[]
+  swapsFrom       SwapRequest[]   @relation("SwapFromSlot")
+  swapsTo         SwapRequest[]   @relation("SwapToSlot")
 
   @@index([programId, year], map: "idx_slots_program_year")
   @@index([tutorId], map: "idx_slots_tutor")
@@ -381,4 +385,27 @@ model ClassChange {
   @@index([academicSession, date], map: "idx_cc_date")
   @@index([moduleId], map: "idx_cc_module")
   @@map("class_changes")
+}
+
+/// Tutor A asks tutor B to swap two timetable classes (time and room); nothing changes until B accepts
+model SwapRequest {
+  id          String        @id @default(dbgenerated("gen_id('SW'::text, 'seq_swap_requests'::text)")) @map("swap_id") @db.VarChar(10)
+  fromTutorId String        @map("from_tutor_id") @db.VarChar(10)
+  toTutorId   String        @map("to_tutor_id") @db.VarChar(10)
+  fromSlotId  String        @map("from_slot_id") @db.VarChar(10)
+  fromDate    DateTime      @map("from_date") @db.Date
+  toSlotId    String        @map("to_slot_id") @db.VarChar(10)
+  toDate      DateTime      @map("to_date") @db.Date
+  note        String?       @db.VarChar(150)
+  status      String        @default("pending") @db.VarChar(10) /// pending | accepted | rejected | cancelled
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  decidedAt   DateTime?     @map("decided_at") @db.Timestamptz(6)
+  fromTutor   User          @relation("SwapFrom", fields: [fromTutorId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_sw_from")
+  toTutor     User          @relation("SwapTo", fields: [toTutorId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_sw_to")
+  fromSlot    TimetableSlot @relation("SwapFromSlot", fields: [fromSlotId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_sw_from_slot")
+  toSlot      TimetableSlot @relation("SwapToSlot", fields: [toSlotId], references: [id], onUpdate: Cascade, onDelete: Cascade, map: "fk_sw_to_slot")
+
+  @@index([toTutorId, status], map: "idx_sw_to")
+  @@index([fromTutorId, status], map: "idx_sw_from")
+  @@map("swap_requests")
 }

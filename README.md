@@ -43,7 +43,7 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 - Clear login messages: no account for this ID, wrong password, or not signed up yet.
 
 **Tutors**
-- Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, or book an extra class (free periods, free rooms and clash checks). Optional classes take attendance but never count.
+- Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, swap two classes with another tutor (they accept or reject), or book an extra class at any free time (whole-day slots, free rooms and clash checks). Practicals can happen anywhere, within a distance the tutor chooses. Optional classes take attendance but never count. Students get a notification and an email saying when and where to come.
 - Start Attendance: 2 minutes for students to check in, then 3 minutes to mark flagged students Present/Absent; anyone undecided or missing is marked Absent.
 - Geofence per session: the class's building outline, or a Workshop circle around the tutor with a radius they choose (5–500 m).
 - Live counts, records per module and student, CSV/PDF exports, reports, evidence documents (view), profile and password.
@@ -219,8 +219,9 @@ The whole team shares **one** Supabase database, so database changes go through 
 | 13 | `attendance.device_id`: which phone each check-in came from (one phone per check-in) |
 | 14 | `pending_signups`: sign-ups waiting for their email code (row-level security on) |
 | 15 | `users.token_version`: logging out or changing the password ends every older login |
+| 16 | `swap_requests`: a tutor asks another tutor to swap two classes (time and room); nothing changes until they accept |
 
-Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
+Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `swap_requests`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
 
 The building outlines and room lists are in `backend/src/config/buildings.js` (no database table).
 

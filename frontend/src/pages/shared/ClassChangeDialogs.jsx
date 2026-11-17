@@ -104,7 +104,7 @@ export function CoverDialog({ item, onClose, onDone }) {
     <Shell title="Ask another tutor to take this class" sub={what(item)} onClose={onClose} busy={busy}>
       <ul className="cc-info">
         <li>They start attendance for it from their Timetable, and it counts as normal.</li>
-        <li>To swap classes, each tutor does this for their own class.</li>
+        <li>To exchange class times with another tutor, use "Swap with another tutor" instead.</li>
       </ul>
       <label htmlFor="cc-tutor">Tutor</label>
       <select id="cc-tutor" value={tutor} onChange={(e) => { setTutor(e.target.value); setErr(''); }} disabled={!tutors}>
@@ -296,5 +296,146 @@ export function UndoDialog({ change, onClose, onDone }) {
         <button className="cc-btn blue" onClick={go} disabled={busy}>{busy ? 'Saving…' : 'Yes'}</button>
       </div>
     </Shell>
+  );
+}
+
+
+/**
+ * Ask another tutor to swap: your class and one of theirs exchange time and room
+ * (each keeps its own module and students). Nothing changes until they accept.
+ */
+export function SwapDialog({ item, onClose, onDone }) {
+  const [tutors, setTutors] = useState(null);
+  const [tutor, setTutor] = useState('');
+  const [date, setDate] = useState(item.date);
+  const [options, setOptions] = useState(null); // their classes that day
+  const [pick, setPick] = useState('');
+  const [note, setNote] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api('/class-changes/tutors').then(setTutors).catch((e) => { setErr(e.message); setTutors([]); });
+  }, []);
+  useEffect(() => {
+    setPick(''); setOptions(null);
+    if (!tutor || !date) return undefined;
+    let stale = false;
+    api(`/class-changes/swaps/options?tutor=${encodeURIComponent(tutor)}&date=${date}`)
+      .then((r) => !stale && setOptions(Array.isArray(r) ? r : []))
+      .catch((e) => { if (!stale) { setOptions([]); setErr(e.message); } });
+    return () => { stale = true; };
+  }, [tutor, date]);
+  const theirs = (options || []).find((o) => o.slotId === pick);
+  const save = () => {
+    if (!tutor) return setErr('Choose a tutor.');
+    if (!theirs) return setErr('Choose which of their classes to swap with.');
+    setBusy(true);
+    api('/class-changes/swaps', { slot: item.id, date: item.date, withTutor: tutor, withSlot: theirs.slotId, withDate: theirs.date, note: note.trim() })
+      .then(onDone).catch((e) => setErr(e.message)).finally(() => setBusy(false));
+  };
+  const name = (tutors || []).find((t) => t.id === tutor)?.name || 'They';
+  return (
+    <Shell title="Swap with another tutor" sub={`Your class: ${what(item)}`} onClose={onClose} busy={busy}>
+      <ul className="cc-info">
+        <li>Your class and theirs exchange <b>time and room</b>. You still teach your module, they teach theirs.</li>
+        <li>Nothing changes until they <b>accept</b>. They get a notification; you get one when they answer.</li>
+        <li>Once accepted, both groups of students are told when and where to come.</li>
+      </ul>
+      <label htmlFor="sw-tutor">Tutor</label>
+      <select id="sw-tutor" value={tutor} onChange={(e) => { setTutor(e.target.value); setErr(''); }} disabled={!tutors}>
+        <option value="">{tutors ? 'Choose a tutor' : 'Loading tutors…'}</option>
+        {(tutors || []).map((t) => <option key={t.id} value={t.id}>{t.name || t.id}{t.department ? ` · ${t.department}` : ''}</option>)}
+      </select>
+      <label htmlFor="sw-date">Their class on</label>
+      <input id="sw-date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setErr(''); }} />
+      {tutor && (
+        <>
+          <label>Their class</label>
+          {!options ? (
+            <small className="cc-hint">Loading their classes…</small>
+          ) : !options.length ? (
+            <small className="cc-hint">{name} has no timetable class that can be swapped on this day. Try another date.</small>
+          ) : (
+            <div className="cc-periods">
+              {options.map((o) => (
+                <button key={o.slotId} type="button" className={'cc-period free' + (pick === o.slotId ? ' on' : '')} onClick={() => { setPick(o.slotId); setErr(''); }}>
+                  {span12(o.start, o.end)}
+                  <small>{o.module.code}{o.room ? ` · ${o.room.name}` : ''}</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {theirs && (
+        <div className="cc-swap">
+          <b>After the swap</b>
+          <span>{item.module.code}: {nice(theirs.date)}, {span12(theirs.start, theirs.end)}{theirs.room ? ` · ${theirs.room.name}` : ''}</span>
+          <span>{theirs.module.code}: {nice(item.date)}, {span12(item.start, item.end)}{item.room ? ` · ${item.room.name}` : ''}</span>
+        </div>
+      )}
+      <label htmlFor="sw-note">Message to them (optional)</label>
+      <input id="sw-note" value={note} maxLength={150} onChange={(e) => setNote(e.target.value)} placeholder="e.g. I have a meeting at 9" />
+      {err && <p className="cc-err">{err}</p>}
+      <div className="cc-row">
+        <button className="cc-btn ghost" onClick={onClose} disabled={busy}>Close</button>
+        <button className="cc-btn blue" onClick={save} disabled={busy || !theirs}>{busy ? 'Sending…' : 'Send swap request'}</button>
+      </div>
+    </Shell>
+  );
+}
+
+/** Swap requests on the tutor's Timetable: accept / reject the ones sent to you, cancel your own. */
+export function SwapRequests({ reload, onChanged }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState('');
+  const load = () => api('/class-changes/swaps').then(setData).catch(() => setData({ incoming: [], outgoing: [] }));
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [reload]);
+  if (!data) return null;
+  const pendingIn = data.incoming.filter((s) => s.status === 'pending');
+  const pendingOut = data.outgoing.filter((s) => s.status === 'pending');
+  const recent = [...data.incoming, ...data.outgoing].filter((s) => s.status !== 'pending').slice(0, 3);
+  if (!pendingIn.length && !pendingOut.length && !recent.length) return null;
+  const act = (s, how) => {
+    setBusy(s.id); setErr('');
+    api(`/class-changes/swaps/${s.id}/${how}`, {})
+      .then(() => { load(); onChanged?.(how); })
+      .catch((e) => setErr(e.message))
+      .finally(() => setBusy(null));
+  };
+  const cls = (c) => `${c.module.code} · ${nice(c.date)}, ${span12(c.start, c.end)}${c.room ? ` · ${c.room.name}` : ''}`;
+  const words = { accepted: 'Accepted', rejected: 'Rejected', cancelled: 'Cancelled', expired: 'Expired' };
+  return (
+    <div className="sw-box">
+      <b className="sw-title">Swap requests</b>
+      {pendingIn.map((s) => (
+        <div key={s.id} className="sw-row in">
+          <div>
+            <b>{s.from.name}</b> wants to swap their <b>{cls(s.from.class)}</b> with your <b>{cls(s.to.class)}</b>.
+            {s.note && <small>“{s.note}”</small>}
+          </div>
+          <div className="sw-btns">
+            <button className="cc-btn blue" disabled={busy === s.id} onClick={() => act(s, 'accept')}>Accept</button>
+            <button className="cc-btn ghost" disabled={busy === s.id} onClick={() => act(s, 'reject')}>Reject</button>
+          </div>
+        </div>
+      ))}
+      {pendingOut.map((s) => (
+        <div key={s.id} className="sw-row out">
+          <div>Waiting for <b>{s.to.name}</b>: your {cls(s.from.class)} ↔ their {cls(s.to.class)}.</div>
+          <div className="sw-btns">
+            <button className="cc-btn ghost" disabled={busy === s.id} onClick={() => act(s, 'cancel')}>Cancel request</button>
+          </div>
+        </div>
+      ))}
+      {recent.map((s) => (
+        <div key={s.id} className="sw-row done">
+          <span className={'sw-tag ' + s.status}>{words[s.status] || s.status}</span>
+          <span>{s.from.name}’s {s.from.class.module.code} ↔ {s.to.name}’s {s.to.class.module.code} ({nice(s.from.class.date)})</span>
+        </div>
+      ))}
+      {err && <p className="cc-err">{err}</p>}
+    </div>
   );
 }

@@ -9,7 +9,7 @@ import { t12 } from '../../time12';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, auth } from '../../api';
-import { CancelDialog, CoverDialog, ExtraDialog, UndoDialog } from './ClassChangeDialogs.jsx';
+import { CancelDialog, CoverDialog, ExtraDialog, UndoDialog, SwapDialog, SwapRequests } from './ClassChangeDialogs.jsx';
 import './timetable.css';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -170,6 +170,7 @@ export default function Timetable() {
     if (canChange && x.kind === 'slot' && !c) {
       items.push(['Cancel this class', () => setDialog({ kind: 'cancel', item: x })]);
       items.push(['Ask someone to cover', () => setDialog({ kind: 'cover', item: x })]);
+      items.push(['Swap with another tutor', () => setDialog({ kind: 'swap', item: x })]);
     }
     if (canChange && c) {
       items.push([{ cancelled: 'Undo cancellation', cover: 'Take the class back', extra: 'Call off this class' }[c.type], () => setDialog({ kind: 'undo', change: c })]);
@@ -233,6 +234,16 @@ export default function Timetable() {
           <button className="tt-add" onClick={() => { setMsg(''); setDialog({ kind: 'extra' }); }}>+ Extra class</button>
         )}
       </div>
+
+      {teacher && (
+        <SwapRequests
+          reload={reload}
+          onChanged={(how) => {
+            setMsg({ accept: 'Swap accepted. Both classes have moved and the students have been told.', reject: 'Swap rejected. Nothing has changed.', cancel: 'Swap request cancelled.' }[how]);
+            setReload((n) => n + 1);
+          }}
+        />
+      )}
 
       <div className="tt-week">
         <button className="tt-wk" onClick={() => goWeek(-1)} aria-label="Previous week">‹</button>
@@ -333,6 +344,7 @@ export default function Timetable() {
 
       {dialog?.kind === 'cancel' && <CancelDialog item={dialog.item} onClose={() => setDialog(null)} onDone={done('Class cancelled. Students have been told.')} />}
       {dialog?.kind === 'cover' && <CoverDialog item={dialog.item} onClose={() => setDialog(null)} onDone={done('Cover saved. The tutor and students have been told.')} />}
+      {dialog?.kind === 'swap' && <SwapDialog item={dialog.item} onClose={() => setDialog(null)} onDone={done('Swap request sent. Nothing changes until they accept; you will get a notification.')} />}
       {dialog?.kind === 'undo' && <UndoDialog change={dialog.change} onClose={() => setDialog(null)} onDone={done('Done. Everyone affected has been told.')} />}
       {dialog?.kind === 'extra' && (
         <ExtraDialog

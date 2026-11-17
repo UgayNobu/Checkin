@@ -69,3 +69,17 @@
   .cc-box { padding: 16px; }
   .cc-counts, .cc-two { grid-template-columns: 1fr; }
 }
+
+/* Swap: preview in the dialog */
+.cc-swap { margin-top: 10px; border: 1px solid #b6d4f0; background: #f2f8fd; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+/* Swap requests box on the tutor timetable */
+.sw-box { border: 1px solid #b6d4f0; background: #f6fafe; border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; display: flex; flex-direction: column; gap: 8px; }
+.sw-title { font-size: 14px; }
+.sw-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 13px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 12px; }
+.sw-row.in { border-color: #0f6cbf; }
+.sw-row small { display: block; color: #6a737b; margin-top: 2px; }
+.sw-row.done { padding: 6px 12px; color: #4b5560; }
+.sw-btns { display: flex; gap: 6px; }
+.sw-tag { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: #eef0f2; }
+.sw-tag.accepted { background: #e6f2e6; color: #244f22; }
+.sw-tag.rejected, .sw-tag.cancelled, .sw-tag.expired { background: #f4e5e3; color: #8a2a1e; }

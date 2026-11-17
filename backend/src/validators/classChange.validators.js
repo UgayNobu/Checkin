@@ -35,4 +35,8 @@ const createSchema = z.discriminatedUnion('type', [
 
 const idParamSchema = z.object({ id });
 
-module.exports = { rangeQuerySchema, checkQuerySchema, createSchema, idParamSchema };
+/** Swap two timetable classes with another tutor (swap.service.js). */
+const swapSchema = z.object({ slot: id, date: day, withTutor: id, withSlot: id, withDate: day, note: optionalText(150) });
+const swapOptionsQuerySchema = z.object({ tutor: id, date: day });
+
+module.exports = { rangeQuerySchema, checkQuerySchema, createSchema, idParamSchema, swapSchema, swapOptionsQuerySchema };

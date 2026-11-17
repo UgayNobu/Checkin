@@ -472,6 +472,35 @@ ALTER TABLE pending_signups ENABLE ROW LEVEL SECURITY;
 -- password adds 1, so every older token (on any device) stops working straight away.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 
+-- ===== Part 16: swap requests between two tutors =====
+-- Tutor A asks tutor B to swap two timetable classes: the classes exchange time and room
+-- (each keeps its own module and tutor). Nothing changes until B accepts. On accept, both
+-- timetable classes are cancelled for their dates and each module gets an extra class at the
+-- other's time and room (class_changes), and both groups of students are told.
+CREATE SEQUENCE IF NOT EXISTS seq_swap_requests;
+CREATE TABLE IF NOT EXISTS swap_requests (
+  swap_id       VARCHAR(10)  PRIMARY KEY DEFAULT gen_id('SW', 'seq_swap_requests'),
+  from_tutor_id VARCHAR(10)  NOT NULL,             -- tutor A (asks)
+  to_tutor_id   VARCHAR(10)  NOT NULL,             -- tutor B (accepts or rejects)
+  from_slot_id  VARCHAR(10)  NOT NULL,             -- A's timetable class …
+  from_date     DATE         NOT NULL,             -- … on this date
+  to_slot_id    VARCHAR(10)  NOT NULL,             -- B's timetable class …
+  to_date       DATE         NOT NULL,             -- … on this date
+  note          VARCHAR(150),
+  status        VARCHAR(10)  NOT NULL DEFAULT 'pending',
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  decided_at    TIMESTAMPTZ,
+  CONSTRAINT fk_sw_from      FOREIGN KEY (from_tutor_id) REFERENCES users(user_id)           ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_sw_to        FOREIGN KEY (to_tutor_id)   REFERENCES users(user_id)           ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_sw_from_slot FOREIGN KEY (from_slot_id)  REFERENCES timetable_slots(slot_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_sw_to_slot   FOREIGN KEY (to_slot_id)    REFERENCES timetable_slots(slot_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT chk_sw_status   CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
+  CONSTRAINT chk_sw_two      CHECK (from_tutor_id <> to_tutor_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sw_to   ON swap_requests (to_tutor_id, status);
+CREATE INDEX IF NOT EXISTS idx_sw_from ON swap_requests (from_tutor_id, status);
+ALTER TABLE swap_requests ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
 
 
