@@ -325,19 +325,22 @@ export function SwapDialog({ item, onClose, onDone }) {
       .catch((e) => { if (!stale) { setOptions([]); setErr(e.message); } });
     return () => { stale = true; };
   }, [tutor, date]);
-  const theirs = (options || []).find((o) => o.slotId === pick);
+  const keyOf = (o) => o.changeId || o.slotId;
+  const theirs = (options || []).find((o) => keyOf(o) === pick);
   const save = () => {
     if (!tutor) return setErr('Choose a tutor.');
     if (!theirs) return setErr('Choose which of their classes to swap with.');
     setBusy(true);
-    api('/class-changes/swaps', { slot: item.id, date: item.date, withTutor: tutor, withSlot: theirs.slotId, withDate: theirs.date, note: note.trim() })
+    const mine = item.kind === 'extra' ? { change: item.change.id } : { slot: item.id, date: item.date };
+    const other = theirs.kind === 'extra' ? { withChange: theirs.changeId } : { withSlot: theirs.slotId, withDate: theirs.date };
+    api('/class-changes/swaps', { ...mine, withTutor: tutor, ...other, note: note.trim() })
       .then(onDone).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   };
   const name = (tutors || []).find((t) => t.id === tutor)?.name || 'They';
   return (
     <Shell title="Swap with another tutor" sub={`Your class: ${what(item)}`} onClose={onClose} busy={busy}>
       <ul className="cc-info">
-        <li>Your class and theirs exchange <b>time and room</b>. You still teach your module, they teach theirs.</li>
+        <li>Your class and theirs exchange <b>date, time and room</b>. You still teach your module, they teach theirs. Timetable classes and booked extra classes can both be swapped.</li>
         <li>Nothing changes until they <b>accept</b>. They get a notification; you get one when they answer.</li>
         <li>Once accepted, both groups of students are told when and where to come.</li>
       </ul>
@@ -354,13 +357,13 @@ export function SwapDialog({ item, onClose, onDone }) {
           {!options ? (
             <small className="cc-hint">Loading their classes…</small>
           ) : !options.length ? (
-            <small className="cc-hint">{name} has no timetable class that can be swapped on this day. Try another date.</small>
+            <small className="cc-hint">{name} has no class that can be swapped on this day. Try another date.</small>
           ) : (
             <div className="cc-periods">
               {options.map((o) => (
-                <button key={o.slotId} type="button" className={'cc-period free' + (pick === o.slotId ? ' on' : '')} onClick={() => { setPick(o.slotId); setErr(''); }}>
+                <button key={keyOf(o)} type="button" className={'cc-period free' + (pick === keyOf(o) ? ' on' : '')} onClick={() => { setPick(keyOf(o)); setErr(''); }}>
                   {span12(o.start, o.end)}
-                  <small>{o.module.code}{o.room ? ` · ${o.room.name}` : ''}</small>
+                  <small>{o.module.code}{o.kind === 'extra' ? ' · extra' : ''}{o.room ? ` · ${o.room.name}` : ''}</small>
                 </button>
               ))}
             </div>

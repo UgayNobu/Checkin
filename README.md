@@ -37,7 +37,7 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 **Students**
 - Check in on the Attendance page: tap the building card that lights up (IT, LT, Academic or Library Building, or Workshop/Practical), pick the class and enter the code. The app waits a few seconds for a GPS-quality location before sending it.
 - Attendance % per module (theory and practical, hour-weighted), a monthly calendar (tap a day to see each class), and the 90% rule warnings.
-- Weekly timetable with cancelled, cover, extra and optional classes (a Sunday tab appears for Sunday extra classes); notifications when a class changes.
+- Weekly timetable of only the modules you are enrolled in (or teach), showing only classes that happen: past classes appear only if attendance was taken, cancelled classes are left out (a Sunday tab appears for Sunday extra classes); a notification and email when a class changes, and after a counted class to every student marked absent.
 - Join modules with the tutor's enrolment key; upload evidence documents (PDF/images) for missed classes.
 - Choose your **year at sign-up**; the timetable then shows only your programme and year (plus modules you joined). Classes of your year you haven't enrolled in, and classes that ended with no attendance, are dimmed.
 - Clear login messages: no account for this ID, wrong password, or not signed up yet.
@@ -219,7 +219,7 @@ The whole team shares **one** Supabase database, so database changes go through 
 | 13 | `attendance.device_id`: which phone each check-in came from (one phone per check-in) |
 | 14 | `pending_signups`: sign-ups waiting for their email code (row-level security on) |
 | 15 | `users.token_version`: logging out or changing the password ends every older login |
-| 16 | `swap_requests`: a tutor asks another tutor to swap two classes (time and room); nothing changes until they accept |
+| 16 | `swap_requests`: a tutor asks another tutor to swap two classes (timetable or extra; date, time and room); nothing changes until they accept |
 
 Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `swap_requests`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
 

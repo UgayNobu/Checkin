@@ -30,6 +30,8 @@ jest.mock('../../src/lib/prisma', () => {
       findMany: async () => [],
       findFirst: async ({ where }) => mockDb.changes.find((c) => c.slotId === where.slotId && ymdOf(c.date) === ymdOf(where.date)) || null,
       create: async ({ data }) => { const c = { id: `CC${mockDb.changes.length + 1}`, ...data }; mockDb.changes.push(c); return c; },
+      findUnique: async ({ where }) => mockDb.changes.find((c) => c.id === where.id) || null,
+      update: async ({ where, data }) => Object.assign(mockDb.changes.find((c) => c.id === where.id), data),
     },
     classSession: { findMany: async () => [], findFirst: async () => null },
     module: { findUnique: async () => ({ programId: 'P1', year: 3 }) },
@@ -90,4 +92,18 @@ test('TC-UNIT-111: edge case - you can only offer your own module, and only to a
   await expect(swaps.request('TB', { slot: 'TS1', date: MON, withTutor: 'TA', withSlot: 'TS2', withDate: MON })).rejects.toMatchObject({ code: 'NOT_YOUR_MODULE' });
   await expect(ask({ withTutor: 'TA' })).rejects.toMatchObject({ code: 'BAD_SWAP' });
   await expect(ask({ date: '2099-01-06' })).rejects.toMatchObject({ code: 'WRONG_DAY' }); // TS1 is on Mondays
+});
+
+test('TC-UNIT-112: a booked extra class can be swapped too: it simply moves', async () => {
+  // B has an extra CTE202 class on Monday 2:00–3:00 PM, no room
+  mockDb.changes.push({ id: 'CCX', type: 'extra', date: new Date(`${MON}T00:00:00Z`), moduleId: 'M2', module: { code: 'CTE202', name: 'Data Structures' },
+    roomId: null, room: null, startTime: new Date('1970-01-01T14:00:00Z'), endTime: new Date('1970-01-01T15:00:00Z'), sessionType: 'theory', counts: true });
+  const r = await swaps.request('TA', { slot: 'TS1', date: MON, withTutor: 'TB', withChange: 'CCX' });
+  await swaps.accept('TB', r.id);
+  const moved = mockDb.changes.find((c) => c.id === 'CCX');
+  expect(moved.startTime.toISOString().slice(11, 16)).toBe('09:00'); // CTE202 extra class moves to SWE303's time …
+  expect(moved.roomId).toBe('R2'); // … and room
+  const swe = mockDb.changes.find((c) => c.type === 'extra' && c.moduleId === 'M1');
+  expect(swe.startTime.toISOString().slice(11, 16)).toBe('14:00'); // SWE303 gets the extra class's time
+  expect(mockDb.changes.filter((c) => c.type === 'cancelled').map((c) => c.slotId)).toEqual(['TS1']);
 });

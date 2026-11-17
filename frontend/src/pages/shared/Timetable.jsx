@@ -92,6 +92,19 @@ export default function Timetable() {
 
   const myModules = useMemo(() => new Set(mods.map((m) => m.id)), [mods]);
 
+  /**
+   * Only classes that happen: past classes show only if attendance was taken; cancelled classes
+   * and modules with no tutor are left out. (A tutor still sees their own upcoming cancellations,
+   * so they can undo them.)
+   */
+  const happens = (x) => {
+    if (x.kind === 'slot' && x.assigned === false) return false;
+    const past = x.date < today || (x.date === today && x.end <= now);
+    if (past) return Boolean(x.session);
+    if (x.change?.type === 'cancelled') return teacher && x.teaches;
+    return true;
+  };
+
   /** Everything on one date: timetable classes (with any change), classes I cover, extra classes. */
   const itemsOn = (i) => {
     const date = addDays(monday, i);
@@ -107,7 +120,7 @@ export default function Timetable() {
         .forEach((c) => items.push(fromChange(c, 'cover')));
     }
     ofDay.filter((c) => c.type === 'extra').forEach((c) => items.push(fromChange(c, 'extra')));
-    return items.sort((a, b) => a.start.localeCompare(b.start));
+    return items.filter(happens).sort((a, b) => a.start.localeCompare(b.start));
   };
 
   if (!list) return <p className="tt-empty">Loading timetable…</p>;
@@ -174,6 +187,7 @@ export default function Timetable() {
     }
     if (canChange && c) {
       items.push([{ cancelled: 'Undo cancellation', cover: 'Take the class back', extra: 'Call off this class' }[c.type], () => setDialog({ kind: 'undo', change: c })]);
+      if (c.type === 'extra') items.push(['Swap with another tutor', () => setDialog({ kind: 'swap', item: x })]);
     }
     if (items.length) {
       out.push(
@@ -281,9 +295,8 @@ export default function Timetable() {
               : <>
                   <b>No classes to show yet.</b>
                   <br />
-                  Your timetable shows the classes of your programme and year, and of every module you enrol in.
-                  To add a module, go to Settings → Enrol with the key from your tutor. If your programme or year is
-                  wrong, ask the admin to correct it.
+                  Your timetable shows the classes of the modules you are enrolled in.
+                  To add a module, go to Settings → Enrol with the key from your tutor.
                   <br />
                   <button className="tt-link" onClick={() => nav('/settings/enrol')}>Enrol in a module</button>
                 </>

@@ -106,7 +106,7 @@ function locationOf(codeRow) {
  * Safe to call twice: an ended session is left alone.
  */
 async function finalizeSession(sessionId) {
-  const se = await prisma.classSession.findUnique({ where: { id: sessionId }, include: { section: true } });
+  const se = await prisma.classSession.findUnique({ where: { id: sessionId }, include: { section: { include: { module: true } } } });
   if (!se || se.status === SESSION_STATUS.ENDED) return;
   const [enrolled, att] = await Promise.all([
     // students enrolled in this module in the session's own semester
@@ -117,16 +117,42 @@ async function finalizeSession(sessionId) {
   const checkedIn = new Set(att.map((a) => a.studentId));
   // An optional class records only who came: nobody is marked absent for skipping it
   const missing = se.counts === false ? [] : enrolled.filter((e) => !checkedIn.has(e.studentId));
-  await prisma.$transaction([
+  const closed = await prisma.$transaction(async (tx) => {
+    // Only one caller closes it (the minute sweep and the tutor's page can both try): the
+    // status check and the update happen together, so students are told only once.
+    const claim = await tx.classSession.updateMany({ where: { id: sessionId, status: { not: SESSION_STATUS.ENDED } }, data: { status: SESSION_STATUS.ENDED } });
+    if (!claim.count) return false;
     // never checked in → Absent
-    prisma.attendance.createMany({ data: missing.map((e) => ({ studentId: e.studentId, sessionId, status: 'Absent' })), skipDuplicates: true }),
-    // CHANGED: flagged but the tutor didn't decide before the time ran out → Absent
-    prisma.attendance.updateMany({
+    await tx.attendance.createMany({ data: missing.map((e) => ({ studentId: e.studentId, sessionId, status: 'Absent' })), skipDuplicates: true });
+    // flagged but the tutor didn't decide before the time ran out → Absent
+    await tx.attendance.updateMany({
       where: { sessionId, status: { in: ['Flagged', 'Pending review'] } },
       data: { status: 'Absent', flagReason: 'not_decided_in_time' },
-    }),
-    prisma.classSession.update({ where: { id: sessionId }, data: { status: SESSION_STATUS.ENDED } }),
-  ]);
+    });
+    return true;
+  });
+  if (closed && se.counts !== false) await tellAbsent(se);
+}
+
+/**
+ * After a counted class is closed (never before or during it, so students in the class aren't
+ * disturbed): every student marked Absent gets a bell notification and an email.
+ * Optional classes send nothing: coming is up to the student.
+ */
+async function tellAbsent(se) {
+  try {
+    const absent = await prisma.attendance.findMany({ where: { sessionId: se.id, status: 'Absent' }, select: { studentId: true } });
+    if (!absent.length) return;
+    const m = se.section.module;
+    const start = new Date(sessionStart(se).getTime() + 6 * 3600 * 1000); // Bhutan time
+    const h = start.getUTCHours(), min = String(start.getUTCMinutes()).padStart(2, '0');
+    const when = `${start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}, ${h % 12 || 12}:${min} ${h < 12 ? 'AM' : 'PM'}`;
+    const text = `You were marked absent in ${m.code} – ${m.name} (${when}). ` +
+      'If you missed it for a good reason, submit a medical or official leave request under Evidence Document.';
+    for (const a of absent) await notify(a.studentId, text, 'Attendance', { email: `Missed class: ${m.code}` });
+  } catch (e) {
+    console.warn('[session] could not tell absent students:', e.message);
+  }
 }
 
 /**
