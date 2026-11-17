@@ -133,22 +133,28 @@ async function overallFor(studentIds, { term } = {}) {
 }
 
 /**
- * Calendar: { day: 'present' | 'flagged' | 'absent' } for a month.
- * When a day has several sessions the best status wins.
+ * Calendar: { day: 'present' | 'flagged' | 'absent' | 'optional' } for a month.
+ * When a day has several sessions the best status wins. 'optional' = the student only came to
+ * an optional class that day (shown in its own colour, never counted in the %).
  */
 async function monthDays(studentId, moduleIds, month) {
   const [y, mo] = month.split('-').map(Number);
-  const inMonth = { section: { moduleId: { in: moduleIds } }, counts: true, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
+  const inMonth = { section: { moduleId: { in: moduleIds } }, date: { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) } };
   const [all, att] = await Promise.all([
     prisma.classSession.findMany({ where: inMonth }),
     prisma.attendance.findMany({ where: { studentId, session: inMonth } }),
   ]);
   const sessions = all.filter((s) => isHeld(s));
-  const rank = { absent: 0, flagged: 1, present: 2 }, out = {};
+  const rank = { optional: 0, absent: 1, flagged: 2, present: 3 }, out = {};
   for (const s of sessions) {
     const r = att.find((a) => a.sessionId === s.id);
     if (!r) continue; // no record = the class wasn't taken for this student (e.g. enrolled later)
-    const st = apiStatus(r.status), d = s.date.getUTCDate();
+    let st = apiStatus(r.status);
+    if (s.counts === false) {
+      if (st !== 'present') continue; // missing an optional class is not shown
+      st = 'optional';
+    }
+    const d = s.date.getUTCDate();
     if (!out[d] || rank[st] > rank[out[d]]) out[d] = st;
   }
   return out;

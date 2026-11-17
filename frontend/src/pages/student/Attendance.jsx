@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, deviceId } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
 import { placeStatus } from '../../geofence';
+import { t12 } from '../../time12';
 import './attendance.css';
 
-// Students only see present (green) or absent (red).
+// Students see present (green), absent (red), or blue for a day with only an optional class.
 // A flagged check-in stays red until the teacher accepts it.
-const show = (s) => (s === 'present' ? 'present' : s ? 'absent' : '');
+const show = (s) => (s === 'present' ? 'present' : s === 'optional' ? 'optional' : s ? 'absent' : '');
 
 const WORKSHOP = 'WORKSHOP';
 // Which card a live class belongs to
@@ -43,6 +45,17 @@ export default function Attendance() {
   const [live, setLive] = useState({ buildings: [], classes: [] });
   const [card, setCard] = useState(null); // 'IT' | 'LT' | 'ACAD' | 'ARCH' | 'WORKSHOP'
   const [pick, setPick] = useState(null); // sessionId of the chosen class
+  const [done, setDone] = useState(null); // result after checking in: { ok, text, left } (seconds before going back)
+  const navigate = useNavigate();
+
+  // After checking in, the result stays on screen for a while, then the student goes back to the dashboard
+  const BACK_AFTER = 12;
+  useEffect(() => {
+    if (!done) return undefined;
+    if (done.left <= 0) { navigate('/'); return undefined; }
+    const t = setTimeout(() => setDone((d) => d && { ...d, left: d.left - 1 }), 1000);
+    return () => clearTimeout(t);
+  }, [done, navigate]);
 
   const y = mo.getFullYear(), m = mo.getMonth(), key = `${y}-${String(m + 1).padStart(2, '0')}`;
   const load = () => api('/attendance/me?month=' + key).then(setDays).catch(() => setDays({}));
@@ -97,13 +110,17 @@ export default function Attendance() {
   // If location fails, the check-in is still sent, so the teacher can review it and decide.
   const send = (extra) =>
     api('/attendance/checkin', { code: code.trim().toUpperCase(), sessionId: pick, deviceId: deviceId(), ...extra })
-      .then((r) => { setMsg(r.message); setCode(''); setCard(null); setPick(null); load(); loadLive(); })
+      .then((r) => {
+        setMsg(''); setCode(''); setCard(null); setPick(null); load(); loadLive();
+        setDone({ ok: r.status === 'present', text: r.message, left: BACK_AFTER });
+      })
       .catch((e) => setMsg(e.message))
       .finally(() => setBusy(false));
 
   const checkIn = () => {
     if (!pick) return setMsg('Choose your class first.');
     if (!code.trim()) return setMsg('Enter the check-in code first.');
+    setDone(null);
     setBusy(true);
     setMsg('Getting your location… (this can take a few seconds)');
 
@@ -175,6 +192,16 @@ export default function Attendance() {
           </div>
         )}
         {msg && <p className="msg">{msg}</p>}
+        {done && (
+          <div className={'result ' + (done.ok ? 'ok' : 'warn')} role="status">
+            <b>{done.ok ? '✓ ' : '⚠ '}{done.text}</b>
+            <small>Going back to your dashboard in {done.left} s.</small>
+            <div className="result-btns">
+              <button onClick={() => navigate('/')}>Back to dashboard</button>
+              <button className="ghost" onClick={() => setDone(null)}>Stay here</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="calbox">
@@ -217,7 +244,7 @@ export default function Attendance() {
               <ul>
                 {sel.classes.map((x, j) => (
                   <li key={j}>
-                    <span className="dt">{x.start}</span>
+                    <span className="dt">{t12(x.start)}</span>
                     <span className="dm">
                       <b>{x.module.code}</b> {x.module.name}
                       <small>{x.type === 'practical' ? 'Practical' : 'Theory'} · {x.hours} hr{x.optional ? ' · Optional (doesn\'t count)' : ''}{x.note ? ` · ${x.note}` : ''}</small>
@@ -242,6 +269,7 @@ export default function Attendance() {
         <div className="legend">
           <span><i className="g" />Present</span>
           <span><i className="r" />Absent</span>
+          <span><i className="b" />Optional class</span>
           <span className="hint">Tap a coloured day to see each class</span>
         </div>
       </div>

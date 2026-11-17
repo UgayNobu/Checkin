@@ -2,6 +2,7 @@
 // Management dashboards (read-only), drilling down:
 // college → department → module → student.
 // ─────────────────────────────────────────────────────────────
+const { progKey, programmeMatch } = require('../utils/programme');
 const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { WEEK_MS } = require('../config/constants');
@@ -41,7 +42,7 @@ async function overview({ term } = {}) {
   // Everything that doesn't depend on something else is fetched at the same time.
   const [programs, perDept, students, newStudents, tutors, modules, studentIds] = await Promise.all([
     prisma.program.findMany({ orderBy: { name: 'asc' }, include: { modules: true } }),
-    prisma.user.groupBy({ by: ['department'], where: { role: 'student', isActive: true }, _count: { _all: true } }), // students per programme in 1 query
+    prisma.user.groupBy({ by: ['programme', 'department'], where: { role: 'student', isActive: true }, _count: { _all: true } }), // students per programme in 1 query
     prisma.user.count({ where: { role: 'student', isActive: true } }),
     prisma.user.count({ where: { role: 'student', createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
     prisma.user.count({ where: { role: 'tutor', isActive: true } }),
@@ -55,10 +56,16 @@ async function overview({ term } = {}) {
   // Students whose overall attendance is under the required % (90 by default)
   // (students with no classes held yet are left out)
   const belowRequired = [...pcts.values()].filter((pct) => pct != null && pct < env.requiredPct).length;
-  const studentsIn = new Map(perDept.map((g) => [g.department, g._count._all]));
+  // A student's programme is saved as "B.E. Software Engineering" and their department as
+  // "Software Engineering", so both are matched to the programme name without the "B.E."
+  const studentsIn = new Map();
+  for (const g of perDept) {
+    const k = progKey(g.programme || g.department);
+    studentsIn.set(k, (studentsIn.get(k) || 0) + g._count._all);
+  }
   const departments = programs.map((p) => ({
     department: p.name,
-    students: studentsIn.get(p.name) || 0,
+    students: studentsIn.get(progKey(p.name)) || 0,
     modules: p.modules.length,
     attendance: rateOrNull(m, p.modules, size),
   }));
@@ -77,7 +84,7 @@ async function department(name, { term } = {}) {
   term = await sessionOrCurrent(term);
   const [mods, studs] = await Promise.all([
     prisma.module.findMany({ where: { program: { name } }, orderBy: { code: 'asc' } }),
-    prisma.user.findMany({ where: { role: 'student', isActive: true, department: name }, select: { id: true } }),
+    prisma.user.findMany({ where: { role: 'student', isActive: true, OR: programmeMatch(name) }, select: { id: true } }),
   ]);
   const [m, size, pctMap] = await Promise.all([
     matrixWithCounts(mods.map((x) => x.id), term), sizes(mods.map((x) => x.id), term), overallFor(studs.map((u) => u.id), { term }),

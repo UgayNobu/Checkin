@@ -45,8 +45,10 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
     include: { session: { include: { section: { include: { module: true } } } } },
   });
   if (!row) throw BadRequest('That code is not valid. Ask your tutor to confirm it.', 'CODE_INVALID');
-  // The student picked a class on the building card first: the code must belong to that class.
-  if (sessionId && row.sessionId !== sessionId) throw BadRequest('That code is not for the class you selected.', 'CODE_WRONG_CLASS');
+  // The student picks a class on the building card first, but the code itself says which class it is:
+  // with two classes open in the same building, a student who picked the other one is checked in to the
+  // class the code belongs to (the enrolment check below still applies), instead of being turned away.
+  const pickedOther = Boolean(sessionId && row.sessionId !== sessionId);
   if (row.session.status === SESSION_STATUS.ENDED) throw BadRequest('This session has ended', 'SESSION_ENDED');
   const graceEnd = row.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000;
   if (row.expiryTimestamp <= now && !(offline && now.getTime() < graceEnd)) throw BadRequest('This code has expired', 'CODE_EXPIRED');
@@ -131,7 +133,7 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
     module: { code: m.code, name: m.name },
     // CHANGED: a flagged student is told to tell the teacher before the timer ends
     message: ok
-      ? `Present in ${m.name}`
+      ? `Present in ${m.code} – ${m.name}${pickedOther ? ' (the code was for this class, so you were checked in here)' : ''}`
       : flagReason === FLAG_REASONS.SHARED_DEVICE
         ? 'Your check-in is flagged because another student already checked in from this phone. Tell your teacher now so they can mark you present before the timer ends.'
         : 'Your check-in is flagged (your location could not be confirmed). Tell your teacher now so they can mark you present before the timer ends.',
