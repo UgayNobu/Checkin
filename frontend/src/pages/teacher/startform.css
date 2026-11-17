@@ -8,12 +8,3 @@
 .sa-help { display: block; color: #6a737b; font-size: 11px; margin: 4px 0 6px; }
 @media (max-width: 640px) { .sa-grid { grid-template-columns: 1fr; } }
 
-/* Practical: choose how close students must be */
-.sa-radius { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
-.sa-radius button {
-  border: 1px solid #c4cbd2; background: #fff; color: #1d2125; border-radius: 999px;
-  padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer;
-}
-.sa-radius button.on { background: #0f6cbf; border-color: #0f6cbf; color: #fff; font-weight: 600; }
-.sa-radius button:disabled { opacity: .6; cursor: default; }
-.sa-radius input { width: 110px !important; }
