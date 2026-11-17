@@ -231,9 +231,6 @@ function Login() {
           {teacher ? 'New tutor? ' : 'No account? '}
           <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign up</Link>
         </p>
-        <p className="ok" style={{ fontSize: 11, textAlign: 'center' }}>
-          Routes to the right dashboard after sign-in
-        </p>
       </form>
     </div>
   );
