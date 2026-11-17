@@ -29,6 +29,9 @@ const createSchema = z.discriminatedUnion('type', [
     type: z.literal('extra'), module: id, date: day, start: time, end: time,
     room: z.preprocess(blankToUndef, id.optional()),
     sessionType: z.enum(['theory', 'practical']).default('theory'),
+    // practical only: where it happens and how close students must be
+    place: optionalText(100),
+    radius: z.preprocess(blankToUndef, z.coerce.number().int('Radius must be whole metres').min(5, 'Radius must be 5–500 m').max(500, 'Radius must be 5–500 m').optional()),
     counts: z.boolean().default(true), reason, note,
   }),
 ]).refine((b) => b.reason !== 'other' || b.note, { message: 'Write a short note for "Other"', path: ['note'] });

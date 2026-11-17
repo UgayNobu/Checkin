@@ -3,6 +3,7 @@ import { span12 } from '../../time12';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
+import { KindTabs, RadiusPicker, modLabel } from '../shared/ClassChangeDialogs.jsx';
 import './startform.css';
 
 const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
@@ -20,7 +21,6 @@ const buildingOfRoom = (room, buildings) =>
 
 // Practicals: the tutor chooses how close students must be (preset distances, or any 5–500 m).
 // Theory classes outside a mapped building ("Somewhere else") use a fixed distance.
-const RADII = [10, 20, 30, 50, 100];
 const THEORY_RADIUS = 30;
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -49,7 +49,6 @@ export default function StartAttendance() {
   const [slot, setSlot] = useState(null); // timetable class this session was started from
   const [chg, setChg] = useState(null); // extra class, or a class this tutor is covering
   const [notNow, setNotNow] = useState(false); // the server said it isn't class time
-  const [customR, setCustomR] = useState(false); // practical: typing their own radius instead of a preset
   const nav = useNavigate();
   // Only modules the admin assigned to this teacher
   useEffect(() => {
@@ -109,7 +108,9 @@ export default function StartAttendance() {
         if (!c || c.type === 'cancelled') return;
         const hours = Math.max(1, Math.round(((+c.end.slice(0, 2) * 60 + +c.end.slice(3)) - (+c.start.slice(0, 2) * 60 + +c.start.slice(3))) / 60));
         setChg(c);
-        setF((o) => ({ ...o, module: c.module.id, room: c.room?.name || '', type: c.sessionType === 'practical' ? 'practical' : 'theory', hours, where: c.sessionType === 'practical' ? 'WORKSHOP' : o.where }));
+        const prac = c.sessionType === 'practical';
+        // a booked practical brings its place and radius with it
+        setF((o) => ({ ...o, module: c.module.id, room: prac ? c.place || '' : c.room?.name || '', type: prac ? 'practical' : 'theory', hours, where: prac ? 'WORKSHOP' : o.where, radius: prac && c.radius ? c.radius : o.radius }));
       })
       .catch(() => {});
   }, [params]);
@@ -181,9 +182,10 @@ export default function StartAttendance() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   // Practicals usually happen in a workshop, so switching the type suggests the matching location
   // A practical always uses the tutor's position (it can happen anywhere); a theory class uses a building
-  const setType = (e) => {
-    const type = e.target.value;
-    setF({ ...f, type, where: type === 'practical' ? 'WORKSHOP' : f.where === 'WORKSHOP' ? '' : f.where });
+  // Switching to Practical clears the theory room (a practical has a place instead), and back again
+  const setType = (type) => {
+    if (type === f.type) return;
+    setF({ ...f, type, room: '', where: type === 'practical' ? 'WORKSHOP' : '' });
   };
   const practical = f.type === 'practical';
   useEffect(() => { if (practical && f.where !== 'WORKSHOP') setF((x) => ({ ...x, where: 'WORKSHOP' })); }, [practical, f.where]);
@@ -289,6 +291,8 @@ export default function StartAttendance() {
           </p>
         )}
 
+        <KindTabs value={f.type} onChange={setType} disabled={open || reviewing} idPrefix="sa-kind" />
+
         <div className="sa-grid">
           <div className="sa-f">
             <label htmlFor="sa-date">Date</label>
@@ -305,7 +309,7 @@ export default function StartAttendance() {
                   <option value="">Select module</option>
                   {mods.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.code} – {m.name}
+                      {modLabel(m)}
                     </option>
                   ))}
                   {/* a module you are only covering today */}
@@ -314,14 +318,6 @@ export default function StartAttendance() {
                   )}
                 </>
               )}
-            </select>
-          </div>
-
-          <div className="sa-f">
-            <label htmlFor="sa-type">Practical / theory</label>
-            <select id="sa-type" value={f.type} onChange={setType} disabled={open}>
-              <option value="theory">Theory</option>
-              <option value="practical">Practical</option>
             </select>
           </div>
 
@@ -335,17 +331,7 @@ export default function StartAttendance() {
               {/* A practical can happen anywhere: students must be within the chosen distance of the tutor */}
               <div className="sa-f sa-wide">
                 <label>Students must be within</label>
-                <div className="sa-radius" role="group" aria-label="Check-in radius">
-                  {RADII.map((r) => (
-                    <button key={r} type="button" className={Number(f.radius) === r && !customR ? 'on' : ''} disabled={open}
-                      onClick={() => { setCustomR(false); setF((x) => ({ ...x, radius: r })); }}>{r} m</button>
-                  ))}
-                  <button type="button" className={customR ? 'on' : ''} disabled={open} onClick={() => setCustomR(true)}>Other…</button>
-                  {customR && (
-                    <input id="sa-radius" type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open}
-                      aria-label="Radius in metres" />
-                  )}
-                </div>
+                <RadiusPicker value={f.radius} onChange={(v) => setF((x) => ({ ...x, radius: v }))} disabled={open} inputId="sa-radius" />
                 <small className="sa-help">
                   of where you stand when you generate the code (5–500 m). Stand in the middle of where the practical happens.
                 </small>

@@ -369,6 +369,8 @@ model ClassChange {
   endTime         DateTime        @map("end_time") @db.Time(6)
   sessionType     String          @default("theory") @map("session_type") @db.VarChar(10)
   counts          Boolean         @default(true)
+  place           String?         @db.VarChar(100) /// practical: where it happens (optional)
+  radiusM         Int?            @map("radius_m") /// practical: how close students must be (5–500 m)
   coverTutorId    String?         @map("cover_tutor_id") @db.VarChar(10)
   reason          String          @db.VarChar(200)
   academicSession String          @default(dbgenerated("current_academic_session()")) @map("academic_session") @db.VarChar(10)

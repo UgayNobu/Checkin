@@ -25,3 +25,20 @@ group('phone location that goes quiet', () => {
     vi.unstubAllGlobals();
   });
 });
+
+group('booking form: times and module names', () => {
+  test('TC-UNIT-119: past or back-to-front times are caught before booking; a class already running is allowed', async () => {
+    const { timeProblem } = await import('../pages/shared/ClassChangeDialogs.jsx');
+    const today = '2026-11-18', at = (h, m = 0) => h * 60 + m;
+    expect(timeProblem({ start: '15:00', end: '14:00', date: today, today, nowMin: at(9) })).toMatch(/end after it starts/);
+    expect(timeProblem({ start: '08:00', end: '09:00', date: today, today, nowMin: at(10) })).toMatch(/already passed/);
+    expect(timeProblem({ start: '09:30', end: '10:30', date: today, today, nowMin: at(10) })).toBe(''); // started, not over
+    expect(timeProblem({ start: '08:00', end: '09:00', date: '2026-11-19', today, nowMin: at(10) })).toBe(''); // tomorrow
+  });
+
+  test('TC-UNIT-120: modules show their programme and year', async () => {
+    const { modLabel } = await import('../pages/shared/ClassChangeDialogs.jsx');
+    expect(modLabel({ code: 'SUR201', name: 'Surveying', programme: 'B.E. Civil Engineering', year: 2 })).toBe('SUR201 – Surveying · Civil Engineering, Year 2');
+    expect(modLabel({ code: 'X1', name: 'Test' })).toBe('X1 – Test');
+  });
+});

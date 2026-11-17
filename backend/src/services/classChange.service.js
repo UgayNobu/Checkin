@@ -94,9 +94,19 @@ function changeOut(c) {
     slotId: c.slotId, module: { id: c.moduleId, code: c.module?.code, name: c.module?.name },
     room: c.room ? { id: c.room.id, name: c.room.name, location: c.room.location } : null,
     sessionType: c.sessionType, counts: c.counts, reason: c.reason,
+    place: c.place || null, radius: c.radiusM ?? null,
     group: c.slot?.groupLabel || null, cohort: c.slot ? cohortName(c.slot.program, c.slot.year) : null,
     coverTutor: c.coverTutor || null, by: c.by || null, createdAt: c.createdAt,
   };
+}
+
+const PRACTICAL_RADIUS = 30; // a booked practical with no radius chosen
+
+/** Where a class is, for students' messages: " in IT-05", " at Survey field (practical)" … */
+function where(o) {
+  if (o.room) return ` in ${o.room.name}`;
+  if (o.sessionType === 'practical') return o.place ? ` at ${o.place} (practical)` : ' (practical: your tutor will tell you where)';
+  return '';
 }
 
 /** Sessions started from these changes: status, how many attended and (for a student) their own status. */
@@ -351,6 +361,9 @@ async function create(tutorId, b) {
     if (b.end <= b.start) throw BadRequest('The class must end after it starts.', 'BAD_TIME');
     if (minutes(b.end) - minutes(b.start) > 6 * 60) throw BadRequest('A class can be at most 6 hours.', 'BAD_TIME');
     if (b.date === today && b.end <= nowHHMM()) throw BadRequest('That time has already passed today.', 'PAST_TIME');
+    // A practical can happen anywhere: no room, just an optional place and a radius around the tutor
+    const practical = b.sessionType === 'practical';
+    if (practical) b = { ...b, room: undefined };
     if (b.room && !(await prisma.room.findUnique({ where: { id: b.room } }))) throw BadRequest('Room not found', 'ROOM_NOT_FOUND');
     const counts = b.counts !== false;
     const day = await loadDay(term, b.date, b.module);
@@ -361,12 +374,13 @@ async function create(tutorId, b) {
       data: {
         type: 'extra', date: dateOf(b.date), moduleId: b.module, roomId: b.room || null, startTime: toTime(b.start), endTime: toTime(b.end),
         sessionType: b.sessionType || 'theory', counts, reason, academicSession: term, createdBy: tutorId,
+        place: practical ? (b.place || '').trim() || null : null, radiusM: practical ? Number(b.radius) || PRACTICAL_RADIUS : null,
       },
       include,
     });
     const o = changeOut(c);
     await tellStudents(o.module.id, term,
-      `Please come to ${o.module.code} – ${o.module.name} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` in ${o.room.name}` : o.sessionType === 'practical' ? ' (practical: your tutor will tell you where)' : ''}. ` +
+      `Please come to ${o.module.code} – ${o.module.name} on ${nice(o.date)}, ${span12(o.start, o.end)}${where(o)}. ` +
       `${counts ? 'Extra class: attendance will be taken and counts.' : 'Optional class: attendance is taken but does not count toward your %.'} Reason: ${reason}.`,
       `${counts ? 'Extra class' : 'Optional class'}: ${o.module.code} on ${nice(o.date)}, ${t12(o.start)}`);
     return o;

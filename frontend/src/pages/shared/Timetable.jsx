@@ -111,7 +111,7 @@ export default function Timetable() {
     const ofDay = changes.filter((c) => c.date === date);
     const bySlot = new Map(ofDay.filter((c) => c.slotId).map((c) => [c.slotId, c]));
     const fromChange = (c, kind) => ({
-      kind, key: c.id, id: c.slotId || c.id, date, start: c.start, end: c.end, module: c.module, room: c.room,
+      kind, key: c.id, id: c.slotId || c.id, date, start: c.start, end: c.end, module: c.module, room: c.room, place: c.place,
       type: c.sessionType, group: c.group, change: c, session: c.session, teaches: myModules.has(c.module.id),
     });
     const items = (list || []).filter((x) => x.dayOfWeek === i + 1).map((x) => ({ ...x, kind: 'slot', key: x.id, date, change: bySlot.get(x.id) || null }));
@@ -332,7 +332,7 @@ export default function Timetable() {
                   </div>
                   <b className="tt-mod">{x.module.code} · {x.module.name}</b>
                   <small className="mut">
-                    {x.room ? `Room ${x.room.name}${unassigned(x) ? ' (free to book)' : ''}` : 'Room not set'}
+                    {x.room ? `Room ${x.room.name}${unassigned(x) ? ' (free to book)' : ''}` : x.type === 'practical' ? (x.place ? `At ${x.place}` : 'Practical · place not set') : 'Room not set'}
                     {teacher
                       ? (forWhom(x) ? ` · ${forWhom(x)}` : '')
                       : `${x.kind === 'slot' && x.tutors && !c && !unassigned(x) ? ` · ${x.tutors}` : ''}${x.year ? ` · Year ${x.year}` : ''}`}

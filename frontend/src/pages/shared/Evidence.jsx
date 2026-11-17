@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, auth, fileHref } from '../../api';
 import './evidence.css';
 const fd = (d) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' });
+// when the student sent the document (falls back to the absence date for very old rows)
+const sent = (r) => r.createdAt || r.date;
+const fs = (d) => new Date(d).toLocaleString('en', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 const ini = (n = '') => n.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
 export default function Evidence() {
@@ -14,14 +17,14 @@ export default function Evidence() {
       {l.filter((r) => r.status === 'pending').map((r) => (
         <div className="rcard" key={r._id}>
           <div className="rtop"><span className="av">{ini(r.student?.name)}</span>
-            <div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br /><small>{r.module?.name || 'Module'} · Missed {fd(r.date)}</small></div><span className="st">Pending</span></div>
+            <div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br /><small>{r.module?.name || 'Module'} · Submitted {fs(sent(r))}</small><br /><small className="mut">For absence on {fd(r.date)}</small></div><span className="st">Pending</span></div>
           <p className="q">"{r.reason}"</p>
           {r.fileUrl ? <a className="file" href={fileHref(r.fileUrl)} target="_blank" rel="noreferrer">📄 {r.fileName || 'Open document'}</a> : <small>⊘ No document attached</small>}
           {act && <div className="acts2"><button className="rej" onClick={() => set(r._id, 'rejected')}>Reject</button><button className="app" onClick={() => set(r._id, 'approved')}>Approve</button></div>}
         </div>))}
       <h4>All requests</h4>
-      <div className="tbl"><table><thead><tr><th>Date</th><th>Student ID</th><th>Name</th><th>class</th>{act && <th>Status</th>}<th>{act ? 'Action' : 'Medical report'}</th></tr></thead>
-        <tbody>{l.map((r) => <tr key={r._id}><td>{new Date(r.date).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td><td>{r.student?.userId}</td><td>{r.student?.name}</td><td className="mut">{r.module?.name}</td>
+      <div className="tbl"><table><thead><tr><th>Submitted</th><th>Student ID</th><th>Name</th><th>class</th>{act && <th>Status</th>}<th>{act ? 'Action' : 'Medical report'}</th></tr></thead>
+        <tbody>{l.map((r) => <tr key={r._id}><td>{new Date(sent(r)).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td><td>{r.student?.userId}</td><td>{r.student?.name}</td><td className="mut">{r.module?.name}<br /><small>Absent {fd(r.date)}</small></td>
           {act && <td><span className={'pill ' + (r.status === 'approved' ? 'ok' : r.status === 'rejected' ? 'red' : 'o')}>{r.status}</span></td>}
           <td><a className="view" onClick={() => nav('/evidence/' + r._id)}>View</a></td></tr>)}</tbody></table></div>
     </div>);
@@ -39,8 +42,8 @@ export function Certificate() {
   const [label, tone] = STATUS[r.status] || [r.status, 'o'];
   const rows = [
     ['Module', r.module?.name || 'All enrolled modules'],
-    ['Date missed', fl(r.date)],
     r.createdAt && ['Submitted', ft(r.createdAt)],
+    ['Absence date', fl(r.date)],
     r.reviewedAt && [r.status === 'rejected' ? 'Rejected' : 'Reviewed', `${ft(r.reviewedAt)}${r.reviewer?.name ? ` by ${r.reviewer.name}` : ''}`],
   ].filter(Boolean);
   return (
