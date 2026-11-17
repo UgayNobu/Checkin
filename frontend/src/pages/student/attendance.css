@@ -125,6 +125,7 @@
 /* Present = green box, Absent = red box */
 .day.present{background:#d7e6d7;border-color:#357a32;color:#2b6328}
 .day.absent{background:#f4d6d2;border-color:#ca3120;color:#ca3120}
+.day.optional{background:#dbe8f7;border-color:#0f6cbf;color:#0f4f8f}
 
 /* ===== Legend ===== */
 .legend{display:flex;gap:16px;margin-top:14px;font-size:10px}
@@ -137,6 +138,7 @@
 }
 .g{background:#357a32}
 .r{background:#ca3120}
+.legend .b{background:#0f6cbf}
 
 /* Clickable calendar days + the day's classes */
 .day.click{cursor:pointer;font:inherit;font-weight:600;transition:transform .1s}
@@ -163,3 +165,13 @@
 
 /* Explains an empty month on the calendar */
 .calempty { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #eef3f8; color: #34495e; font-size: 12.5px; line-height: 1.5; }
+
+/* Result after checking in (then back to the dashboard) */
+.result{margin-top:14px;border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.result.ok{background:#e6f2e6;border:1px solid #357a32;color:#244f22}
+.result.warn{background:#fdf3e1;border:1px solid #c9831a;color:#6b4710}
+.result b{font-size:15px}
+.result small{color:inherit;opacity:.8}
+.result-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.result-btns button{border:0;border-radius:6px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;background:#0f6cbf;color:#fff}
+.result-btns button.ghost{background:transparent;color:inherit;border:1px solid currentColor}

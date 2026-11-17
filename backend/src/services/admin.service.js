@@ -3,6 +3,7 @@
 // approvals, at-risk reports and the low-attendance alert job.
 // Every change is written to the audit log.
 // ─────────────────────────────────────────────────────────────
+const { programmeMatch } = require('../utils/programme');
 const { prisma } = require('../lib/prisma');
 const { env } = require('../config/env');
 const { DAY_MS } = require('../config/constants');
@@ -338,7 +339,7 @@ async function atRisk({ below = env.atRiskPct, department }) {
 
 /** Every student in a programme (department) with their overall %. */
 async function programmeReport(name) {
-  const studs = await prisma.user.findMany({ where: { role: 'student', department: name }, orderBy: { id: 'asc' } });
+  const studs = await prisma.user.findMany({ where: { role: 'student', OR: programmeMatch(name) }, orderBy: { id: 'asc' } });
   const pct = await overallFor(studs.map((u) => u.id));
   const rows = studs.map((u) => {
     const p = pct.get(u.id);

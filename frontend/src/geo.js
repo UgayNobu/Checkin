@@ -11,10 +11,12 @@
 import { useEffect, useState } from 'react';
 
 const KEEP_MS = 20000;      // readings older than this are forgotten
+const RECENT_MS = 60000;    // a still phone may stop sending readings: the last one is used if it is under a minute old
 const FUSE_MS = 12000;      // readings averaged together are from the last 12 s
 const PRECISE_OFF_M = 1000; // worse than this: "Precise location" is probably switched off
 
 let readings = [];
+let lastReading = null; // newest reading ever, kept even after it is too old to be averaged
 let watchId = null;
 let lastError = null;
 const subscribers = new Set();
@@ -59,6 +61,7 @@ function start() {
       const now = Date.now();
       readings = readings.filter((r) => now - r.t <= KEEP_MS);
       readings.push({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, t: now });
+      lastReading = readings[readings.length - 1];
       lastError = null;
       emit();
     },
@@ -119,8 +122,18 @@ export function bestPosition({ good = 20, maxWait = 15000 } = {}) {
       clearTimeout(timer);
       const fix = currentFix(), err = lastError;
       if (off) off();
-      if (fix) resolve({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
-      else reject(err || { code: 3, message: 'Location timed out' });
+      if (fix) return resolve({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
+      if (err?.code === 1) return reject(err); // permission denied
+      // No fresh reading. iPhones only report a new location when the phone moves, so a phone lying still
+      // can go quiet: use the last reading if it is under a minute old, otherwise ask the phone once directly.
+      if (lastReading && Date.now() - lastReading.t < RECENT_MS) {
+        return resolve({ lat: lastReading.lat, lng: lastReading.lng, accuracy: lastReading.accuracy });
+      }
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+        (e) => reject(e || err || { code: 3, message: 'Location timed out' }),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: RECENT_MS },
+      );
     };
     const check = () => {
       if (done) return;

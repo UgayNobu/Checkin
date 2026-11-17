@@ -38,9 +38,17 @@
   font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .cc-period small { font-size: 10px; font-weight: 500; }
-.cc-period.busy { border-color: #dee2e6; background: #f9fafb; color: #6a737b; }
+/* free = green, busy = red, already over = dimmed grey */
+.cc-period.free { border-color: #357a32; background: #e6f2e6; color: #244f22; }
+.cc-period.busy { border-color: #ca3120; background: #fbe9e7; color: #9b2417; }
+.cc-period.past { border-color: #dee2e6; background: #f1f3f5; color: #9aa1a8; }
 .cc-period.on { border-color: #0f6cbf; background: #0f6cbf; color: #fff; }
-.cc-period:disabled { cursor: default; opacity: 0.6; }
+.cc-period:disabled { cursor: default; opacity: 0.55; }
+.cc-key { font-weight: 400; color: #6a737b; margin-left: 8px; }
+.cc-key i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
+.cc-key i.f { background: #357a32; } .cc-key i.b { background: #ca3120; } .cc-key i.p { background: #c4cbd2; }
+.cc-now { margin-top: 10px; border: 1px solid #0f6cbf; background: #fff; color: #0f6cbf; border-radius: 6px; padding: 7px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+.cc-now:hover { background: #e7f1fb; }
 
 .cc-clash, .cc-warn { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 12px; }
 .cc-clash { background: #f4d6d2; color: #ca3120; border: 1px solid #fecaca; }
@@ -61,3 +69,17 @@
   .cc-box { padding: 16px; }
   .cc-counts, .cc-two { grid-template-columns: 1fr; }
 }
+
+/* Swap: preview in the dialog */
+.cc-swap { margin-top: 10px; border: 1px solid #b6d4f0; background: #f2f8fd; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+/* Swap requests box on the tutor timetable */
+.sw-box { border: 1px solid #b6d4f0; background: #f6fafe; border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; display: flex; flex-direction: column; gap: 8px; }
+.sw-title { font-size: 14px; }
+.sw-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 13px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 12px; }
+.sw-row.in { border-color: #0f6cbf; }
+.sw-row small { display: block; color: #6a737b; margin-top: 2px; }
+.sw-row.done { padding: 6px 12px; color: #4b5560; }
+.sw-btns { display: flex; gap: 6px; }
+.sw-tag { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: #eef0f2; }
+.sw-tag.accepted { background: #e6f2e6; color: #244f22; }
+.sw-tag.rejected, .sw-tag.cancelled, .sw-tag.expired { background: #f4e5e3; color: #8a2a1e; }

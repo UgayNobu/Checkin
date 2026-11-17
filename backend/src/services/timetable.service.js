@@ -89,41 +89,26 @@ async function addWeek(list, studentId, week) {
 }
 
 /**
- * A student's week: their programme and year's timetable, plus any other module
- * they are enrolled in. `enrolled` marks the classes they joined in the VLE.
+ * A student's week: only the modules they are enrolled in this semester
+ * (classes of modules they haven't joined don't show).
  */
 async function forStudent(studentId, { week } = {}) {
-  const [u, en] = await Promise.all([
-    prisma.user.findUnique({ where: { id: studentId }, select: { programme: true, year: true } }),
-    prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
-  ]);
+  const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, select: { moduleId: true } });
   const enrolled = en.map((e) => e.moduleId);
-  const or = [];
-  // Their own year only (chosen at sign-up, kept up to date when they enrol): a 3rd-year never sees 1st-year classes
-  if (u?.programme && u.year) or.push({ program: { name: u.programme }, year: u.year });
-  if (enrolled.length) or.push({ moduleId: { in: enrolled } });
-  if (!or.length) return [];
-  const list = (await slots({ OR: or })).map((x) => ({ ...x, enrolled: enrolled.includes(x.module.id) }));
+  if (!enrolled.length) return [];
+  const list = (await slots({ moduleId: { in: enrolled } })).map((x) => ({ ...x, enrolled: true }));
   return addWeek(list, studentId, week);
 }
 
 /**
- * A tutor's week: slots for the modules the admin assigned to them, plus slots
- * linked to their account or listing their name. `teaches` = they can start attendance for it.
+ * A tutor's week: only the modules the admin assigned to them this semester
+ * (classes they cover for someone else come from class changes). `teaches` = they can start attendance.
  */
 async function forTutor(tutorId, { week } = {}) {
-  const [u, secs] = await Promise.all([
-    prisma.user.findUnique({ where: { id: tutorId }, select: { id: true, name: true } }),
-    prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, select: { moduleId: true } }),
-  ]);
+  const secs = await prisma.section.findMany({ where: { tutorId, academicSession: await currentAcademicSession() }, select: { moduleId: true } });
   const taught = [...new Set(secs.map((x) => x.moduleId))];
-  const list = (await slots({
-    OR: [
-      { tutorId: u.id },
-      ...(u.name ? [{ tutorNames: { contains: u.name, mode: 'insensitive' } }] : []),
-      ...(taught.length ? [{ moduleId: { in: taught } }] : []),
-    ],
-  })).map((x) => ({ ...x, teaches: taught.includes(x.module.id) }));
+  if (!taught.length) return [];
+  const list = (await slots({ moduleId: { in: taught } })).map((x) => ({ ...x, teaches: true }));
   return addWeek(list, null, week);
 }
 

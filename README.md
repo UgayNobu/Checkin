@@ -37,13 +37,13 @@ The frontend is hosted on **Vercel**, the backend API on **Render** and the data
 **Students**
 - Check in on the Attendance page: tap the building card that lights up (IT, LT, Academic or Library Building, or Workshop/Practical), pick the class and enter the code. The app waits a few seconds for a GPS-quality location before sending it.
 - Attendance % per module (theory and practical, hour-weighted), a monthly calendar (tap a day to see each class), and the 90% rule warnings.
-- Weekly timetable with cancelled, cover, extra and optional classes (a Sunday tab appears for Sunday extra classes); notifications when a class changes.
+- Weekly timetable of only the modules you are enrolled in (or teach), showing only classes that happen: past classes appear only if attendance was taken, cancelled classes are left out (a Sunday tab appears for Sunday extra classes); a notification and email when a class changes, and after a counted class to every student marked absent.
 - Join modules with the tutor's enrolment key; upload evidence documents (PDF/images) for missed classes.
 - Choose your **year at sign-up**; the timetable then shows only your programme and year (plus modules you joined). Classes of your year you haven't enrolled in, and classes that ended with no attendance, are dimmed.
 - Clear login messages: no account for this ID, wrong password, or not signed up yet.
 
 **Tutors**
-- Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, or book an extra class (free periods, free rooms and clash checks). Optional classes take attendance but never count.
+- Timetable: start attendance from 15 minutes before a class until it ends; cancel a class, ask another tutor to cover, swap two classes with another tutor (they accept or reject), or book an extra class at any free time (whole-day slots, free rooms and clash checks). Practicals can happen anywhere, within a distance the tutor chooses. Optional classes take attendance but never count. Students get a notification and an email saying when and where to come.
 - Start Attendance: 2 minutes for students to check in, then 3 minutes to mark flagged students Present/Absent; anyone undecided or missing is marked Absent.
 - Geofence per session: the class's building outline, or a Workshop circle around the tutor with a radius they choose (5–500 m).
 - Live counts, records per module and student, CSV/PDF exports, reports, evidence documents (view), profile and password.
@@ -219,8 +219,9 @@ The whole team shares **one** Supabase database, so database changes go through 
 | 13 | `attendance.device_id`: which phone each check-in came from (one phone per check-in) |
 | 14 | `pending_signups`: sign-ups waiting for their email code (row-level security on) |
 | 15 | `users.token_version`: logging out or changing the password ends every older login |
+| 16 | `swap_requests`: a tutor asks another tutor to swap two classes (timetable or extra; date, time and room); nothing changes until they accept |
 
-Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
+Main tables: `users`, `departments`, `programs`, `modules`, `program_modules`, `sections`, `enrollments`, `academic_sessions`, `rooms`, `timetable_slots`, `class_changes`, `swap_requests`, `class_sessions`, `attendance_codes`, `attendance`, `evidence_documents`, `stored_files`, `password_resets`, `pending_signups`, `notifications`, `audit_logs`.
 
 The building outlines and room lists are in `backend/src/config/buildings.js` (no database table).
 
