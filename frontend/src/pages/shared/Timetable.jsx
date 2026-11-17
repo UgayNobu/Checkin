@@ -5,6 +5,7 @@
 //  • Tutor: "Start attendance" opens from 15 minutes before a class until it ends. The ⋯ menu
 //    cancels a class or asks another tutor to cover it; "+ Extra class" books a class that
 //    isn't on the timetable (counted, or optional = never counts toward anyone's %).
+import { t12 } from '../../time12';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, auth } from '../../api';
@@ -289,8 +290,8 @@ export default function Timetable() {
             return (
               <div key={x.key} className={cls}>
                 <div className="tt-time">
-                  <b>{x.start}</b>
-                  <small>{x.end}</small>
+                  <b>{t12(x.start)}</b>
+                  <small>{t12(x.end)}</small>
                 </div>
 
                 <div className="tt-body">

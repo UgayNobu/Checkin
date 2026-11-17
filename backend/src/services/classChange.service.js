@@ -40,6 +40,9 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 const dowOf = (s) => dateOf(s).getUTCDay() || 7; // 1 = Monday … 7 = Sunday
 const overlaps = (a1, a2, b1, b2) => a1 < b2 && b1 < a2; // 'HH:MM' strings compare correctly
 const nice = (s) => dateOf(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+/** '13:50' → '1:50 PM' (what people read; the API itself keeps 24-hour 'HH:MM'). */
+const t12 = (s) => { const h = Number(s.slice(0, 2)), m = s.slice(3, 5); return `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`; };
+const span12 = (a, b) => `${t12(a)}–${t12(b)}`;
 const cohortName = (p, year) => `${(p?.name || '').replace(/^B\.?E\.?\s*/i, '') || 'Programme'} Year ${year}`;
 
 /** A class can be started from this many minutes before it begins until it ends. */
@@ -160,11 +163,14 @@ async function listFor(user, { from, to }) {
  * classes), and — when a module is given — who its students are, so clashes can be found.
  */
 async function loadDay(term, date, moduleId) {
-  const [slots, changes, secs] = await Promise.all([
+  const [slots, changes, secs, taken] = await Promise.all([
     prisma.timetableSlot.findMany({ where: { academicSession: term, dayOfWeek: dowOf(date) }, include: { module: true, room: true, program: true } }),
     prisma.classChange.findMany({ where: { academicSession: term, date: dateOf(date) }, include: { module: true, room: true, coverTutor: { select: { id: true, name: true } } } }),
     sectionsNow(term),
+    // classes whose attendance is already finished that day: they no longer block a booking (only a warning)
+    prisma.classSession.findMany({ where: { date: dateOf(date), status: 'ended' }, select: { slotId: true, changeId: true } }),
   ]);
+  const doneIds = new Set(taken.flatMap((t) => [t.slotId, t.changeId]).filter(Boolean));
   const bySlot = new Map(changes.filter((c) => c.slotId).map((c) => [c.slotId, c]));
   const names = new Map();
   for (const list of secs.values()) for (const t of list) names.set(t.tutorId, t.name);
@@ -183,6 +189,7 @@ async function loadDay(term, date, moduleId) {
       roomId: s.roomId, roomName: s.room?.name, cohort: `${s.programId}|${s.year}`,
       cohortLabel: cohortName(s.program, s.year) + (s.groupLabel ? ` (group ${s.groupLabel})` : ''),
       tutors: c?.type === 'cover' ? [c.coverTutorId] : assigned.length ? assigned : s.tutorId ? [s.tutorId] : [],
+      done: doneIds.has(s.id),
     });
   }
   for (const c of changes.filter((x) => x.type === 'extra')) {
@@ -190,6 +197,7 @@ async function loadDay(term, date, moduleId) {
       id: c.id, moduleId: c.moduleId, code: c.module?.code, start: hhmm(c.startTime), end: hhmm(c.endTime), roomId: c.roomId, roomName: c.room?.name,
       cohort: null, extra: true, optional: !c.counts,
       tutors: [...new Set([...(secs.get(c.moduleId) || []).map((t) => t.tutorId), c.createdBy].filter(Boolean))],
+      done: doneIds.has(c.id),
     });
   }
 
@@ -219,14 +227,15 @@ async function loadDay(term, date, moduleId) {
  */
 function clashes(day, { start, end, roomId, tutorId, moduleId, ignore, self }) {
   const out = [], seen = new Set();
-  const add = (kind, text) => { if (!seen.has(text)) { seen.add(text); out.push({ kind, text }); } };
   for (const it of day.items) {
     if (it.id === ignore || !overlaps(start, end, it.start, it.end)) continue;
-    const what = `${it.code}${it.extra ? ' (extra class)' : ''} at ${it.start}–${it.end}`;
+    // A class whose attendance is already finished only gives a warning (soft), it doesn't block
+    const add = (kind, text) => { if (it.done) text += ' (attendance already taken)'; if (!seen.has(text)) { seen.add(text); out.push({ kind, text, ...(it.done && { soft: true }) }); } };
+    const what = `${it.code}${it.extra ? ' (extra class)' : ''} at ${span12(it.start, it.end)}`;
     if (roomId && it.roomId === roomId) add('room', `Room ${it.roomName} is used for ${what}.`);
     if (tutorId && it.tutors.includes(tutorId)) add('tutor', tutorId === self ? `You teach ${what}.` : `${day.names.get(tutorId) || 'That tutor'} teaches ${what}.`);
     if (moduleId) {
-      if (it.moduleId === moduleId) add('students', `${it.code} already has a class at ${it.start}–${it.end}.`);
+      if (it.moduleId === moduleId) add('students', `${it.code} already has a class at ${span12(it.start, it.end)}.`);
       else if (it.cohort && day.target.cohorts.has(it.cohort)) add('students', `${it.cohortLabel} have ${what}.`);
       else if (!it.optional && day.target.shared.get(it.moduleId)) {
         const n = day.target.shared.get(it.moduleId);
@@ -236,8 +245,10 @@ function clashes(day, { start, end, roomId, tutorId, moduleId, ignore, self }) {
   }
   return out;
 }
-/** Clashes that stop a booking. Student clashes don't block an optional class (nobody has to come). */
-const blocking = (list, counts) => list.filter((c) => c.kind !== 'students' || counts);
+/** Does this clash stop a booking? Student clashes don't block an optional class (nobody has to come),
+ *  and nothing blocks when that other class's attendance is already finished. */
+const blocks = (c, counts) => !c.soft && (c.kind !== 'students' || counts);
+const blocking = (list, counts) => list.filter((c) => blocks(c, counts));
 
 // The college's 1-hour periods (08:00–09:00, 09:00–10:00, 10:15–11:15 …), read from the timetable
 let periodCache = { at: 0, term: null, list: [] };
@@ -249,6 +260,20 @@ async function periods(term) {
     .sort((a, b) => a.start.localeCompare(b.start));
   periodCache = { at: Date.now(), term, list };
   return list;
+}
+
+/**
+ * Slots offered in the Extra class form: the college periods, plus 1-hour slots from 7 AM to 10 PM
+ * at times the college periods don't cover (tutors can teach at any free time of the day).
+ */
+const FIRST_HOUR = 7, LAST_HOUR = 22;
+function dayPeriods(college) {
+  const out = [...college];
+  for (let h = FIRST_HOUR; h < LAST_HOUR; h++) {
+    const p = { start: fromMinutes(h * 60), end: fromMinutes((h + 1) * 60) };
+    if (!college.some((c) => overlaps(p.start, p.end, c.start, c.end))) out.push(p);
+  }
+  return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
 async function semesterOf(term) {
@@ -279,7 +304,7 @@ async function check(tutorId, q) {
   const free = (start, end) => blocking(clashes(day, { start, end, tutorId, moduleId: q.module, self: tutorId }), counts);
   const out = {
     date: q.date, day: DAY[dowOf(q.date)],
-    periods: (await periods(term)).map((p) => {
+    periods: dayPeriods(await periods(term)).map((p) => {
       const past = !!now && p.end <= now;
       const c = past ? [{ kind: 'time', text: 'Already over.' }] : free(p.start, p.end);
       return { ...p, free: !c.length, past, why: c[0]?.text || null };
@@ -289,7 +314,7 @@ async function check(tutorId, q) {
     const all = clashes(day, { start: q.start, end: q.end, roomId: q.room, tutorId, moduleId: q.module, self: tutorId });
     const used = new Set(day.items.filter((it) => it.roomId && overlaps(q.start, q.end, it.start, it.end)).map((it) => it.roomId));
     const rooms = await prisma.room.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, location: true } });
-    out.clashes = all.map((c) => ({ ...c, blocks: c.kind !== 'students' || counts }));
+    out.clashes = all.map((c) => ({ ...c, blocks: blocks(c, counts) }));
     if (now && q.end <= now) out.clashes.unshift({ kind: 'time', text: 'That time has already passed today.', blocks: true });
     out.rooms = rooms.filter((r) => !used.has(r.id));
   }
@@ -342,7 +367,7 @@ async function create(tutorId, b) {
     });
     const o = changeOut(c);
     await tellStudents(o.module.id, term,
-      `${counts ? 'Extra class' : 'Optional class'}: ${o.module.code} on ${nice(o.date)}, ${o.start}–${o.end}${o.room ? ` in ${o.room.name}` : ''}. ` +
+      `${counts ? 'Extra class' : 'Optional class'}: ${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` in ${o.room.name}` : ''}. ` +
       `${counts ? 'Attendance will be taken and counts.' : 'Attendance is taken but does not count toward your %.'} (${reason})`);
     return o;
   }
@@ -378,7 +403,7 @@ async function create(tutorId, b) {
     },
     include,
   });
-  const o = changeOut(c), when = `${o.module.code} on ${nice(o.date)}, ${o.start}–${o.end}${o.room ? ` (${o.room.name})` : ''}`;
+  const o = changeOut(c), when = `${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}${o.room ? ` (${o.room.name})` : ''}`;
   if (b.type === 'cancelled') {
     await tellStudents(o.module.id, term, `Cancelled: ${when}. ${reason}. You will not be marked absent.`);
   } else {
@@ -401,7 +426,7 @@ async function remove(tutorId, id) {
   if (used) throw Conflict('Attendance was already taken for this class, so it can\'t be undone.', 'ALREADY_TAKEN');
   await prisma.classChange.delete({ where: { id } });
 
-  const when = `${o.module.code} on ${nice(o.date)}, ${o.start}–${o.end}`;
+  const when = `${o.module.code} on ${nice(o.date)}, ${span12(o.start, o.end)}`;
   if (o.type === 'cancelled') await tellStudents(o.module.id, term, `Back on: ${when} is no longer cancelled.`);
   if (o.type === 'extra') await tellStudents(o.module.id, term, `Called off: the ${o.counts ? 'extra' : 'optional'} class ${when}.`);
   if (o.type === 'cover' && o.coverTutor) await notify(o.coverTutor.id, `You no longer need to take ${when}.`, 'Reminders');
@@ -484,7 +509,7 @@ async function planStart(tutorId, b) {
   const next = [...todaySlots.map((s) => [hhmm(s.startTime), hhmm(s.endTime)]), ...extras.map((x) => [hhmm(x.startTime), hhmm(x.endTime)])]
     .filter(([, e]) => e > now).sort()[0];
   throw BadRequest(next
-    ? `This module has no class right now. The next one today is ${next[0]}–${next[1]} (you can start from ${fromMinutes(minutes(next[0]) - early())}). To teach now, book an extra class.`
+    ? `This module has no class right now. The next one today is ${span12(next[0], next[1])} (you can start from ${t12(fromMinutes(minutes(next[0]) - early()))}). To teach now, book an extra class.`
     : 'This module has no class right now. To teach now, book an extra class on your Timetable.', 'CLASS_NOT_NOW');
 }
 
@@ -593,4 +618,4 @@ async function forManagement({ from, to }) {
   };
 }
 
-module.exports = { REASONS, autoCancel, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow };
+module.exports = { REASONS, autoCancel, listFor, check, tutors, create, remove, planStart, forManagement, todayStr, nowHHMM, inWindow, t12, dayPeriods, clashes, blocks };

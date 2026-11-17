@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { span12 } from '../../time12';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
@@ -17,6 +18,10 @@ const sameRoom = (r, room) => (roomKey(r.name) && roomKey(r.name) === roomKey(ro
 const buildingOfRoom = (room, buildings) =>
   buildings.find((b) => b.rooms?.some((r) => (roomKey(r.name) && roomKey(r.name) === roomKey(room)) || (r.label && squash(r.label) === squash(room))));
 
+// Practicals: the tutor chooses how close students must be (preset distances, or any 5–500 m).
+// Theory classes outside a mapped building ("Somewhere else") use a fixed distance.
+const RADII = [10, 20, 30, 50, 100];
+const THEORY_RADIUS = 30;
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 // Today's date, e.g. "Wednesday, October 14, 2026"
@@ -44,6 +49,7 @@ export default function StartAttendance() {
   const [slot, setSlot] = useState(null); // timetable class this session was started from
   const [chg, setChg] = useState(null); // extra class, or a class this tutor is covering
   const [notNow, setNotNow] = useState(false); // the server said it isn't class time
+  const [customR, setCustomR] = useState(false); // practical: typing their own radius instead of a preset
   const nav = useNavigate();
   // Only modules the admin assigned to this teacher
   useEffect(() => {
@@ -121,6 +127,19 @@ export default function StartAttendance() {
   const reviewing = sid && ends && !open && reviewLeft > 0 && !ended; // code closed, tutor decides flagged
   const closed = sid && ends && !open && !reviewing; // session over
 
+  // Once the session is closed (after the review time), go back to the dashboard after a short pause
+  const BACK_AFTER = 15;
+  const [leaveIn, setLeaveIn] = useState(null); // seconds left, or null = staying on this page
+  const [stay, setStay] = useState(false);
+  useEffect(() => { setStay(false); setLeaveIn(null); }, [sid]);
+  useEffect(() => {
+    if (!(closed && ended) || stay) return undefined;
+    if (leaveIn === null) { setLeaveIn(BACK_AFTER); return undefined; }
+    if (leaveIn <= 0) { nav('/'); return undefined; }
+    const t = setTimeout(() => setLeaveIn((n) => (n === null ? n : n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [closed, ended, stay, leaveIn]);
+
   const loadLive = () => sid && api(`/sessions/${sid}/live`)
     .then((l) => { setLive(l); setLiveAt(Date.now()); if (l?.closesAt) setCloses(new Date(l.closesAt).getTime()); })
     .catch(() => {});
@@ -161,10 +180,13 @@ export default function StartAttendance() {
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   // Practicals usually happen in a workshop, so switching the type suggests the matching location
+  // A practical always uses the tutor's position (it can happen anywhere); a theory class uses a building
   const setType = (e) => {
     const type = e.target.value;
     setF({ ...f, type, where: type === 'practical' ? 'WORKSHOP' : f.where === 'WORKSHOP' ? '' : f.where });
   };
+  const practical = f.type === 'practical';
+  useEffect(() => { if (practical && f.where !== 'WORKSHOP') setF((x) => ({ ...x, where: 'WORKSHOP' })); }, [practical, f.where]);
   const workshop = f.where === 'WORKSHOP';
   // Workshop sessions use the tutor's own position as the centre: start GPS early so it is accurate
   const gps = useLocationWarmup(workshop && !sid);
@@ -182,6 +204,7 @@ export default function StartAttendance() {
     if (canon && canon.name !== f.room) setF((x) => ({ ...x, room: canon.name }));
   }, [f.room, f.where, buildings]);
   useEffect(() => {
+    if (practical) return;
     if (roomBuilding && f.where !== 'WORKSHOP' && f.where !== roomBuilding.key) setF((x) => ({ ...x, where: roomBuilding.key }));
     // rooms that aren't inside a mapped building → Workshop around the tutor:
     // labs (EG Lab, Robotic Lab, Hydraulics lab …) and LH-01 (lecture hall near the football ground)
@@ -195,7 +218,7 @@ export default function StartAttendance() {
       ...(slot && f.module === slot.module.id && { slot: slot.id }),
       ...(chg && f.module === chg.module.id && { change: chg.id }),
       ...(workshop
-        ? { mode: 'workshop', radius: Number(radius), lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }
+        ? { mode: 'workshop', radius: practical ? Number(radius) : THEORY_RADIUS, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }
         : { mode: 'building', building: where }),
       minutes: WINDOW_MIN,
     })
@@ -215,8 +238,8 @@ export default function StartAttendance() {
 
   const gen = () => {
     if (!f.module) return setMsg('Please select a module.');
-    if (!f.where) return setMsg('Choose where the class is.');
-    if (workshop && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setMsg('Workshop radius must be 5–500 metres.');
+    if (!f.where) return setMsg('Choose the building where the class is.');
+    if (practical && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setMsg('Choose how close students must be: 5–500 metres.');
     setNotNow(false);
     setBusy(true);
 
@@ -255,14 +278,14 @@ export default function StartAttendance() {
         <h3>Session details</h3>
         {slot && (
           <p style={{ margin: '0 0 8px', fontSize: 12, color: '#0f6cbf' }}>
-            From your timetable: {slot.day} {slot.start}–{slot.end}{slot.group ? ` · Group ${slot.group}` : ''}
+            From your timetable: {slot.day} {span12(slot.start, slot.end)}{slot.group ? ` · Group ${slot.group}` : ''}
           </p>
         )}
         {chg && (
           <p style={{ margin: '0 0 8px', fontSize: 12, color: chg.counts ? '#2b6328' : '#495057' }}>
             {chg.type === 'cover'
-              ? `Covering for ${chg.by?.name || 'another tutor'}: ${chg.start}–${chg.end}`
-              : `${chg.counts ? 'Extra class' : 'Optional class (doesn’t count toward attendance)'}: ${chg.start}–${chg.end}`}
+              ? `Covering for ${chg.by?.name || 'another tutor'}: ${span12(chg.start, chg.end)}`
+              : `${chg.counts ? 'Extra class' : 'Optional class (doesn’t count toward attendance)'}: ${span12(chg.start, chg.end)}`}
           </p>
         )}
 
@@ -295,17 +318,6 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-where">Where students must be</label>
-            <select id="sa-where" value={f.where} onChange={setWhere} disabled={open}>
-              <option value="">Select location</option>
-              {buildings.map((b) => (
-                <option key={b.key} value={b.key}>{b.name}</option>
-              ))}
-              <option value="WORKSHOP">Workshop – around my location</option>
-            </select>
-          </div>
-
-          <div className="sa-f">
             <label htmlFor="sa-type">Practical / theory</label>
             <select id="sa-type" value={f.type} onChange={setType} disabled={open}>
               <option value="theory">Theory</option>
@@ -314,36 +326,72 @@ export default function StartAttendance() {
           </div>
 
           <div className="sa-f">
-            <label htmlFor="sa-room">Room</label>
-            {chosen ? (
-              <select id="sa-room" value={f.room} onChange={set('room')} disabled={open}>
-                <option value="">Select a room in the {chosen.name}</option>
-                {(chosen.rooms || []).map((rm) => (
-                  <option key={rm.name} value={rm.name}>{rm.label ? `${rm.name} · ${rm.label}` : rm.name}</option>
-                ))}
-                {/* a timetable room that isn't in the list still shows */}
-                {f.room && !(chosen.rooms || []).some((rm) => rm.name === f.room) && <option value={f.room}>{f.room}</option>}
-              </select>
-            ) : (
-              <input id="sa-room" value={f.room} onChange={set('room')} disabled={open || !f.where}
-                placeholder={workshop ? 'e.g. EG Lab, Robotics Lab' : 'Choose where students must be first'} />
-            )}
-          </div>
-
-          <div className="sa-f">
             <label htmlFor="sa-hours">Total hours</label>
             <input id="sa-hours" type="number" min="1" value={f.hours} onChange={set('hours')} disabled={open} />
           </div>
 
-          {workshop && (
-            <div className="sa-f sa-wide">
-              <label htmlFor="sa-radius">Workshop radius (metres)</label>
-              <input id="sa-radius" type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open} />
-              <small className="sa-help">
-                Stand in the middle of the workshop when you generate the code. Students must be within this distance of you.
-              </small>
-              {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
-            </div>
+          {practical ? (
+            <>
+              {/* A practical can happen anywhere: students must be within the chosen distance of the tutor */}
+              <div className="sa-f sa-wide">
+                <label>Students must be within</label>
+                <div className="sa-radius" role="group" aria-label="Check-in radius">
+                  {RADII.map((r) => (
+                    <button key={r} type="button" className={Number(f.radius) === r && !customR ? 'on' : ''} disabled={open}
+                      onClick={() => { setCustomR(false); setF((x) => ({ ...x, radius: r })); }}>{r} m</button>
+                  ))}
+                  <button type="button" className={customR ? 'on' : ''} disabled={open} onClick={() => setCustomR(true)}>Other…</button>
+                  {customR && (
+                    <input id="sa-radius" type="number" min="5" max="500" value={f.radius} onChange={set('radius')} disabled={open}
+                      aria-label="Radius in metres" />
+                  )}
+                </div>
+                <small className="sa-help">
+                  of where you stand when you generate the code (5–500 m). Stand in the middle of where the practical happens.
+                </small>
+                {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
+              </div>
+              <div className="sa-f sa-wide">
+                <label htmlFor="sa-room">Place (optional)</label>
+                <input id="sa-room" value={f.room} onChange={set('room')} disabled={open} placeholder="e.g. Football ground, EG Lab, Survey field" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sa-f">
+                <label htmlFor="sa-where">Where students must be</label>
+                <select id="sa-where" value={f.where} onChange={setWhere} disabled={open}>
+                  <option value="">Select building</option>
+                  {buildings.map((b) => (
+                    <option key={b.key} value={b.key}>{b.name}</option>
+                  ))}
+                  <option value="WORKSHOP">Somewhere else – around my location ({THEORY_RADIUS} m)</option>
+                </select>
+              </div>
+
+              <div className="sa-f">
+                <label htmlFor="sa-room">Room</label>
+                {chosen ? (
+                  <select id="sa-room" value={f.room} onChange={set('room')} disabled={open}>
+                    <option value="">Select a room in the {chosen.name}</option>
+                    {(chosen.rooms || []).map((rm) => (
+                      <option key={rm.name} value={rm.name}>{rm.label ? `${rm.name} · ${rm.label}` : rm.name}</option>
+                    ))}
+                    {/* a timetable room that isn't in the list still shows */}
+                    {f.room && !(chosen.rooms || []).some((rm) => rm.name === f.room) && <option value={f.room}>{f.room}</option>}
+                  </select>
+                ) : (
+                  <input id="sa-room" value={f.room} onChange={set('room')} disabled={open || !f.where}
+                    placeholder={workshop ? 'e.g. LH-01' : 'Choose the building first'} />
+                )}
+              </div>
+              {workshop && (
+                <div className="sa-f sa-wide">
+                  <small className="sa-help">Students must be within {THEORY_RADIUS} m of you. Stand in the room when you generate the code.</small>
+                  {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -412,6 +460,15 @@ export default function StartAttendance() {
             <>
               <h3 style={{ margin: '8px 0' }}>Session closed</h3>
               <small>Students who didn't check in, and flagged students not decided, are marked absent.</small>
+              {ended && !stay && leaveIn !== null && (
+                <div style={{ marginTop: 10 }}>
+                  <small style={{ display: 'block', fontWeight: 600 }}>Attendance saved. Going back to your dashboard in {leaveIn} s.</small>
+                  <div className="row" style={{ justifyContent: 'center', gap: 8, marginTop: 6 }}>
+                    <button className="btn" onClick={() => nav('/')}>Back to dashboard</button>
+                    <button className="btn" style={{ background: '#fff', color: '#0f6cbf', border: '1px solid #0f6cbf' }} onClick={() => setStay(true)}>Stay here</button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

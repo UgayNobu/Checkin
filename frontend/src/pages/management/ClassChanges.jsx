@@ -5,6 +5,7 @@
 //  • Extra       – a class outside the timetable that counts toward attendance
 //  • Optional    – a free / revision class: attendance is taken but never counts
 //  • Not recorded – a timetable class of an assigned module with no attendance and no change
+import { span12 } from '../../time12';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import './classchanges.css';
@@ -84,7 +85,7 @@ export default function ClassChanges() {
                 {data.notRecorded.map((n) => (
                   <tr key={n.slotId + n.date}>
                     <td>{day(n.date)}</td>
-                    <td>{n.start}–{n.end}</td>
+                    <td>{span12(n.start, n.end)}</td>
                     <td><b>{n.module.code}</b> <span className="ccm-mut">{n.module.name}</span></td>
                     <td>{n.cohort}{n.group ? ` · Group ${n.group}` : ''}</td>
                     <td>{n.tutors || '–'}</td>
@@ -106,7 +107,7 @@ export default function ClassChanges() {
                 return (
                   <tr key={c.id}>
                     <td>{day(c.date)}</td>
-                    <td>{c.start}–{c.end}</td>
+                    <td>{span12(c.start, c.end)}</td>
                     <td><b>{c.module.code}</b> <span className="ccm-mut">{c.module.name}</span>{c.room ? <span className="ccm-mut"> · {c.room.name}</span> : null}</td>
                     <td><span className={'ccm-pill ' + k}>{LABEL[k]}</span></td>
                     <td>

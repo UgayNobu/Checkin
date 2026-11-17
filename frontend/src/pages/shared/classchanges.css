@@ -38,9 +38,17 @@
   font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .cc-period small { font-size: 10px; font-weight: 500; }
-.cc-period.busy { border-color: #dee2e6; background: #f9fafb; color: #6a737b; }
+/* free = green, busy = red, already over = dimmed grey */
+.cc-period.free { border-color: #357a32; background: #e6f2e6; color: #244f22; }
+.cc-period.busy { border-color: #ca3120; background: #fbe9e7; color: #9b2417; }
+.cc-period.past { border-color: #dee2e6; background: #f1f3f5; color: #9aa1a8; }
 .cc-period.on { border-color: #0f6cbf; background: #0f6cbf; color: #fff; }
-.cc-period:disabled { cursor: default; opacity: 0.6; }
+.cc-period:disabled { cursor: default; opacity: 0.55; }
+.cc-key { font-weight: 400; color: #6a737b; margin-left: 8px; }
+.cc-key i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
+.cc-key i.f { background: #357a32; } .cc-key i.b { background: #ca3120; } .cc-key i.p { background: #c4cbd2; }
+.cc-now { margin-top: 10px; border: 1px solid #0f6cbf; background: #fff; color: #0f6cbf; border-radius: 6px; padding: 7px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+.cc-now:hover { background: #e7f1fb; }
 
 .cc-clash, .cc-warn { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 12px; }
 .cc-clash { background: #f4d6d2; color: #ca3120; border: 1px solid #fecaca; }

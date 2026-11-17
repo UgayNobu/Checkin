@@ -2,6 +2,7 @@
 //   CancelDialog  – a timetable class is not held on that date (nobody is marked absent)
 //   CoverDialog   – another tutor takes a timetable class on that date
 //   ExtraDialog   – book a class that isn't on the timetable (make-up, extra, optional)
+import { span12 } from '../../time12';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import './classchanges.css';
@@ -48,7 +49,7 @@ function Reason({ kind, reason, setReason, note, setNote }) {
   );
 }
 
-const what = (x) => `${x.module.code} · ${nice(x.date)}, ${x.start}–${x.end}${x.room ? ` · ${x.room.name}` : ''}`;
+const what = (x) => `${x.module.code} · ${nice(x.date)}, ${span12(x.start, x.end)}${x.room ? ` · ${x.room.name}` : ''}`;
 
 /** Cancel one timetable class on one date. */
 export function CancelDialog({ item, onClose, onDone }) {
@@ -144,6 +145,15 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
     return () => { stale = true; clearTimeout(t); };
   }, [f.module, f.date, f.start, f.end, f.room, f.counts]);
 
+  // "Start now": a class can be booked for right now (rounded down to 5 minutes), for one hour
+  const isToday = f.date === today;
+  const startNow = () => {
+    const now = new Date(Date.now() + 6 * 3600 * 1000); // Bhutan time
+    const m = now.getUTCHours() * 60 + Math.floor(now.getUTCMinutes() / 5) * 5;
+    const hm = (x) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    set('start', hm(m)); set('end', hm(Math.min(m + 60, 23 * 60 + 59)));
+  };
+
   const blockers = (info?.clashes || []).filter((c) => c.blocks);
   const warnings = (info?.clashes || []).filter((c) => !c.blocks);
   const roomGone = f.room && info?.rooms && !info.rooms.some((r) => r.id === f.room) && !blockers.some((c) => c.kind === 'room');
@@ -184,17 +194,17 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
 
       {f.module && info?.periods?.length > 0 && (
         <>
-          <label>Periods on {info.day}</label>
+          <label>Times on {info.day} <small className="cc-key"><i className="f" />free <i className="b" />busy <i className="p" />over</small></label>
           <div className="cc-periods">
             {info.periods.map((p) => (
               <button
                 key={p.start} type="button"
-                className={'cc-period' + (p.free ? '' : ' busy') + (f.start === p.start && f.end === p.end ? ' on' : '')}
+                className={'cc-period' + (p.past ? ' past' : p.free ? ' free' : ' busy') + (f.start === p.start && f.end === p.end ? ' on' : '')}
                 title={p.free ? 'Free' : p.why}
                 disabled={p.past}
                 onClick={() => { set('start', p.start); set('end', p.end); }}
               >
-                {p.start}–{p.end}
+                {span12(p.start, p.end)}
                 <small>{p.free ? 'Free' : p.past ? 'Over' : 'Busy'}</small>
               </button>
             ))}
@@ -202,6 +212,10 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
         </>
       )}
 
+      {isToday && (
+        <button type="button" className="cc-now" onClick={startNow}>Start now (for 1 hour)</button>
+      )}
+      <small className="cc-hint">Pick a time above, or type any start and end time.</small>
       <div className="cc-two">
         <div>
           <label htmlFor="cc-start">Starts</label>
@@ -215,9 +229,9 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
 
       <div className="cc-two">
         <div>
-          <label htmlFor="cc-room">Room</label>
+          <label htmlFor="cc-room">{f.sessionType === 'practical' ? 'Room (optional)' : 'Room'}</label>
           <select id="cc-room" value={f.room} onChange={(e) => set('room', e.target.value)}>
-            <option value="">No room / somewhere else</option>
+            <option value="">{f.sessionType === 'practical' ? 'No room – anywhere (practical)' : 'No room / somewhere else'}</option>
             {(info?.rooms || []).map((r) => <option key={r.id} value={r.id}>{r.name}{r.location ? ` · ${r.location}` : ''}</option>)}
           </select>
           {!info?.rooms && <small className="cc-hint">Choose a time to see free rooms.</small>}
