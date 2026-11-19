@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/requireAuth');
 const { requireRole } = require('../middleware/requireRole');
 const { validateBody, validateParams } = require('../middleware/validate');
 const v = require('../validators/module.validators');
+const { coverUpload } = require('../middleware/upload');
 
 const router = Router();
 router.use(requireAuth);
@@ -21,5 +22,9 @@ router.put('/:id/key', requireRole('teacher'), id, validateBody(v.enrolmentKeyBo
 router.get('/:id/students', requireRole('teacher', 'admin', 'management'), id, c.students);
 router.post('/:id/students', requireRole('teacher'), id, validateBody(v.addStudentBodySchema), c.addStudent);
 router.delete('/:id/students/:studentId', requireRole('teacher', 'admin'), c.removeStudent);
+
+// Module cover image: the module's tutor or an admin (multer first, so req.file exists)
+router.post('/:id/cover', requireRole('teacher', 'admin'), id, coverUpload, c.setCover);
+router.delete('/:id/cover', requireRole('teacher', 'admin'), id, c.removeCover);
 
 module.exports = router;

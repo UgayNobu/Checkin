@@ -6,5 +6,7 @@ module.exports = {
   suggestKey: asyncHandler(async (req, res) => res.json(await mod.suggestKey(req.params.id, req.user.id))),
   students: asyncHandler(async (req, res) => res.json(await mod.listStudents(req.params.id, req.user))),
   addStudent: asyncHandler(async (req, res) => res.json(await mod.addStudent(req.params.id, req.user.id, req.body.userId))),
+  setCover: asyncHandler(async (req, res) => res.json(await mod.setCover(req.params.id, req.user, req.file))),
+  removeCover: asyncHandler(async (req, res) => res.json(await mod.removeCover(req.params.id, req.user))),
   removeStudent: asyncHandler(async (req, res) => res.json(await mod.removeStudent(req.params.id, req.user, req.params.studentId))),
 };
