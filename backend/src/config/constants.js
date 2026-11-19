@@ -28,6 +28,7 @@ const FLAG_TEXT = {
 const FILES = {
   evidence: { maxBytes: 10 * 1024 * 1024, mimes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'] },
   avatar: { maxBytes: 2 * 1024 * 1024, mimes: ['image/png', 'image/jpeg', 'image/webp'] },
+  cover: { maxBytes: 10 * 1024 * 1024, mimes: ['image/png', 'image/jpeg', 'image/webp'] }, // module card image
 };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

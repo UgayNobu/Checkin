@@ -11,6 +11,7 @@ const { NotFound } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
 const { currentAcademicSession, sessionOrCurrent } = require('../lib/academicSession');
 const pdf = require('../utils/pdf');
+const { fileUrl } = require('../lib/storage');
 
 /** This semester's modules for a tutor. A tutor can teach 2 sections of one module — keep one entry per module. */
 async function tutorSections(tutorId, { term } = {}) {
@@ -26,10 +27,11 @@ async function enrolCounts(moduleIds, { term } = {}) {
 
 async function myModules(tutorId, { term } = {}) {
   const secs = await tutorSections(tutorId, { term }), counts = await enrolCounts(secs.map((s) => s.moduleId), { term });
-  return secs.map((x) => ({
+  return Promise.all(secs.map(async (x) => ({
     id: x.moduleId, name: x.module.name, code: x.module.code, year: x.module.year, semester: x.module.semester, programme: x.module.program?.name || null,
     section: x.name, room: x.room, schedule: x.schedule, students: counts.get(x.moduleId) || 0, enrolmentKey: x.module.enrolmentKey, selfEnrol: x.module.selfEnrol,
-  }));
+    coverUrl: await fileUrl(x.module.coverImage), // null = show the pattern
+  })));
 }
 
 /** Dashboard: totals, today's sessions, things waiting for the tutor. */

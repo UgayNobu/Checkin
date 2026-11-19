@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, auth, fileHref } from '../../api';
 import './evidence.css';
-const fd = (d) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' });
-// when the student sent the document (falls back to the absence date for very old rows)
+import { toast } from '../../motion';
+// Only the date the student sent the document is shown (the absence day itself is not).
+// Very old rows without a sent time fall back to the date saved with the request.
 const sent = (r) => r.createdAt || r.date;
 const fs = (d) => new Date(d).toLocaleString('en', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 const ini = (n = '') => n.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -11,26 +12,32 @@ const ini = (n = '') => n.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpp
 export default function Evidence() {
   const nav = useNavigate(), act = auth.get().user.role === 'management', [l, setL] = useState([]);
   const load = () => api('/evidence').then(setL); useEffect(() => { load(); }, []);
-  const set = (id, status) => api('/evidence/' + id, { status }, 'PATCH').then(load);
+  const [busy, setBusy] = useState(null);
+  const set = (id, status) => {
+    setBusy(id);
+    api('/evidence/' + id, { status }, 'PATCH')
+      .then(() => { toast(status === 'approved' ? 'Request approved' : 'Request rejected', status === 'approved' ? 'ok' : 'info'); return load(); })
+      .catch((e) => toast(e.message, 'bad'))
+      .finally(() => setBusy(null));
+  };
   return (
     <div className="evd">
       {l.filter((r) => r.status === 'pending').map((r) => (
         <div className="rcard" key={r._id}>
           <div className="rtop"><span className="av">{ini(r.student?.name)}</span>
-            <div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br /><small>{r.module?.name || 'Module'} · Submitted {fs(sent(r))}</small><br /><small className="mut">For absence on {fd(r.date)}</small></div><span className="st">Pending</span></div>
+            <div><b>{r.student?.name}</b> <span className="mut">· {r.student?.userId}</span><br /><small>{r.module?.name || 'Module'} · Submitted {fs(sent(r))}</small></div><span className="st">Pending</span></div>
           <p className="q">"{r.reason}"</p>
           {r.fileUrl ? <a className="file" href={fileHref(r.fileUrl)} target="_blank" rel="noreferrer">📄 {r.fileName || 'Open document'}</a> : <small>⊘ No document attached</small>}
-          {act && <div className="acts2"><button className="rej" onClick={() => set(r._id, 'rejected')}>Reject</button><button className="app" onClick={() => set(r._id, 'approved')}>Approve</button></div>}
+          {act && <div className="acts2"><button className="rej" disabled={busy === r._id} onClick={() => set(r._id, 'rejected')}>Reject</button><button className="app" disabled={busy === r._id} onClick={() => set(r._id, 'approved')}>✓ Approve</button></div>}
         </div>))}
       <h4>All requests</h4>
       <div className="tbl"><table><thead><tr><th>Submitted</th><th>Student ID</th><th>Name</th><th>class</th>{act && <th>Status</th>}<th>{act ? 'Action' : 'Medical report'}</th></tr></thead>
-        <tbody>{l.map((r) => <tr key={r._id}><td>{new Date(sent(r)).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td><td>{r.student?.userId}</td><td>{r.student?.name}</td><td className="mut">{r.module?.name}<br /><small>Absent {fd(r.date)}</small></td>
+        <tbody>{l.map((r) => <tr key={r._id}><td>{new Date(sent(r)).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td><td>{r.student?.userId}</td><td>{r.student?.name}</td><td className="mut">{r.module?.name}</td>
           {act && <td><span className={'pill ' + (r.status === 'approved' ? 'ok' : r.status === 'rejected' ? 'red' : 'o')}>{r.status}</span></td>}
           <td><a className="view" onClick={() => nav('/evidence/' + r._id)}>View</a></td></tr>)}</tbody></table></div>
     </div>);
 }
 
-const fl = (d) => new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 const ft = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const STATUS = { pending: ['Pending review', 'o'], approved: ['Approved', 'ok'], rejected: ['Rejected', 'red'] };
 
@@ -43,7 +50,6 @@ export function Certificate() {
   const rows = [
     ['Module', r.module?.name || 'All enrolled modules'],
     r.createdAt && ['Submitted', ft(r.createdAt)],
-    ['Absence date', fl(r.date)],
     r.reviewedAt && [r.status === 'rejected' ? 'Rejected' : 'Reviewed', `${ft(r.reviewedAt)}${r.reviewer?.name ? ` by ${r.reviewer.name}` : ''}`],
   ].filter(Boolean);
   return (

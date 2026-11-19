@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { StatusPill, StatusButton } from './AccountStatus';
 import './programview.css';
 import { PROGRAMME_DEPARTMENT, sameDept } from './programmes';
+import { CountUp } from '../../motion';
 
 const E = encodeURIComponent;
 
@@ -77,7 +78,7 @@ export default function ProgramView({ focus = 'students' }) {
           onClick={() => setTab('students')}
         >
           <small>Total Students</small>
-          <b>{loaded ? stu.length : '—'}</b>
+          <b>{loaded ? <CountUp value={stu.length} /> : '—'}</b>
         </div>
 
         <div
@@ -85,12 +86,12 @@ export default function ProgramView({ focus = 'students' }) {
           onClick={() => setTab('teachers')}
         >
           <small>Total Teachers</small>
-          <b>{loaded ? tut.length : '—'}</b>
+          <b>{loaded ? <CountUp value={tut.length} /> : '—'}</b>
         </div>
 
         <div className="pv-stat pv-stat-info">
           <small>Total Modules</small>
-          <b>{loaded ? mods.length : '—'}</b>
+          <b>{loaded ? <CountUp value={mods.length} /> : '—'}</b>
         </div>
       </div>
 

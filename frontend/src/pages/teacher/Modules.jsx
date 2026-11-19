@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../../api';
+import { api, fileHref } from '../../api';
+import { toast } from '../../motion';
 import './staff.css';
 const dt = (d) => new Date(d).toLocaleDateString('en', { day: 'numeric', month: 'numeric', year: 'numeric' });
 
@@ -16,8 +17,89 @@ export function pattern(code = '') {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-export function Modules({ to = '/modules', label = 'Enrolment key' }) {
+/** The card picture: the image the tutor set, or the coloured pattern */
+export const coverOf = (m) => (m.coverUrl ? `url("${fileHref(m.coverUrl)}")` : pattern(m.code));
+
+const COVER_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const COVER_MAX = 10 * 1024 * 1024;
+/**
+ * Crops a picture to the card's shape (2:1, from the middle) and makes it at most 1200×600,
+ * so a big phone photo uploads quickly. Returns a JPEG Blob (or the original file if it can't be read).
+ */
+export async function fitCover(file) {
+  try {
+    const img = await new Promise((ok, bad) => {
+      const i = new Image();
+      i.onload = () => ok(i); i.onerror = bad;
+      i.src = URL.createObjectURL(file);
+    });
+    const W = Math.min(1200, img.naturalWidth), H = Math.round(W / 2);
+    const r = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    const sw = W / r, sh = H / r, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) / 2;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+    URL.revokeObjectURL(img.src);
+    const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.86));
+    return blob || file;
+  } catch { return file; }
+}
+
+/** ⋮ menu on a module card: change or remove the cover image (the module's tutor only) */
+function CoverMenu({ m, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const file = useRef(null);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('click', close); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const pick = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!COVER_TYPES.includes(f.type)) return toast('Choose a PNG, JPG or WebP image', 'bad');
+    if (f.size > COVER_MAX) return toast('That image is over 10 MB', 'bad');
+    setBusy(true);
+    const fd = new FormData();
+    fd.append('file', await fitCover(f), 'cover.jpg');
+    api(`/modules/${m.id}/cover`, fd)
+      .then((r) => { onChange(r.coverUrl); toast(`New image for ${m.code}`); })
+      .catch((x) => toast(x.message, 'bad'))
+      .finally(() => setBusy(false));
+  };
+  const remove = () => {
+    setOpen(false); setBusy(true);
+    api(`/modules/${m.id}/cover`, null, 'DELETE')
+      .then(() => { onChange(null); toast(`Image removed from ${m.code}`, 'info'); })
+      .catch((x) => toast(x.message, 'bad'))
+      .finally(() => setBusy(false));
+  };
+  // clicks inside the menu must not open the module
+  return (
+    <div className="vc-menu" ref={box} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <button className={'vc-dots' + (busy ? ' busy' : '')} aria-label={`Options for ${m.code}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} disabled={busy}>
+        {busy ? <i className="spin" /> : <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" /></svg>}
+      </button>
+      {open && (
+        <div className="vc-pop" role="menu">
+          <button role="menuitem" onClick={() => { setOpen(false); file.current?.click(); }}>🖼️ {m.coverUrl ? 'Change image' : 'Add image'}</button>
+          {m.coverUrl && <button role="menuitem" onClick={remove}>✕ Remove image</button>}
+          <small>PNG, JPG or WebP, up to 10 MB. It is cropped to fit the card.</small>
+        </div>
+      )}
+      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pick} />
+    </div>
+  );
+}
+
+export function Modules({ to = '/modules', label = 'Enrolment key', edit = to === '/modules' }) {
   const nav = useNavigate(), [m, setM] = useState(null); useEffect(() => { api('/teacher/modules').then(setM).catch(() => setM([])); }, []);
+  const setCover = (id) => (url) => setM((l) => l.map((x) => (x.id === id ? { ...x, coverUrl: url } : x)));
   if (!m) return <p className="mut">Loading modules…</p>;
   if (!m.length) return <p className="mut">No modules yet. The admin assigns your modules for this semester.</p>;
   return (
@@ -26,7 +108,8 @@ export function Modules({ to = '/modules', label = 'Enrolment key' }) {
       <div className="vc-grid">
         {m.map((x) => (
           <div className="vc-card" key={x.id} role="link" tabIndex={0} onClick={() => nav(`${to}/${x.id}`)} onKeyDown={(e) => e.key === 'Enter' && nav(`${to}/${x.id}`)}>
-            <div className="vc-img" style={{ backgroundImage: pattern(x.code) }} aria-hidden="true" />
+            <div className="vc-img" style={{ backgroundImage: coverOf(x) }} aria-hidden="true" />
+            {edit && <CoverMenu m={x} onChange={setCover(x.id)} />}
             <div className="vc-body">
               <small className="vc-cat">{x.code}{x.section ? ` · Section ${x.section}` : ''}</small>
               <a className="vc-name" href={`${to}/${x.id}`} onClick={(e) => e.preventDefault()}>{x.name}</a>

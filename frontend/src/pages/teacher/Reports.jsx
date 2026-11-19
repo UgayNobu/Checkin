@@ -1,4 +1,4 @@
-// Tutor: Reports & Analytics (VLE style)
+// Tutor: Reports & Analytics (VLE style) — shown on the tutor Dashboard (the separate page was merged into it)
 //  • headline tiles: overall attendance, classes held, students below 90%, flagged check-ins
 //  • weekly trend: one line per module over the last 6 weeks, with the 90% requirement line
 //  • modules: each module's overall % against 90%
@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import { CountUp, Skeleton } from '../../motion';
 import './reports.css';
 
 const REQUIRED = 90;
@@ -66,7 +67,7 @@ function Trend({ mods }) {
         <text x={W - R + 6} y={y(REQUIRED) + 4} className="rp-target-label">{narrow ? `${REQUIRED}%` : `${REQUIRED}% required`}</text>
         {labels.map((t, i) => (narrow && i % 2 === 0 && i !== n - 1 ? null : <text key={i} x={x(i)} y={H - 10} className="rp-axis" textAnchor="middle">{t}</text>))}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} className="rp-cross" />}
-        {paths.map((d, i) => <path key={i} d={d} fill="none" stroke={colorOf(i)} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />)}
+        {paths.map((d, i) => <path key={i} d={d} pathLength="1" fill="none" stroke={colorOf(i)} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />)}
         {mods.map((m, i) => m.weeks.map((v, j) => (v == null ? null : (
           <circle key={`${i}-${j}`} cx={x(j)} cy={y(v)} r={hover === j ? 6 : 4.5} fill={colorOf(i)} stroke="#fff" strokeWidth="2" />
         ))))}
@@ -127,7 +128,7 @@ export default function Reports() {
     return { classes, overall, low, flagged };
   }, [mods, rows]);
 
-  if (!mods) return <p className="mut">Loading reports…</p>;
+  if (!mods) return <Skeleton tiles={4} rows={4} />;
   if (!mods.length) return <div className="rp-card rp-empty"><b>No modules yet</b><span>Reports appear once the admin assigns you a module.</span></div>;
 
   const tiles = [
@@ -143,7 +144,7 @@ export default function Reports() {
         {tiles.map((t) => (
           <div className="rp-card rp-tile" key={t.label}>
             <small>{t.label}</small>
-            <b className={t.tone}>{t.value}</b>
+            <b className={t.tone}><CountUp value={t.value} /></b>
             <span>{t.note}</span>
           </div>
         ))}

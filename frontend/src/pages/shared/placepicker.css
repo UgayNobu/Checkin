@@ -1,0 +1,25 @@
+/* Practical place: text box + list of places */
+.pp { position: relative; }
+.pp-field { position: relative; display: flex; align-items: center; }
+.pp-pin { position: absolute; left: 11px; font-size: 15px; pointer-events: none; }
+.vle .page .pp-field input { width: 100%; box-sizing: border-box; padding-left: 36px; padding-right: 64px; }
+.pp-clear, .pp-caret { position: absolute; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: #6a737b; cursor: pointer; }
+.pp-clear { right: 34px; font-size: 20px; line-height: 1; }
+.pp-caret { right: 6px; }
+.pp-clear:hover, .pp-caret:hover { background: #eef1f4; color: #1d2125; }
+.pp-caret i { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid currentColor; transition: transform 0.2s; }
+.pp.open .pp-caret i { transform: rotate(180deg); }
+.pp-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 60; margin: 0; padding: 6px 0; list-style: none;
+  max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid rgba(0, 0, 0, 0.15); border-radius: 10px;
+  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.3); animation: rise 0.18s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.pp-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; font-size: 14.5px; cursor: pointer; }
+.pp-list li.hi { background: #e9f1fa; }
+.pp-list li.on { font-weight: 600; color: #0f6cbf; }
+.pp-list li small { padding: 1px 8px; border-radius: 10px; background: #fcefdc; color: #8a5a00; font-size: 11px; font-weight: 600; }
+.pp-list li.recent + li:not(.recent) { border-top: 1px solid #eceef0; }
+@media (max-width: 760px) {
+  .pp-list li { padding: 12px 14px; font-size: 15px; }
+  .pp-list { max-height: 50vh; }
+}

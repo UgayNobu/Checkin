@@ -12,4 +12,6 @@ const make = ({ maxBytes, mimes }, label) => multer({
 const evidenceUpload = make(FILES.evidence, 'a PDF, PNG, JPG or WebP file (max 10 MB)').single('file');
 const avatarUpload = make(FILES.avatar, 'a PNG, JPG or WebP image (max 2 MB)').single('file');
 
-module.exports = { evidenceUpload, avatarUpload };
+const coverUpload = make(FILES.cover, 'a PNG, JPG or WebP image (max 10 MB)').single('file');
+
+module.exports = { evidenceUpload, avatarUpload, coverUpload };

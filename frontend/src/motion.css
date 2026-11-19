@@ -1,0 +1,135 @@
+/* =========================================================
+   motion.css — transitions and animations for the whole app.
+   Same VLE colours and layout; this only adds movement:
+   page entrance, cards rising in one after another, hover lift,
+   sliding nav underline, bell wiggle, charts drawing in, toasts,
+   skeleton loaders. All of it switches off with prefers-reduced-motion,
+   and it is lighter on phones.
+   ========================================================= */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes slideBack { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(3px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } }
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-14deg); } 45% { transform: rotate(10deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } }
+@keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgba(202, 49, 32, 0.55); } 100% { box-shadow: 0 0 0 9px rgba(202, 49, 32, 0); } }
+@keyframes shimmer { from { background-position: -460px 0; } to { background-position: 460px 0; } }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* ---------- Page entrance (every route change) ---------- */
+.vle .vhead { animation: slideBack 0.45s var(--ease-out) both; }
+.vle .vhead p { animation: fade 0.6s 0.15s both; }
+.vle .page { animation: fade 0.35s ease-out both; }
+
+/* ---------- Cards rise in one after another (motion.js sets data-anim + --d) ---------- */
+[data-anim='wait'] { opacity: 0; }
+[data-anim='in'] { animation: rise 0.55s var(--ease-out) both; animation-delay: var(--d, 0ms); }
+tr[data-anim='in'] { animation: fade 0.4s ease-out both; animation-delay: var(--d, 0ms); }
+
+/* ---------- Hover lift on cards ---------- */
+.vle :is(.vc-card, .course, .dept, .rec-modcard, .rp-tile, .ao-stat, .pv-stat, .tch-stat, .td-tile, .stat, .mm-card, .rcard, .big) {
+  transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.2s;
+}
+@media (hover: hover) {
+  .vle :is(.vc-card, .course, .dept, .rec-modcard, .rp-tile, .ao-stat, .pv-stat, .tch-stat, .td-tile, .stat, .mm-card, .rcard, .big):hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px -12px rgba(15, 63, 110, 0.35);
+  }
+}
+
+/* ---------- Buttons: press feedback and a soft glow ---------- */
+.vle :is(.btn, .pbtn, .ghost, .cc-btn, button.app, button.rej, .tt-add, .td-start) {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease, filter 0.2s;
+}
+.vle :is(.btn, .pbtn, .cc-btn, button.app, .tt-add, .td-start):hover:not(:disabled) { box-shadow: 0 6px 16px -6px rgba(15, 108, 191, 0.55); }
+.vle :is(.btn, .pbtn, .ghost, .cc-btn, button.app, button.rej, .tt-add, .td-start):active:not(:disabled) { transform: scale(0.96); }
+
+/* inputs glow when focused */
+.vle .page :is(input, select, textarea) { transition: border-color 0.2s, box-shadow 0.25s; }
+
+/* ---------- Sliding underline under the active nav link ---------- */
+.vnav-links { position: relative; }
+.vnav-ink {
+  position: absolute; bottom: 0; left: 0; height: 3px; border-radius: 3px 3px 0 0;
+  background: var(--vle-primary, #0f6cbf);
+  transition: transform 0.38s var(--ease-out), width 0.38s var(--ease-out), opacity 0.2s;
+  pointer-events: none;
+}
+.vle .vnav-links.has-ink > a.active, .vle .vnav-links.has-ink .vnav-more > button.active { border-bottom-color: transparent; }
+.vle .vnav-links > a, .vle .vnav-more > button { transition: background-color 0.2s, color 0.2s; }
+.vle .vnav-links > a:hover, .vle .vnav-more > button:hover { color: var(--vle-primary); }
+
+/* dropdowns open with a little drop */
+.vle .vmenu, .vle .bellpanel { animation: rise 0.22s var(--ease-out) both; transform-origin: top right; }
+
+/* ---------- Bell ---------- */
+.vle .bell svg { width: 22px; height: 22px; transform-origin: 50% 3px; }
+.vle .bell.ring svg { animation: wiggle 1s ease-in-out 2; }
+.vle .bell .dot { animation: pulse-dot 1.6s ease-out infinite; }
+
+/* ---------- Charts draw in ---------- */
+.rp-chart path[pathLength] { stroke-dasharray: 1; animation: draw 1.4s var(--ease-out) both; }
+.rp-chart circle { animation: pop 0.45s var(--ease-spring) both; animation-delay: 0.9s; transform-box: fill-box; transform-origin: center; }
+.rp-fill { transform-origin: left; animation: grow-x 1s var(--ease-out) both; animation-delay: 0.25s; }
+.sdc-bar { transform-origin: bottom; animation: grow-y 0.9s var(--ease-out) both; }
+.sdc-col:nth-child(2) .sdc-bar { animation-delay: 0.08s; }
+.sdc-col:nth-child(3) .sdc-bar { animation-delay: 0.16s; }
+.sdc-col:nth-child(4) .sdc-bar { animation-delay: 0.24s; }
+.sdc-col:nth-child(n + 5) .sdc-bar { animation-delay: 0.32s; }
+
+/* ---------- Skeleton loaders ---------- */
+.skel {
+  border-radius: 10px;
+  background: linear-gradient(90deg, #eef2f6 0, #f8fafc 40%, #eef2f6 80%) 0 0 / 920px 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.skel-wrap { display: grid; gap: 12px; }
+.skel-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 8px; }
+.skel-tile { height: 110px; }
+.skel-row { height: 18px; }
+
+/* ---------- Toasts ---------- */
+#toasts { position: fixed; right: 20px; bottom: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast {
+  display: flex; align-items: center; gap: 10px; min-width: 220px; max-width: 380px; padding: 12px 16px 12px 12px;
+  border-radius: 12px; background: #13283f; color: #fff; font-size: 14px; line-height: 1.4;
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.45); animation: toast-in 0.35s var(--ease-spring) both;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast.out { opacity: 0; transform: translateY(10px); }
+.toast i { flex-shrink: 0; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-style: normal; font-weight: 800; font-size: 13px; background: #357a32; }
+.toast.bad i { background: #ca3120; }
+.toast.info i { background: #0f6cbf; }
+@media (max-width: 760px) { #toasts { left: 12px; right: 12px; bottom: 14px; } .toast { max-width: none; } }
+
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 999; pointer-events: none; }
+
+/* spinner used inside buttons */
+.spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+
+/* ---------- Phones: shorter, smaller movements ---------- */
+@media (max-width: 760px) {
+  [data-anim='in'] { animation-duration: 0.4s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+}
+
+/* ---------- Less motion when the device asks for it ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  [data-anim='wait'] { opacity: 1; }
+}
+
+/* check-in result and swap box arriving from a notification */
+.vle .result { animation: pop 0.45s var(--ease-spring) both; }
+@keyframes flash-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 108, 191, 0); } 30%, 70% { box-shadow: 0 0 0 5px rgba(15, 108, 191, 0.35); } }
+.vle .sw-box.flash { animation: flash-ring 1.6s ease-in-out 0.4s 2; }
