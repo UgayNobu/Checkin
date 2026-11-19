@@ -5,6 +5,7 @@ import SemesterPicker, { useSemester } from '../shared/SemesterPicker';
 import '../teacher/staff.css';
 import '../student/attendance.css';
 import './History.css';
+import { CountUp } from '../../motion';
 
 const fmt = (d) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -161,10 +162,10 @@ export function HistoryCalendar() {
             <small>{info.student?.userId}</small>
           </div>
           <div className="hx-stats">
-            <div><b>{info.total ?? 0}</b><small>Classes</small></div>
-            <div className="g"><b>{info.present ?? 0}</b><small>Present</small></div>
-            <div className="r"><b>{info.absent ?? 0}</b><small>Absent</small></div>
-            <div className={info.pct == null ? '' : info.pct >= 90 ? 'g' : 'r'}><b>{info.pct == null ? '–' : `${info.pct}%`}</b><small>Attendance</small></div>
+            <div><b><CountUp value={info.total ?? 0} /></b><small>Classes</small></div>
+            <div className="g"><b><CountUp value={info.present ?? 0} /></b><small>Present</small></div>
+            <div className="r"><b><CountUp value={info.absent ?? 0} /></b><small>Absent</small></div>
+            <div className={info.pct == null ? '' : info.pct >= 90 ? 'g' : 'r'}><b>{info.pct == null ? '–' : <CountUp value={`${info.pct}%`} />}</b><small>Attendance</small></div>
           </div>
         </div>
       )}

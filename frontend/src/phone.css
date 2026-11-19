@@ -197,3 +197,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Design refresh: headline numbers two per row on phones ---------- */
+@media (max-width: 760px) {
+  .vle .ao-stats, .vle .page .stats, .vle .pv-stats { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+  .vle .ao-stats > :last-child:nth-child(odd), .vle .page .stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .vle :is(.ao-stat, .page .stats > .stat, .pv-stat) { min-width: 0 !important; width: auto !important; padding: 12px 14px !important; }
+  .vle :is(.ao-stat, .page .stats > .stat, .pv-stat) b { font-size: 26px !important; }
+  .vle .rp-tile b { font-size: 26px; }
+  .vle .rp-tile small, .vle .rp-tile span { font-size: 12.5px; }
+  /* buttons easy to tap */
+  .vle .page :is(.btn, .pbtn, .td-start, .cc-btn, button.app, button.rej) { min-height: 42px; }
+}

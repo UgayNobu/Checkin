@@ -113,3 +113,31 @@
 /* Student: a class of their year they haven't enrolled in, or one with no attendance taken: dimmed, so their own classes stand out */
 .tt-card.dim { background: #f8f9fa; border-left-color: #ced4da; opacity: 0.6; }
 .tt-card.dim .tt-mod, .tt-card.dim .tt-time b { color: #6a737b; }
+
+/* ---------- Bigger, full-width week strip and cards (design refresh) ---------- */
+.tt-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.tt-day { min-width: 0; padding: 12px 8px; font-size: 16px; gap: 3px; border-radius: 10px; transition: transform 0.18s, box-shadow 0.18s, background-color 0.2s, border-color 0.2s; }
+.tt-day span { font-size: 13px; }
+.tt-day small { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #f1f4f7; }
+.tt-day.on small { background: rgba(255, 255, 255, 0.2); }
+.tt-day:not(.on):hover { transform: translateY(-2px); border-color: #9ec5ea; box-shadow: 0 8px 18px -10px rgba(15, 108, 191, 0.5); }
+.tt-day.on { box-shadow: 0 10px 20px -10px rgba(15, 108, 191, 0.75); }
+.tt-h { font-size: 19px; }
+.tt-h span { font-size: 14px; }
+.tt-card { padding: 16px 20px; gap: 20px; border-radius: 10px; transition: transform 0.2s, box-shadow 0.2s; }
+.tt-card:not(.off):hover { transform: translateY(-2px); box-shadow: 0 12px 26px -16px rgba(15, 63, 110, 0.45); }
+.tt-why { font-size: 13px; }
+.tt-foot { font-size: 13px; }
+.tt-date { font-size: 15px; }
+.tt-link { font-size: 14px; }
+@media (max-width: 560px) {
+  .tt-days { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-columns: auto; gap: 8px; }
+  .tt-day { padding: 9px 6px; font-size: 14px; }
+  .tt-day small { font-size: 11px; }
+  .tt-card { padding: 12px 14px; }
+}
+.tt-time { width: 84px; }
+.tt-time b { font-size: 17px; white-space: nowrap; }
+.tt-time small { font-size: 12.5px; white-space: nowrap; }
+.tt-mod { font-size: 16px; }
+@media (max-width: 560px) { .tt-time { width: 70px; } .tt-time b { font-size: 15px; } .tt-mod { font-size: 15px; } }

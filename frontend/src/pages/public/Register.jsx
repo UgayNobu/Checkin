@@ -2,6 +2,7 @@ import { useState } from 'react'; // CHANGED: useEffect no longer needed
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { validateRegister, passwordChecks, fieldFromServer, PASSWORD_HINT } from '../../validation';
+import { Field, Typing, Aurora } from './Fx.jsx';
 import './public.css';
 
 // CHANGED: full programme and department lists
@@ -57,6 +58,10 @@ export default function Register() {
   // Email check (when the server has EMAIL_VERIFY on): { userId, email } while waiting for the code
   const [pending, setPending] = useState(null);
   const [code, setCode] = useState('');
+  const [step, setStep] = useState(1); // 1 = about you, 2 = password (3 = email code, when the server asks)
+  const [dir, setDir] = useState(''); // '' = slide in from the right, 'back' = from the left
+  const [shake, setShake] = useState(0);
+  const STEP1 = ['name', 'userId', 'email', 'pick', 'year'];
   const lists = { prog: PROG, dept: DEPT }; // CHANGED: use the lists above directly
 
   const set = (k) => (e) => {
@@ -78,7 +83,12 @@ export default function Register() {
     setMsg({ text: '', ok: false });
     // Show every problem at once when they press the button
     setTouched({ name: true, userId: true, email: true, pick: true, year: true, password: true, again: true });
-    if (Object.keys(errors).length) return setMsg({ text: 'Please fix the highlighted fields.', ok: false });
+    if (Object.keys(errors).length) {
+      // a problem on the first step: go back there so it can be fixed
+      if (STEP1.some((k) => errors[k])) { setDir('back'); setStep(1); }
+      setShake((n) => n + 1);
+      return setMsg({ text: 'Please fix the highlighted fields.', ok: false });
+    }
 
     setBusy(true);
     api('/auth/register', {
@@ -99,6 +109,8 @@ export default function Register() {
         // e.g. "userId: must be ..." goes under the right box; anything else shows below the form
         const field = fieldFromServer(x.message, ['name', 'userId', 'email', 'password', 'year']);
         if (field) setServerErr(field);
+        if (field && STEP1.some((k) => field[k])) { setDir('back'); setStep(1); }
+        setShake((n) => n + 1);
         setMsg({ text: field ? 'Please fix the highlighted fields.' : x.message, ok: false });
       })
       .finally(() => setBusy(false));
@@ -123,35 +135,42 @@ export default function Register() {
   };
 
   const inp = (label, key, type = 'text', placeholder) => (
-    <>
-      <label>{label}</label>
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={f[key]}
-        onChange={set(key)}
-        onBlur={leave(key)}
-        className={errOf(key) ? 'bad' : ''}
-        autoComplete={key === 'password' || key === 'again' ? 'new-password' : undefined}
-      />
-      {errOf(key) && <small className="ferr">{errOf(key)}</small>}
-    </>
+    <Field
+      label={label} type={type} hint={placeholder} value={f[key]} onChange={set(key)} onBlur={leave(key)} error={errOf(key)}
+      autoComplete={key === 'password' || key === 'again' ? 'new-password' : undefined}
+    />
+  );
+  // "Next": check only the first step's fields, then slide to the password step
+  const next = () => {
+    setTouched({ ...touched, name: true, userId: true, email: true, pick: true, year: true });
+    if (STEP1.some((k) => errors[k])) { setShake((n) => n + 1); return; }
+    setMsg({ text: '', ok: false }); setDir(''); setStep(2);
+  };
+  const steps = (
+    <div className="su-steps" aria-label={`Step ${pending ? 3 : step} of 3`}>
+      <span className={(pending || step > 1 ? 'done' : 'on')}><i>{pending || step > 1 ? '✓' : 1}</i>Details</span>
+      <b className={pending || step > 1 ? 'on' : ''} />
+      <span className={pending ? 'done' : step === 2 ? 'on' : ''}><i>{pending ? '✓' : 2}</i>Password</span>
+      <b className={pending ? 'on' : ''} />
+      <span className={pending ? 'on' : ''}><i>3</i>Verify</span>
+    </div>
   );
 
   return (
     <div className={'login ' + (tutor ? 'tutor' : 'student')}>
       {/* Left side */}
-            <div className={'hero ' + (tutor ? 'teacherhero' : 'studenthero')}>
+      <div className={'hero ' + (tutor ? 'teacherhero' : 'studenthero')}>
+        <Aurora />
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
-        <div>
+        <div className="hero-copy">
           <span className="hero-eyebrow">{tutor ? 'TUTOR SIGN UP' : 'STUDENT SIGN UP'}</span>
           <h1>
             {tutor
-              ? <>Join CheckIn as a <span>tutor.</span></>
-              : <>Your digital gateway to <span>campus life.</span></>}
+              ? <>Join CheckIn as a <Typing words={['tutor.', 'class leader.', 'record keeper.']} /></>
+              : <>Your digital gateway to <Typing words={['campus life.', 'every module.', 'your attendance.']} /></>}
           </h1>
           <p>
             {tutor
@@ -165,12 +184,13 @@ export default function Register() {
 
       {/* Email check: enter the code (only when the server asks for it) */}
       {pending ? (
-        <form className="lcard" style={{ width: 360 }} onSubmit={confirm}>
+        <form key={'v' + shake} className={'lcard' + (shake ? ' shake' : '')} style={{ width: 380 }} onSubmit={confirm}>
           <a className="alt" onClick={() => { setPending(null); setMsg({ text: '', ok: false }); }} style={{ display: 'block', textAlign: 'left' }}>
             ← Change my details
           </a>
           <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
           <h2>Check your email</h2>
+          {steps}
           <p className="sub">We sent a 6-digit code to <b>{pending.email}</b>. Enter it below to finish signing up.</p>
           <label>Code</label>
           <input
@@ -187,77 +207,66 @@ export default function Register() {
           </p>
         </form>
       ) : (
-      /* Form card */
-      <form className="lcard" style={{ width: 360 }} onSubmit={go}>
-        <a
-          className="alt"
-          onClick={() => nav(back)}
-          style={{ display: 'block', textAlign: 'left' }}
-        >
-          ← Back to login
+      /* Form card: two steps that slide (details, then password) */
+      <form key={'f' + shake} className={'lcard' + (shake ? ' shake' : '')} style={{ width: 380 }} onSubmit={go} noValidate>
+        <a className="alt back" onClick={() => (step === 2 ? (setDir('back'), setStep(1)) : nav(back))}>
+          {step === 2 ? '← Back to details' : '← Back to login'}
         </a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{tutor ? 'Tutor sign up' : 'Student sign up'}</h2>
+        {steps}
 
-        {inp('Full name', 'name', 'text', 'e.g. Karma Wangmo')}
-        {inp(tutor ? 'Staff ID' : 'Student ID', 'userId', 'text', tutor ? 'CST-0142' : '02250368')}
-        {inp('College email', 'email', 'email', tutor ? 'name.cst@rub.edu.bt' : '02250368.cst@rub.edu.bt')}
+        {step === 1 ? (
+          <div className={'su-pane ' + dir} key="s1">
+            {inp('Full name', 'name', 'text', 'e.g. Karma Wangmo')}
+            {inp(tutor ? 'Staff ID' : 'Student ID', 'userId', 'text', tutor ? 'CST-0142' : '02250368')}
+            {inp('College email', 'email', 'email', tutor ? 'name.cst@rub.edu.bt' : '02250368.cst@rub.edu.bt')}
 
-        <label>{tutor ? 'Department' : 'Programme'}</label>
-        <select value={f.pick} onChange={set('pick')} onBlur={leave('pick')} className={errOf('pick') ? 'bad' : ''}>
-          <option value="">Select</option>
-          {(tutor ? lists.dept : lists.prog).map((x) => (
-            <option key={x}>{x}</option>
-          ))}
-        </select>
-        {errOf('pick') && <small className="ferr">{errOf('pick')}</small>}
-        {/* Students: which year they are in, so they only see their own year's modules and classes */}
-        {!tutor && (
-          <>
-            <label>Year</label>
-            <select value={f.year} onChange={set('year')} onBlur={leave('year')} className={errOf('year') ? 'bad' : ''}>
+            <Field select label={tutor ? 'Department' : 'Programme'} value={f.pick} onChange={set('pick')} onBlur={leave('pick')} error={errOf('pick')}>
               <option value="">Select</option>
-              {ORD.slice(0, yearsOf(f.pick)).map((y, i) => (
-                <option key={y} value={i + 1}>{y} Year</option>
+              {(tutor ? lists.dept : lists.prog).map((x) => <option key={x}>{x}</option>)}
+            </Field>
+            {/* Students: which year they are in, so they only see their own year's modules and classes */}
+            {!tutor && (
+              <Field select label="Year" value={f.year} onChange={set('year')} onBlur={leave('year')} error={errOf('year')}>
+                <option value="">Select</option>
+                {ORD.slice(0, yearsOf(f.pick)).map((y, i) => <option key={y} value={i + 1}>{y} Year</option>)}
+              </Field>
+            )}
+            {/* tutors: the programme they mostly teach (optional) */}
+            {tutor && (
+              <Field select label="Programme" value={f.tprog} onChange={set('tprog')}>
+                <option value="">Select</option>
+                {lists.prog.map((x) => <option key={x}>{x}</option>)}
+              </Field>
+            )}
+            {msg.text && <p className={msg.ok ? 'okmsg' : 'err'}>{msg.text}</p>}
+            <button type="button" className="btn lbtn" onClick={next}>Next →</button>
+          </div>
+        ) : (
+          <div className={'su-pane ' + dir} key="s2">
+            {inp('Password', 'password', show ? 'text' : 'password')}
+            <ul className="pwrules" title={PASSWORD_HINT}>
+              {rules.map(([label, ok]) => (
+                <li key={label} className={ok ? 'ok' : ''}>{ok ? '✓' : '○'} {label}</li>
               ))}
-            </select>
-            {errOf('year') && <small className="ferr">{errOf('year')}</small>}
-          </>
+            </ul>
+            {inp('Confirm password', 'again', show ? 'text' : 'password')}
+            <label className="showpw">
+              <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show passwords
+            </label>
+
+            {msg.text && <p className={msg.ok ? 'okmsg' : 'err'}>{msg.text}</p>}
+
+            <div className="su-nav">
+              <button type="button" className="btn sec" onClick={() => { setDir('back'); setStep(1); }}>←</button>
+              <button className="btn lbtn" disabled={busy || msg.ok}>
+                {msg.ok ? <span className="lbtn-ok">✓ Done</span> : busy ? <><i className="spin" /> Please wait…</> : tutor ? 'Submit request' : 'Create account'}
+              </button>
+            </div>
+          </div>
         )}
-        {/* CHANGED: extra Programme dropdown for tutors */}
-        {tutor && (
-          <>
-            <label>Programme</label>
-            <select value={f.tprog} onChange={set('tprog')}>
-              <option value="">Select</option>
-              {lists.prog.map((x) => (
-                <option key={x}>{x}</option>
-              ))}
-            </select>
-          </>
-        )}
-
-        {inp('Password', 'password', show ? 'text' : 'password')}
-        <ul className="pwrules" title={PASSWORD_HINT}>
-          {rules.map(([label, ok]) => (
-            <li key={label} className={ok ? 'ok' : ''}>{ok ? '✓' : '○'} {label}</li>
-          ))}
-        </ul>
-        {inp('Confirm password', 'again', show ? 'text' : 'password')}
-        <label className="showpw">
-          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show passwords
-        </label>
-
-        {msg.text && <p className={msg.ok ? 'okmsg' : 'err'}>{msg.text}</p>}
-
-        <button
-          className={'btn ' + (tutor ? '' : 'purple')}
-          style={{ width: '100%', borderRadius: 20 }}
-          disabled={busy}
-        >
-          {busy ? 'Please wait…' : tutor ? 'Submit request' : 'Create account'}
-        </button>
 
         <p className="alt">
           Already have an account? <a onClick={() => nav(back)}>Log in</a>

@@ -5,6 +5,7 @@
 import { span12 } from '../../time12';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
+import PlacePicker, { rememberPlace } from './PlacePicker.jsx';
 import './classchanges.css';
 import './kindtabs.css';
 
@@ -229,7 +230,7 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
     const body = { type: 'extra', module: f.module, date: f.date, start: f.start, end: f.end, sessionType: f.sessionType, counts: f.counts, reason: f.reason, note: f.note.trim() };
     if (practical) Object.assign(body, { place: f.place.trim() || undefined, radius: Number(f.radius) });
     else if (f.room) body.room = f.room;
-    api('/class-changes', body).then(onDone).catch((e) => setErr(e.message)).finally(() => setBusy(false));
+    api('/class-changes', body).then((r) => { if (body.place) rememberPlace(body.place); onDone(r); }).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   };
 
   return (
@@ -303,8 +304,7 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
       {practical ? (
         <>
           <label htmlFor="cc-place">Place (optional)</label>
-          <input id="cc-place" maxLength={100} value={f.place} onChange={(e) => set('place', e.target.value)}
-            placeholder="e.g. Survey field, EG Lab, Football ground" />
+          <PlacePicker id="cc-place" value={f.place} onChange={(v) => set('place', v)} />
           <small className="cc-hint">Students see this in their message. No room is booked.</small>
 
           <label>Students must be within</label>
@@ -474,6 +474,14 @@ export function SwapRequests({ reload, onChanged }) {
   const [err, setErr] = useState('');
   const load = () => api('/class-changes/swaps').then(setData).catch(() => setData({ incoming: [], outgoing: [] }));
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [reload]);
+  // opened from a notification (Timetable#swaps): bring the box into view and flash it
+  const boxRef = useRef(null);
+  useEffect(() => {
+    if (data && window.location.hash === '#swaps' && boxRef.current) {
+      boxRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      boxRef.current.classList.add('flash');
+    }
+  }, [data]);
   if (!data) return null;
   const pendingIn = data.incoming.filter((s) => s.status === 'pending');
   const pendingOut = data.outgoing.filter((s) => s.status === 'pending');
@@ -489,7 +497,7 @@ export function SwapRequests({ reload, onChanged }) {
   const cls = (c) => `${c.module.code} · ${nice(c.date)}, ${span12(c.start, c.end)}${c.room ? ` · ${c.room.name}` : ''}`;
   const words = { accepted: 'Accepted', rejected: 'Rejected', cancelled: 'Cancelled', expired: 'Expired' };
   return (
-    <div className="sw-box">
+    <div className="sw-box" id="swaps" ref={boxRef}>
       <b className="sw-title">Swap requests</b>
       {pendingIn.map((s) => (
         <div key={s.id} className="sw-row in">

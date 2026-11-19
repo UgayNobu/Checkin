@@ -119,7 +119,7 @@ export default function Evidence() {
             <span className="ev-ico">{r.type === 'official' ? '📋' : '🩺'}</span>
             <div className="ev-main">
               <b>{r.type === 'official' ? 'Official Leave' : 'Medical Leave'}</b>
-              <small>{r.module?.code ? `${r.module.code} · ` : ''}{fmt(r.date)}</small>
+              <small>{r.module?.code ? `${r.module.code} · ` : ''}Submitted {fmt(r.createdAt || r.date)}</small>
               {r.reason && <small className="ev-reason">{r.reason}</small>}
               {r.status !== 'pending' && (
                 <small className={'ev-decision ' + r.status}>
