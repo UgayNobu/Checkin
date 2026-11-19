@@ -2,7 +2,7 @@
    Reports & Analytics (VLE style)
    ========================================================= */
 .rp { display: flex; flex-direction: column; gap: 20px; }
-.rp-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px 22px; min-width: 0; }
+.rp-card { background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px 22px; min-width: 0; }
 .rp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .rp-head h3 { margin: 0; font-size: 18px; font-weight: 700; color: #1d2125; }
 .rp-head .mut { font-size: 13px; color: #6a737b; }

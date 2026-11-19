@@ -5,6 +5,7 @@ const { notify } = require('./notifications.service');
 const { writeAuditLog } = require('./audit.service');
 const { suggestEnrolmentKey, normalizeEnrolmentKey } = require('../utils/enrolment-key');
 const { currentAcademicSession, sessionOrCurrent } = require('../lib/academicSession');
+const { saveFile, deleteFile, fileUrl } = require('../lib/storage');
 
 /**
  * The tutor's section for a module, or a 403. Every tutor route goes through this.
@@ -74,4 +75,29 @@ async function removeStudent(moduleId, user, studentId) {
   return { message: 'Student removed from the module' };
 }
 
-module.exports = { assertTutorOwnsModule, setEnrolmentKey, suggestKey, listStudents, addStudent, removeStudent };
+/**
+ * Module cover image (VLE-style course image). Only the module's tutor this semester, or an admin.
+ * The picture goes to the same cloud storage as evidence documents; the old one is deleted.
+ */
+async function setCover(moduleId, user, file) {
+  if (!file) throw BadRequest('Choose an image to upload', 'NO_FILE');
+  if (user.role === 'teacher') await assertTutorOwnsModule(moduleId, user.id);
+  const old = await prisma.module.findUnique({ where: { id: moduleId }, select: { coverImage: true } });
+  if (!old) throw NotFound('Module not found');
+  const stored = await saveFile(file, `covers/${moduleId}`, user.id);
+  await prisma.module.update({ where: { id: moduleId }, data: { coverImage: stored } });
+  await deleteFile(old.coverImage).catch(() => {});
+  return { id: moduleId, coverUrl: await fileUrl(stored) };
+}
+
+/** Back to the coloured pattern. */
+async function removeCover(moduleId, user) {
+  if (user.role === 'teacher') await assertTutorOwnsModule(moduleId, user.id);
+  const old = await prisma.module.findUnique({ where: { id: moduleId }, select: { coverImage: true } });
+  if (!old) throw NotFound('Module not found');
+  await prisma.module.update({ where: { id: moduleId }, data: { coverImage: null } });
+  await deleteFile(old.coverImage).catch(() => {});
+  return { id: moduleId, coverUrl: null };
+}
+
+module.exports = { setCover, removeCover, assertTutorOwnsModule, setEnrolmentKey, suggestKey, listStudents, addStudent, removeStudent };

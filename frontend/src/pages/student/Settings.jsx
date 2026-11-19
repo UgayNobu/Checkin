@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, fileHref, logout, keepNewToken } from '../../api';
 import { passwordChecks, passwordOk } from '../../validation';
+import { coverOf } from '../teacher/Modules.jsx';
 import './settings.css';
 
 const initials = (n = '') =>
@@ -358,7 +359,7 @@ export function MyModules() {
       <div className="mm-list">
         {d.map((m) => (
           <div className="mm-card" key={m.id}>
-            <span className="circ">‹›</span>
+            <span className="mm-thumb" style={{ backgroundImage: coverOf(m) }} aria-hidden="true" />
             <div className="mm-info">
               <b>{m.name}</b>
               <small>{m.code}</small>

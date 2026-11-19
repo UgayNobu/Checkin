@@ -41,7 +41,7 @@
 }
 .vle .main {
   background: #fff;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - 74px);
   display: flex;
   flex-direction: column;
 }
@@ -54,12 +54,14 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  height: 60px;
+  height: 74px;
   display: flex;
   align-items: stretch;
   gap: 4px;
-  padding: 0 16px;
-  background: #fff;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--vle-border);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
@@ -70,12 +72,33 @@
   margin-right: 18px;
   color: var(--vle-text);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 19px;
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+.vbrand > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.vbrand > span small {
+  white-space: nowrap;
+  margin-top: 3px;
+  color: var(--vle-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 .vbrand .logo {
-  width: 34px;
-  height: 34px;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vbrand:hover .logo {
+  transform: rotate(-12deg) scale(1.06);
+}
+.vbrand .logo {
+  width: 46px;
+  height: 46px;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--vle-primary-light);
   border-radius: 50%;
   object-fit: cover;
   background: #fff;
@@ -98,10 +121,11 @@
   background: none;
   color: var(--vle-text);
   font: inherit;
-  font-size: 15px;
+  font-size: 15.5px;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  padding: 0 14px;
 }
 .vnav-links > a:hover,
 .vnav-more > button:hover {
@@ -189,8 +213,8 @@
   background: var(--vle-light);
 }
 .vle .avatar {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   border-radius: 50%;
   background: #e9ecef;
@@ -201,6 +225,7 @@
   font-weight: 700;
 }
 .vuser-name {
+  white-space: nowrap;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -213,11 +238,12 @@
   font-size: 12px;
 }
 .vle .bell {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   background: none;
+  color: var(--vle-text);
   font-size: 17px;
 }
 .vle .bell:hover {
@@ -250,11 +276,12 @@
 
 /* ---------- Page header + footer ---------- */
 .vhead {
-  padding: 28px 24px 4px;
+  padding: 30px 24px 2px;
 }
 .vhead h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 32px;
+  letter-spacing: -0.015em;
   font-weight: 700;
   line-height: 1.2;
   color: var(--vle-text);
@@ -460,6 +487,14 @@
 @media (max-width: 760px) {
   .vnav {
     padding: 0 10px;
+    height: 62px;
+  }
+  .vbrand .logo {
+    width: 38px;
+    height: 38px;
+  }
+  .vbrand > span small {
+    display: none;
   }
   .vbrand {
     font-size: 17px;
@@ -485,7 +520,8 @@
    ========================================================= */
 /* brand strip on the navbar, soft blue wash behind the page title */
 .vnav { border-top: 3px solid var(--vle-primary); }
-.vle .main { background: linear-gradient(180deg, #e8f1fb 0, #f4f8fd 150px, #fff 340px); }
+.vle .main { background: #0f3f6e; }
+.vle .vbody { flex: 1; display: flex; flex-direction: column; background: linear-gradient(180deg, #e8f1fb 0, #f4f8fd 150px, #fff 340px); }
 .vle .vuser .avatar, .vle .vdrawer-head .avatar { background: var(--vle-primary); color: #fff; }
 /* dark-blue footer */
 .vfoot { background: #0f3f6e; border-top: 0; color: #c9dcef; }
@@ -556,7 +592,11 @@
 .vle .bellpanel p.unread { background: var(--vle-primary-light); box-shadow: inset 3px 0 0 var(--vle-primary); }
 .vle .bellpanel small { font-size: 11px; margin-top: 3px; }
 .vle .bellpanel .bellempty { color: var(--vle-muted); text-align: center; padding: 18px; }
-@media (max-width: 760px) { .vle .bellpanel { position: fixed; top: 60px; left: 10px; right: 10px; width: auto; } }
+@media (max-width: 760px) { .vle .bellpanel { position: fixed; top: 64px; left: 10px; right: 10px; width: auto; max-height: 70vh; } }
+.vle .bellpanel p.link { cursor: pointer; transition: background-color 0.15s; }
+.vle .bellpanel p.link:hover { background: #f1f6fc; }
+.vle .bellpanel p.link small { color: var(--vle-primary); }
+.vle .bellnew { margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: var(--vle-danger); color: #fff; font-size: 11px; font-weight: 600; vertical-align: 1px; }
 
 /* Location status under the check-in code (students) and the workshop radius (tutors) */
 .gps { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4; border-left: 4px solid; }
@@ -565,21 +605,53 @@
 .gps.good { background: #e3f1e1; border-color: #357a32; color: #24561f; font-weight: 600; }
 .gps.bad { background: #fbe3e0; border-color: #ca3120; color: #8f2216; }
 
-/* ---------- Footer (the same on every page and for every role) ---------- */
-.vfoot { padding-top: 26px; padding-bottom: 0; font-size: 13px; line-height: 1.6; }
-.vfoot-cols { display: grid; grid-template-columns: 1.3fr 1.4fr 1fr; gap: 28px; padding-bottom: 22px; }
-.vfoot-brand { display: flex; gap: 12px; align-items: flex-start; }
-.vfoot-brand img { width: 44px; height: 44px; border-radius: 50%; background: #fff; flex-shrink: 0; }
-.vfoot-brand b { display: block; color: #fff; font-size: 17px; }
-.vfoot-brand span { display: block; }
-.vfoot h4 { margin: 0 0 6px; color: #fff; font-size: 13px; letter-spacing: .4px; text-transform: uppercase; }
-.vfoot p { margin: 0 0 6px; }
-.vle .vfoot a { display: block; color: #c9dcef; text-decoration: none; }
-.vle .vfoot p a { display: inline; }
+/* ---------- Footer (the same on every page and for every role) ----------
+   One compact row + the copyright line (about half the old height). On laptops it is a
+   "reveal" footer: it stays put behind the page and is uncovered as you reach the bottom. */
+.vfoot { padding-top: 16px; padding-bottom: 0; font-size: 13px; line-height: 1.5; }
+.vfoot-cols { display: flex; align-items: center; justify-content: space-between; gap: 18px 32px; flex-wrap: wrap; padding-bottom: 12px; }
+.vfoot-brand { display: flex; gap: 12px; align-items: center; }
+.vfoot-brand img { width: 36px; height: 36px; border-radius: 50%; background: #fff; flex-shrink: 0; }
+.vfoot-brand b { display: block; color: #fff; font-size: 16px; line-height: 1.2; }
+.vfoot-brand span { display: block; font-size: 12.5px; }
+.vfoot-contact { display: flex; flex-direction: column; font-size: 12.5px; }
+.vfoot-links { display: flex; gap: 18px; }
+.vle .vfoot a { color: #c9dcef; text-decoration: none; }
 .vle .vfoot a:hover { color: #fff; text-decoration: underline; }
-.vfoot-bar { border-top: 1px solid rgba(255, 255, 255, 0.15); padding: 12px 0 14px; font-size: 12px; color: #9fbad6; }
+.vfoot-bar { border-top: 1px solid rgba(255, 255, 255, 0.15); padding: 9px 0 11px; font-size: 12px; color: #9fbad6; }
+@media (min-width: 761px) {
+  .vle .main { position: relative; isolation: isolate; }
+  .vle .vbody { position: relative; z-index: 1; border-radius: 0 0 22px 22px; box-shadow: 0 18px 36px -18px rgba(8, 30, 60, 0.55); }
+  .vle .vfoot { position: sticky; bottom: 0; z-index: 0; }
+}
 @media (max-width: 760px) {
-  .vfoot-cols { grid-template-columns: 1fr; gap: 16px; padding-bottom: 16px; }
+  .vfoot-cols { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 10px; }
+  .vfoot-contact { display: none; }
+  .vfoot-brand img { width: 30px; height: 30px; }
+  .vfoot-brand span { font-size: 11.5px; }
+  .vfoot-links { gap: 14px; font-size: 12.5px; }
+  .vfoot-bar { padding: 8px 0 10px; font-size: 11px; }
+}
+
+/* ---------- Bigger, roomier layout on laptops ----------
+   The team liked how the app looks at 125% browser zoom, so the whole app is drawn a little
+   larger on wide screens and the content column is wider (less empty space at the sides).
+   --z is the zoom, used to keep 100vh heights correct. */
+@media (min-width: 1200px) {
+  .shell.vle { --z: 1.08; zoom: var(--z); min-height: calc(100vh / var(--z)); }
+  .vle .main { min-height: calc(100vh / var(--z) - 74px); }
+}
+@media (min-width: 1400px) { .shell.vle { --z: 1.15; } }
+/* pop-up dialogs: above the top bar while open, and no taller than the screen when the app is drawn larger */
+.vle .main:has(.cc-shade, .as-shade, .overlay) { z-index: 150; }
+@media (min-width: 1200px) {
+  .vle :is(.cc-box, .as-box, .ev .overlay .form) { max-height: calc(92vh / var(--z, 1)); }
+}
+@media (max-width: 1599px) { .vbrand > span small { display: none; } }
+@media (min-width: 1700px) { .shell.vle { --z: 1.22; } }
+@media (min-width: 761px) {
+  .vle .main { --gutter: max(28px, calc((100% - 1320px) / 2)); }
+  .vle .page { padding-top: 22px; padding-bottom: 56px; }
 }
 
 /* Notch / status-bar space at the top: only when CheckIn is opened as an installed app
@@ -589,10 +661,12 @@
    keeps its full height. */
 @media (max-width: 760px) and (display-mode: standalone) {
   .vnav {
-    height: calc(60px + env(safe-area-inset-top, 0px));
+    height: calc(62px + env(safe-area-inset-top, 0px));
     padding-top: env(safe-area-inset-top, 0px);
   }
   .vdrawer {
     padding-top: env(safe-area-inset-top, 0px);
   }
 }
+.vle .bellpanel p { display: block; }
+.vle .bellpanel p small { display: block; float: none; text-align: left; margin-top: 4px; }

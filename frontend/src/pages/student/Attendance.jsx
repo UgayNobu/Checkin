@@ -4,6 +4,7 @@ import { api, deviceId } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
 import { placeStatus } from '../../geofence';
 import { t12 } from '../../time12';
+import { confetti, toast } from '../../motion';
 import './attendance.css';
 
 // Students see present (green), absent (red), or blue for a day with only an optional class.
@@ -113,6 +114,8 @@ export default function Attendance() {
       .then((r) => {
         setMsg(''); setCode(''); setCard(null); setPick(null); load(); loadLive();
         setDone({ ok: r.status === 'present', text: r.message, left: BACK_AFTER });
+        // a real "you're in" moment: confetti when marked present, a quiet note when it goes to the tutor
+        if (r.status === 'present') confetti(); else toast(r.message || 'Sent to your tutor to check', 'info');
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setBusy(false));

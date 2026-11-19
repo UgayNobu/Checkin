@@ -273,7 +273,7 @@ export default function Timetable() {
             <button key={d} role="tab" aria-selected={day === i} className={'tt-day' + (day === i ? ' on' : '')} onClick={() => setDay(i)}>
               {ds === today ? 'Today' : d.slice(0, 3)}
               <span>{short(ds, { day: 'numeric', month: 'short' })}</span>
-              <small>{count(i) || '–'}</small>
+              <small>{count(i) ? `${count(i)} class${count(i) > 1 ? 'es' : ''}` : 'No class'}</small>
             </button>
           );
         })}

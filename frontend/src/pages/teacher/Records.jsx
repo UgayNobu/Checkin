@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import SemesterPicker, { useSemester } from '../shared/SemesterPicker';
-import { pattern } from './Modules.jsx';
+import { coverOf } from './Modules.jsx';
 import './records.css';
 
 /* ---------- Helpers ---------- */
@@ -80,7 +80,7 @@ export function RecordModules() {
             const go = () => nav('/records/' + m.id + qs);
             return (
               <div className="rmod" key={m.id} role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go()}>
-                <div className="rmod-img" style={{ backgroundImage: pattern(m.code) }} aria-hidden="true">
+                <div className="rmod-img" style={{ backgroundImage: coverOf(m) }} aria-hidden="true">
                   <span>{m.code}</span>
                 </div>
                 <div className="rmod-main">

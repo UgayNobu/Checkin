@@ -87,6 +87,7 @@ model Module {
   enrolmentKey String?            @map("enrolment_key")
   selfEnrol    Boolean            @default(true) @map("self_enrol")
   moduleCount  Int?               @map("module_count")
+  coverImage   String?            @map("cover_image") @db.VarChar(255)
   program      Program            @relation(fields: [programId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   sections     Section[]
   enrollments  Enrollment[]

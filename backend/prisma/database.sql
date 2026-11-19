@@ -535,6 +535,12 @@ ALTER TABLE class_changes ADD COLUMN IF NOT EXISTS radius_m INTEGER;
 ALTER TABLE class_changes DROP CONSTRAINT IF EXISTS chk_cc_radius;
 ALTER TABLE class_changes ADD CONSTRAINT chk_cc_radius CHECK (radius_m IS NULL OR radius_m BETWEEN 5 AND 500);
 
+-- ===== Part 18: module cover image (like VLE course images) =====
+-- The module's tutor (or an admin) can set a picture for the module card. The file itself goes to
+-- cloud storage like evidence documents (stored_files, or the Supabase bucket); this column keeps
+-- the stored value ("db:<uuid>" or "storage:<path>"). NULL = the coloured pattern is shown.
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS cover_image VARCHAR(255);
+
 COMMIT;
 
 

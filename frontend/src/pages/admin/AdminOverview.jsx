@@ -4,6 +4,7 @@ import { api } from '../../api';
 import AddTutor from './AddTutor.jsx';
 import TutorRequests from './TutorRequests.jsx';
 import './adminoverview.css';
+import { CountUp } from '../../motion';
 
 /* =========================================================
    Inline Dropdown — arrow always points down, never flips
@@ -212,7 +213,7 @@ export default function AdminOverview() {
         {stats.map((s) => (
           <div className="ao-stat" key={s.label}>
             <small>{s.label}</small>
-            <b>{loadingOverview ? '—' : (s.value || 0).toLocaleString()}</b>
+            <b>{loadingOverview ? '—' : <CountUp value={s.value || 0} />}</b>
           </div>
         ))}
       </div>
@@ -256,15 +257,15 @@ export default function AdminOverview() {
           <div className="ao-mini-stats">
             <div className="ao-mini">
               <small>Total Students</small>
-              <b>{dataLoading ? '—' : stu.length}</b>
+              <b>{dataLoading ? '—' : <CountUp value={stu.length} />}</b>
             </div>
             <div className="ao-mini">
               <small>Total Teachers</small>
-              <b>{dataLoading ? '—' : tut.length}</b>
+              <b>{dataLoading ? '—' : <CountUp value={tut.length} />}</b>
             </div>
             <div className="ao-mini">
               <small>Total Modules</small>
-              <b>{dataLoading ? '—' : mods.length}</b>
+              <b>{dataLoading ? '—' : <CountUp value={mods.length} />}</b>
             </div>
           </div>
 

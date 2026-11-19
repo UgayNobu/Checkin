@@ -5,6 +5,7 @@ import { api } from '../../api';
 import '../teacher/staff.css';
 import '../student/attendance.css';
 import './Module.css';
+import { CountUp } from '../../motion';
 
 const E = encodeURIComponent, GB = (d) => new Date(d).toLocaleDateString('en-GB');
 
@@ -12,7 +13,7 @@ const E = encodeURIComponent, GB = (d) => new Date(d).toLocaleDateString('en-GB'
 const Stat = ({ l, v, chip, cls }) => (
   <div className="stat">
     <small>{l}</small>
-    <b>{v ?? ''}</b>
+    <b>{v == null ? '' : <CountUp value={v} />}</b>
     {v != null && chip && (
       <div><span className={'chip ' + (cls || 'g')}>{chip}</span></div>
     )}

@@ -4,6 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { bestPosition, useLocationWarmup } from '../../geo';
 import { KindTabs, RadiusPicker, modLabel } from '../shared/ClassChangeDialogs.jsx';
+import PlacePicker, { rememberPlace } from '../shared/PlacePicker.jsx';
+import { toast } from '../../motion';
 import './startform.css';
 
 const WINDOW_MIN = 2; // students have 2 minutes to check in (short, so codes can't be passed around)
@@ -225,6 +227,8 @@ export default function StartAttendance() {
       minutes: WINDOW_MIN,
     })
       .then((s) => {
+        if (practical) rememberPlace(f.room);
+        toast('Check-in is open. Show the code to the class.');
         setLive(null);
         setShowFlags(false);
         setSid(s._id || s.id);
@@ -339,7 +343,7 @@ export default function StartAttendance() {
               </div>
               <div className="sa-f sa-wide">
                 <label htmlFor="sa-room">Place (optional)</label>
-                <input id="sa-room" value={f.room} onChange={set('room')} disabled={open} placeholder="e.g. Football ground, EG Lab, Survey field" />
+                <PlacePicker id="sa-room" value={f.room} onChange={(v) => setF((o) => ({ ...o, room: v }))} disabled={open} />
               </div>
             </>
           ) : (

@@ -4,11 +4,12 @@ import { api } from '../../api';
 import '../teacher/staff.css';
 import '../student/attendance.css';
 import './Overview.css';
+import { CountUp } from '../../motion';
 
 const Stat = ({ l, v, chip, cls }) => (
   <div className="stat">
     <small>{l}</small>
-    <b>{v ?? ''}</b>
+    <b>{v == null ? '' : <CountUp value={v} />}</b>
     {chip && <div><span className={'chip ' + (cls || 'g')}>{chip}</span></div>}
   </div>
 );

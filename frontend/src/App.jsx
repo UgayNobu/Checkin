@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -15,19 +15,21 @@ import './base.css';
 import './vle.css';
 import './phone.css';
 import './pages/public/public.css';
+import './motion.css';
+import { useEntrances } from './motion';
 
 /* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
 import Register from './pages/public/Register.jsx';
 import Forgot from './pages/public/Forgot.jsx';
 import { validateLogin } from './validation';
+import { Typing, Ticker, Field, Aurora } from './pages/public/Fx.jsx';
 
 /* ---------- Teacher pages ---------- */
 import TDash from './pages/teacher/Dashboard.jsx';
 import { Modules as TModules, ModuleKey } from './pages/teacher/Modules.jsx';
 import StartAttendance from './pages/teacher/StartAttendance.jsx';
 import { RecordModules, RecordStudents, RecordStudent } from './pages/teacher/Records.jsx';
-import Reports from './pages/teacher/Reports.jsx';
 import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
 
 /* ---------- Admin pages ---------- */
@@ -76,7 +78,6 @@ const NAV = {
     ['/start', 'Start Attendance'],
     ['/records', 'Attendance Records'],
     ['/evidence', 'Evidence Document'],
-    ['/reports', 'Reports & Analytics'],
     ['/profile', 'My Profile'],
     ['/settings', 'Settings'],
   ],
@@ -95,7 +96,8 @@ const NAV = {
   ],
 };
 
-/* One footer for every role, laid out like the college website's footer (cst.edu.bt) */
+/* One footer for every role: one compact row (brand · contact · links) and the copyright line.
+   On laptops it sits behind the page and is uncovered as you reach the bottom (reveal footer). */
 function Footer() {
   return (
     <footer className="vfoot">
@@ -104,24 +106,17 @@ function Footer() {
           <img src="/logo.jpg" alt="" />
           <div>
             <b>CheckIn</b>
-            <span>Student Attendance System</span>
-            <span>College of Science and Technology, RUB</span>
+            <span>Student Attendance System · College of Science and Technology, RUB</span>
           </div>
         </div>
-        <div>
-          <h4>Contact</h4>
-          <p>
-            College of Science and Technology,
-            <br />Rinchending, Phuentsholing,
-            <br />Chukha, Bhutan · Post Box 450 · 21101
-          </p>
-          <p>Email: <a href="mailto:info.cst@rub.edu.bt">info.cst@rub.edu.bt</a></p>
+        <div className="vfoot-contact">
+          <span>Rinchending, Phuentsholing, Chukha · Post Box 450 · 21101</span>
+          <a href="mailto:info.cst@rub.edu.bt">info.cst@rub.edu.bt</a>
         </div>
-        <div>
-          <h4>Links</h4>
+        <nav className="vfoot-links" aria-label="Links">
           <a href="https://www.cst.edu.bt" target="_blank" rel="noreferrer">College website</a>
           <a href="https://www.rub.edu.bt" target="_blank" rel="noreferrer">Royal University of Bhutan</a>
-        </div>
+        </nav>
       </div>
       <div className="vfoot-bar">© {new Date().getFullYear()} CheckIn · College of Science and Technology, RUB. All rights reserved.</div>
     </footer>
@@ -141,93 +136,82 @@ function Login() {
   const [fe, setFe] = useState({});
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false); // logged in: the button turns into a tick, then the app opens
+  const [shake, setShake] = useState(0); // wrong details: the card shakes
 
   const change = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setFe({ ...fe, [k]: '' }); setErr(''); };
+  const fail = (text) => { setErr(text); setShake((n) => n + 1); };
 
   const go = (e) => {
     e.preventDefault();
     const v = validateLogin(f);
     setFe(v);
-    if (Object.keys(v).length) return;
+    if (Object.keys(v).length) return setShake((n) => n + 1);
     setBusy(true);
     api('/auth/login', { userId: f.userId.trim(), password: f.password })
-      .finally(() => setBusy(false))
       .then((d) => {
-        if (teacher && d.user.role === 'student') {
-          return setErr('This is a student account. Use the student login.');
-        }
-        if (!teacher && d.user.role === 'teacher') {
-          return setErr('This is a teacher account. Use the teacher login.');
-        }
+        if (teacher && d.user.role === 'student') return fail('This is a student account. Use the student login.');
+        if (!teacher && d.user.role === 'teacher') return fail('This is a teacher account. Use the teacher login.');
         auth.set(d);
-        nav('/');
+        setDone(true);
+        setTimeout(() => nav('/'), 650);
       })
-      .catch((x) => setErr(x.message));
+      .catch((x) => fail(x.message))
+      .finally(() => setBusy(false));
   };
 
   return (
     <div className={'login ' + (teacher ? 'tutor' : 'student')}>
       <div className={'hero' + (teacher ? ' teacherlogin' : '')}>
+        <Aurora />
         <div className="herologo">
           <img src="/logo.jpg" alt="" />
           <span>CheckIn</span>
         </div>
-        <div>
+        <div className="hero-copy">
           <span className="hero-eyebrow">{teacher ? 'TUTOR PORTAL' : 'STUDENT PORTAL'}</span>
-          <h1>{teacher ? <>Take attendance <span>in seconds.</span></> : <>Your attendance, <span>on your phone.</span></>}</h1>
+          <h1>{teacher
+            ? <><span className="ln">Take attendance</span> <span className="ln"><Typing words={['in seconds.', 'from your timetable.', 'without paper.']} /></span></>
+            : <><span className="ln">Your attendance,</span> <span className="ln"><Typing words={['on your phone.', 'in every module.', 'always up to date.']} /></span></>}</h1>
           <p>{teacher
             ? 'Start a check-in from your timetable, see who is in class live, and keep every record in one place.'
             : 'Check in to class with a code, follow your attendance in every module and send absence requests.'}</p>
+          <Ticker items={teacher
+            ? ['⚡ A 6-character code opens check-in', '📍 Students are checked against the building', '📊 Reports update as students check in', '🔁 Swap or cover classes with other tutors']
+            : ['🔢 Type the 6-character code from your tutor', '📍 Your location confirms you are in class', '📈 See your % against the 90% rule', '📄 Send an absence request with a document']} />
           <div className="hero-bar" />
         </div>
         <small>College of Science and Technology</small>
       </div>
 
-      <form className="lcard" onSubmit={go}>
-        {/* ← Back button (goes to landing page) */}
-        <a
-          className="alt"
-          onClick={() => nav('/welcome')}
-          style={{ display: 'block', textAlign: 'left', cursor: 'pointer' }}
-        >
-          ← Back
-        </a>
+      <form key={shake} className={'lcard' + (shake ? ' shake' : '')} onSubmit={go} noValidate>
+        <a className="alt back" onClick={() => nav('/welcome')}>← Back</a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{teacher ? 'Tutor login' : 'Student login'}</h2>
         <p className="sub">College of Science and Technology</p>
 
-        <label>{teacher ? 'Staff ID' : 'Student ID'}</label>
-        <input
-          value={f.userId}
-          onChange={change('userId')}
-          className={fe.userId ? 'bad' : ''}
-          placeholder={teacher ? 'e.g. CST-0142' : 'e.g. 02250368'}
-          autoComplete="username"
+        <Field
+          label={teacher ? 'Staff ID' : 'Student ID'} hint={teacher ? 'e.g. CST-0142' : 'e.g. 02250368'}
+          value={f.userId} onChange={change('userId')} error={fe.userId} autoComplete="username"
         />
-        {fe.userId && <small className="ferr">{fe.userId}</small>}
-
-        <label>Password</label>
-        <input
-          type={show ? 'text' : 'password'}
-          value={f.password}
-          onChange={change('password')}
-          className={fe.password ? 'bad' : ''}
-          autoComplete="current-password"
+        <Field
+          label="Password" type={show ? 'text' : 'password'}
+          value={f.password} onChange={change('password')} error={fe.password} autoComplete="current-password"
         />
-        {fe.password && <small className="ferr">{fe.password}</small>}
-        <label className="showpw">
-          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password
-        </label>
+        <div className="lrow">
+          <label className="showpw">
+            <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password
+          </label>
+          <Link className="fgt" to={'/forgot' + (teacher ? '?as=teacher' : '')}>Forgot password?</Link>
+        </div>
+        {err && <p className="err" role="alert">{err}</p>}
 
-        <Link className="fgt" to={'/forgot' + (teacher ? '?as=teacher' : '')}>Forgot password?</Link>
-        {err && <p className="err">{err}</p>}
-
-        <button className={'btn ' + (teacher ? '' : 'purple')} style={{ width: '100%' }} disabled={busy}>
-          {busy ? 'Logging in…' : 'Log in'}
+        <button className={'btn lbtn' + (done ? ' done' : '')} disabled={busy || done}>
+          {done ? <span className="lbtn-ok">✓ Welcome</span> : busy ? <><i className="spin" /> Logging in…</> : 'Log in'}
         </button>
 
-        <p className="alt" style={{ textAlign: 'center', fontSize: 11 }}>
+        <p className="alt">
           {teacher ? 'New tutor? ' : 'No account? '}
           <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign up</Link>
         </p>
@@ -239,10 +223,35 @@ function Login() {
 /* =========================================================
    Notification bell
    ========================================================= */
-function Bell() {
+// Where a notification should take you when clicked (null = nowhere)
+const linkOf = (n, role) => {
+  const m = n.message || '';
+  if (/swap/i.test(m) && role === 'teacher') return '/timetable#swaps';
+  if (/absence request|evidence/i.test(m)) return '/evidence';
+  if (/extra class|cancelled|cover/i.test(m)) return role === 'management' ? '/class-changes' : '/timetable';
+  return null;
+};
+const ago = (d) => {
+  if (!d) return '';
+  const s = (Date.now() - new Date(d).getTime()) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+};
+const BellIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </svg>
+);
+
+function Bell({ role }) {
+  const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const [list, setList] = useState([]);
   const [fresh, setFresh] = useState(new Set()); // ids that were unread when the panel opened (kept highlighted)
+  const [ring, setRing] = useState(false); // wiggle when something new arrives
+  const seen = useRef(null);
   const closeTimer = useRef(null);
   const loc = useLocation();
 
@@ -253,6 +262,14 @@ function Bell() {
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   const unread = list.filter((n) => !n.isRead).length;
+  // the bell rings when the number of new notifications goes up (and once on load if there are any)
+  useEffect(() => {
+    if (seen.current === null || unread > seen.current) {
+      if (unread > 0) { setRing(true); const t = setTimeout(() => setRing(false), 2100); seen.current = unread; return () => clearTimeout(t); }
+    }
+    seen.current = unread;
+    return undefined;
+  }, [unread]);
 
   const show = () => {
     clearTimeout(closeTimer.current);
@@ -271,28 +288,34 @@ function Bell() {
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => { setOpen(false); setFresh(new Set()); }, 250);
   };
+  const go = (to) => { setOpen(false); nav(to); };
 
   return (
     <div className="bellwrap" onMouseEnter={show} onMouseLeave={hide}>
       <button
-        className="bell"
+        className={'bell' + (ring ? ' ring' : '')}
         aria-label={unread ? `Notifications, ${unread} new` : 'Notifications'}
         aria-expanded={open}
         onClick={() => (open ? (clearTimeout(closeTimer.current), setOpen(false)) : show())}
       >
-        🔔{unread > 0 && <i className="dot" />}
+        <BellIcon />{unread > 0 && <i className="dot" />}
       </button>
 
       {open && (
         <div className="bellpanel" role="dialog" aria-label="Notifications">
-          <div className="bellhead">Notifications</div>
+          <div className="bellhead">Notifications{fresh.size > 0 && <span className="bellnew">{fresh.size} new</span>}</div>
           {list.length ? (
-            list.map((n) => (
-              <p key={n.id} className={fresh.has(n.id) ? 'unread' : ''}>
-                {n.message}
-                <small>{n.category}</small>
-              </p>
-            ))
+            list.map((n) => {
+              const to = linkOf(n, role);
+              return (
+                <p key={n.id} className={(fresh.has(n.id) ? 'unread' : '') + (to ? ' link' : '')}
+                  onClick={to ? () => go(to) : undefined} role={to ? 'link' : undefined} tabIndex={to ? 0 : undefined}
+                  onKeyDown={to ? (e) => e.key === 'Enter' && go(to) : undefined}>
+                  {n.message}
+                  <small>{n.category}{n.createdAt ? ` · ${ago(n.createdAt)}` : ''}{to ? ' · Open →' : ''}</small>
+                </p>
+              );
+            })
           ) : (
             <p className="bellempty">No notifications yet</p>
           )}
@@ -386,6 +409,25 @@ function Shell({ user, children, title, sub }) {
   const handleProfileClick = () => { setUserMenu(false); nav(profilePath); };
   const doLogout = () => logout().then(() => nav('/welcome'));
 
+  // Cards and table rows rise in one after another on every page
+  const pageRef = useRef(null);
+  useEntrances(pageRef, loc.pathname);
+
+  // Sliding underline under the active link
+  const linksRef = useRef(null);
+  const [ink, setInk] = useState(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const box = linksRef.current;
+      const a = box?.querySelector(':scope > a.active, :scope .vnav-more > button.active');
+      setInk(a ? { x: a.offsetLeft, w: a.offsetWidth } : null);
+    };
+    place();
+    window.addEventListener('resize', place);
+    document.fonts?.ready?.then(place);
+    return () => window.removeEventListener('resize', place);
+  }, [loc.pathname]);
+
   const links = NAV[user.role];
   const n = PRIMARY_COUNT[user.role] || links.length;
   const primary = links.slice(0, n), extra = links.slice(n);
@@ -405,10 +447,11 @@ function Shell({ user, children, title, sub }) {
         </button>
         <NavLink to="/" end className="vbrand">
           <img className="logo" src="/logo.jpg" alt="" />
-          <span>CheckIn</span>
+          <span>CheckIn<small>College of Science &amp; Technology</small></span>
         </NavLink>
 
-        <nav className="vnav-links" aria-label="Main">
+        <nav className={'vnav-links' + (ink ? ' has-ink' : '')} aria-label="Main" ref={linksRef}>
+          {ink && <i className="vnav-ink" style={{ width: ink.w, transform: `translateX(${ink.x}px)` }} aria-hidden="true" />}
           {primary.map(link)}
           {extra.length > 0 && (
             <div className="vnav-more">
@@ -421,7 +464,7 @@ function Shell({ user, children, title, sub }) {
         </nav>
 
         <div className="vnav-right">
-          {user.role === 'student' && <Bell />}
+          {['student', 'teacher', 'management'].includes(user.role) && <Bell role={user.role} />}
           <div className="vuser">
             <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={name}>
               {avatar}
@@ -450,13 +493,15 @@ function Shell({ user, children, title, sub }) {
       </aside>
 
       <div className="main">
-        {user.role !== 'admin' && title && (
-          <div className="vhead">
-            <h1>{title}</h1>
-            {sub && <p>{sub}</p>}
-          </div>
-        )}
-        <div className="page">{children}</div>
+        <div className="vbody">
+          {user.role !== 'admin' && title && (
+            <div className="vhead">
+              <h1>{title}</h1>
+              {sub && <p>{sub}</p>}
+            </div>
+          )}
+          <div className="page" ref={pageRef}>{children}</div>
+        </div>
         <Footer />
       </div>
     </div>
@@ -467,6 +512,7 @@ function Shell({ user, children, title, sub }) {
    Routes per role
    ========================================================= */
 const Soon = () => <p>This screen is next in the build.</p>;
+const GoHome = () => <Navigate to="/" replace />;
 
 const PAGES = {
   student: {
@@ -484,7 +530,7 @@ const PAGES = {
   },
 
   teacher: {
-    '/': [TDash, 'Dashboard', 'Overview of your day'],
+    '/': [TDash, 'Dashboard', 'Your day, your classes and how attendance is trending'],
     '/timetable': [Timetable, 'Timetable', "Today's classes. Start attendance straight from your class"],
     '/modules': [TModules, 'My Modules', 'Modules you teach this semester'],
     '/modules/:id': [ModuleKey, 'My Modules', 'Modules you teach this semester'],
@@ -494,7 +540,7 @@ const PAGES = {
     '/records/:id/:sid': [RecordStudent, 'Attendance Records', ''],
     '/evidence': [SharedEvidence, 'Evidence Document', 'Absence requests from students in your modules (view only)'],
     '/evidence/:id': [Certificate, 'Medical Leave', ''],
-    '/reports': [Reports, 'Reports & Analytics', 'How attendance is trending across your modules'],
+    '/reports': [GoHome, '', ''], // Reports & Analytics now live on the Dashboard
     '/profile': [Profile, 'My Profile', 'Manage your personal and contact details'],
     '/settings': [TeacherSettings, 'Settings', 'Configure how Check.in works for you'],
   },

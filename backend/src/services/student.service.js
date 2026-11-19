@@ -6,19 +6,21 @@ const { sessionStart, round1 } = require('../utils/format');
 const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors');
 const { normalizeEnrolmentKey } = require('../utils/enrolment-key');
 const { currentAcademicSession } = require('../lib/academicSession');
+const { fileUrl } = require('../lib/storage');
 
 /** One card per enrolled module with its attendance %. */
 async function dashboard(studentId) {
   const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
   const m = await loadMatrix(en.map((e) => e.moduleId), [studentId]);
-  return en.map((e) => {
+  return Promise.all(en.map(async (e) => {
     // pct is null until a class of the module has been held: "no classes yet", not 0%
     const pct = m.pct(studentId, e.moduleId);
     return {
       id: e.moduleId, name: e.module.name, code: e.module.code, pct, classes: m.sessionsOf(e.moduleId).length,
+      coverUrl: await fileUrl(e.module.coverImage), // the image the tutor set, or null for the pattern
       atRisk: pct != null && pct < env.atRiskPct, belowRequired: pct != null && pct < env.requiredPct,
     };
-  });
+  }));
 }
 
 /** Headline numbers: overall rate, sessions missed, hours missed. */
