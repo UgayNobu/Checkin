@@ -209,7 +209,7 @@ export default function Register() {
       ) : (
       /* Form card: two steps that slide (details, then password) */
       <form key={'f' + shake} className={'lcard' + (shake ? ' shake' : '')} style={{ width: 380 }} onSubmit={go} noValidate>
-        <a className="alt back" onClick={() => (step === 2 ? (setDir('back'), setStep(1)) : nav(back))}>
+        <a className="alt lback" onClick={() => (step === 2 ? (setDir('back'), setStep(1)) : nav(back))}>
           {step === 2 ? '← Back to details' : '← Back to login'}
         </a>
 
