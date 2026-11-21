@@ -435,3 +435,25 @@
   -webkit-box-shadow: 0 0 0 1000px #1e2d46 inset;
   transition: background-color 9999s ease-out;
 }
+
+/* Brighter, easier to read text and fields on the login / sign-up cards */
+.login .lcard { background: rgba(20, 38, 68, 0.72); border-color: rgba(255, 255, 255, 0.22); }
+.login .lcard .sub, .login .lcard .alt, .login .lcard .showpw, .login .lcard .steps, .login .lcard small { color: #e2e8f0; }
+.login .lcard .alt a, .login .lcard .fgt { color: #93c5fd; }
+.login.tutor .lcard .alt a, .login.tutor .lcard .fgt { color: #5eead4; }
+.login .lcard input:not([type='checkbox']), .login .lcard select {
+  background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); color: #fff;
+}
+.login .lcard .fl > label { color: #dbe5f1; font-weight: 600; }
+.login .lcard .fl input:focus + label,
+.login .lcard .fl input:not(:placeholder-shown) + label,
+.login .lcard .fl.fl-sel > label { color: #bfdbfe; }
+.login.tutor .lcard .fl input:focus + label,
+.login.tutor .lcard .fl input:not(:placeholder-shown) + label,
+.login.tutor .lcard .fl.fl-sel > label { color: #99f6e4; }
+.login .lcard .fl input:focus::placeholder { color: #b6c3d4; }
+.login .lcard input:focus, .login .lcard select:focus { background: rgba(255, 255, 255, 0.18); border-color: var(--acc); }
+.login .lcard .pwrules { color: #cbd5e1; }
+.login .lcard .pwrules li.ok { color: #86efac; }
+.login .lcard .su-steps span { color: #cbd5e1; }
+.login .lcard .err, .login .lcard .ferr { color: #fecaca; }
