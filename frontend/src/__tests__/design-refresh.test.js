@@ -25,3 +25,27 @@ group('tutor dashboard: today\'s classes', () => {
     expect(classState(cls('14:00', '15:00'), '09:15')[0]).toBe('next');
   });
 });
+
+group('tutor dashboard: booked classes show up', () => {
+  test('TC-UNIT-128: extra classes and covers booked for today are listed; cancelled or given-away classes are marked', async () => {
+    const { todaysClasses } = await import('../pages/teacher/Dashboard.jsx');
+    const mod = { id: 'M1', code: 'SWE302', name: 'Testing' };
+    const slots = [
+      { id: 'TS1', isToday: true, teaches: true, start: '09:00', end: '10:00', module: mod },
+      { id: 'TS2', isToday: true, teaches: true, start: '11:00', end: '12:00', module: mod },
+      { id: 'TS3', isToday: false, teaches: true, start: '09:00', end: '10:00', module: mod },
+    ];
+    const changes = [
+      { id: 'CC1', type: 'extra', date: '2026-11-21', start: '14:00', end: '15:00', module: mod, sessionType: 'practical', place: 'Survey Field', counts: true },
+      { id: 'CC2', type: 'cancelled', date: '2026-11-21', slotId: 'TS1', start: '09:00', end: '10:00', module: mod },
+      { id: 'CC3', type: 'cover', date: '2026-11-21', slotId: 'TS9', start: '16:00', end: '17:00', module: { id: 'M9', code: 'CTE202' }, coverTutor: { id: 'T1' } },
+      { id: 'CC4', type: 'extra', date: '2026-11-20', start: '14:00', end: '15:00', module: mod },
+      { id: 'CC5', type: 'extra', date: '2026-11-21', start: '13:00', end: '14:00', module: { id: 'M7', code: 'X' } },
+    ];
+    const l = todaysClasses(slots, changes, { today: '2026-11-21', myId: 'T1', myModules: new Set(['M1']) });
+    expect(l.map((x) => x.key)).toEqual(['TS1', 'TS2', 'CC1', 'CC3']);
+    expect(l[0].note).toEqual(['off', 'Cancelled']);
+    expect(l[2].link).toBe('/start?change=CC1');
+    expect(l[3].link).toBe('/start?change=CC3');
+  });
+});
