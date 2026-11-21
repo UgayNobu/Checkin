@@ -185,7 +185,7 @@ function Login() {
       </div>
 
       <form key={shake} className={'lcard' + (shake ? ' shake' : '')} onSubmit={go} noValidate>
-        <a className="alt back" onClick={() => nav('/welcome')}>← Back</a>
+        <a className="alt lback" onClick={() => nav('/welcome')}>← Back</a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
         <h2>{teacher ? 'Tutor login' : 'Student login'}</h2>

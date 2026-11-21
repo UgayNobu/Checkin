@@ -367,7 +367,10 @@
 .login .lcard.shake { animation: fx-shake 0.5s both; }
 .login .lcard .cardlogo { transition: transform 0.6s var(--ease-spring, ease); }
 .login .lcard:hover .cardlogo { transform: rotate(-10deg) scale(1.05); }
-.login .lcard .alt.back { display: block; text-align: left; cursor: pointer; margin: 0 0 4px; }
+/* "← Back" on the login / sign-up cards. Its own class name: a plain .back is already used by the admin
+   pages (white button with a hover background), which showed as a white bar over the link on hover. */
+.login .lcard .alt.lback { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 4px; padding: 2px 0; background: none; border: 0; text-align: left; cursor: pointer; text-decoration: none; transition: color 0.2s, transform 0.2s; }
+.login .lcard .alt.lback:hover { color: #fff; transform: translateX(-3px); }
 
 /* floating labels */
 .fl { position: relative; margin: 16px 0 4px; }
@@ -422,3 +425,13 @@
 .lx-text h1 span.fx-type, .lx-text h1 .fx-type span { color: #60a5fa; }
 .login .hero h1 span.ln { color: #fff; }
 .login .hero h1 span.fx-type, .login .hero h1 .fx-type span { color: var(--acc); }
+
+/* Browser autofill paints saved IDs/passwords on a white box; keep the card's dark field instead */
+.login .lcard input:-webkit-autofill,
+.login .lcard input:-webkit-autofill:hover,
+.login .lcard input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #1e2d46 inset;
+  transition: background-color 9999s ease-out;
+}
