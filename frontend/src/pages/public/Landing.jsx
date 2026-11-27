@@ -1,4 +1,4 @@
-// Landing page: choose Student or Tutor.
+// Landing page: choose Student or Staff (tutors, management and the ICT admin all sign in as staff).
 // Campus photo under moving colour light, a typing headline, a phone that plays a check-in,
 // numbers that count up, and a "how it works" strip that rises in as you scroll.
 import { useEffect, useRef, useState } from 'react';
@@ -102,8 +102,8 @@ export default function Landing() {
             <button type="button" className="lx-opt" onClick={() => nav('/login?as=teacher')}>
               <span className="lx-ico" aria-hidden="true">🧑‍🏫</span>
               <span>
-                <b>Tutor</b>
-                <small>Start attendance, manage classes and records</small>
+                <b>Staff</b>
+                <small>Tutors, management and ICT admin: attendance, records and approvals</small>
               </span>
               <i aria-hidden="true">›</i>
             </button>
@@ -126,7 +126,7 @@ export default function Landing() {
         </ol>
         <div className="lx-how-cta" data-rv>
           <button type="button" className="lx-opt lx-primary" onClick={() => nav('/login')}><b>I'm a student</b><i aria-hidden="true">›</i></button>
-          <button type="button" className="lx-opt dark" onClick={() => nav('/login?as=teacher')}><b>I'm a tutor</b><i aria-hidden="true">›</i></button>
+          <button type="button" className="lx-opt dark" onClick={() => nav('/login?as=teacher')}><b>I'm staff</b><i aria-hidden="true">›</i></button>
         </div>
         <small className="lx-copy">© {new Date().getFullYear()} CheckIn · College of Science and Technology, RUB</small>
       </section>

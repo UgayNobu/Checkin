@@ -5,6 +5,7 @@
 const { prisma } = require('../lib/prisma');
 const { sendMailInBackground } = require('../lib/mailer');
 const { NotFound } = require('../utils/errors');
+const { env } = require('../config/env');
 
 /**
  * notify(userId, message, category, { email: 'Subject line' })
@@ -26,11 +27,18 @@ async function notify(userId, message, category, options = {}) {
   }
 }
 
-/** Notify every active admin (e.g. a tutor asked for an account). */
-async function notifyAdmins(message, category = 'System') {
-  const admins = await prisma.user.findMany({ where: { role: 'admin', isActive: true }, select: { id: true } });
-  await Promise.all(admins.map((a) => notify(a.id, message, category)));
+/** Notify every active user of one role (bell always; email as in notify()). */
+async function notifyRole(role, message, category = 'System', options = {}) {
+  try {
+    const users = await prisma.user.findMany({ where: { role, isActive: true }, select: { id: true } });
+    await Promise.all(users.map((u) => notify(u.id, message, category, options)));
+  } catch (e) {
+    console.warn('[notifyRole] failed:', e.message);
+  }
 }
+
+/** Notify every active admin (e.g. a tutor asked for an account), by email too if they set a real one. */
+const notifyAdmins = (message, category = 'System') => notifyRole('admin', message, category, { email: 'New tutor account request' });
 
 const list = (userId, { limit = 50, unread } = {}) => prisma.notification.findMany({
   where: { userId, ...(unread === 'true' && { isRead: false }) }, orderBy: { createdAt: 'desc' }, take: limit,
@@ -49,4 +57,22 @@ const markAllRead = async (userId) => ({
   updated: (await prisma.notification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } })).count,
 });
 
-module.exports = { notify, notifyAdmins, list, unreadCount, markRead, markAllRead };
+/**
+ * Old notifications expire (run once a day): read ones after notifyKeepReadDays (30),
+ * unread ones after notifyKeepDays (90), so a student who rarely opens the app still sees
+ * important notices for about a semester. Only bell messages are removed, never records.
+ */
+async function pruneOld(now = new Date()) {
+  const day = 24 * 60 * 60 * 1000;
+  const r = await prisma.notification.deleteMany({
+    where: {
+      OR: [
+        { isRead: true, createdAt: { lt: new Date(now.getTime() - env.notifyKeepReadDays * day) } },
+        { createdAt: { lt: new Date(now.getTime() - env.notifyKeepDays * day) } },
+      ],
+    },
+  });
+  return r.count;
+}
+
+module.exports = { notify, notifyRole, pruneOld, notifyAdmins, list, unreadCount, markRead, markAllRead };

@@ -5,28 +5,30 @@ const { loadMatrix, enrolledModuleIds } = require('./stats.service');
 const { sessionStart, round1 } = require('../utils/format');
 const { NotFound, Forbidden, Conflict, BadRequest } = require('../utils/errors');
 const { normalizeEnrolmentKey } = require('../utils/enrolment-key');
-const { currentAcademicSession } = require('../lib/academicSession');
+const { currentAcademicSession, sessionOrCurrent } = require('../lib/academicSession');
 const { fileUrl } = require('../lib/storage');
 
-/** One card per enrolled module with its attendance %. */
-async function dashboard(studentId) {
-  const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: await currentAcademicSession() }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
-  const m = await loadMatrix(en.map((e) => e.moduleId), [studentId]);
+/** One card per enrolled module with its attendance %. ?session=AS2026 shows a past semester (read-only). */
+async function dashboard(studentId, { session } = {}) {
+  const term = await sessionOrCurrent(session);
+  const en = await prisma.enrollment.findMany({ where: { studentId, academicSession: term }, include: { module: true }, orderBy: { module: { code: 'asc' } } });
+  const m = await loadMatrix(en.map((e) => e.moduleId), [studentId], { term });
   return Promise.all(en.map(async (e) => {
-    // pct is null until a class of the module has been held: "no classes yet", not 0%
-    const pct = m.pct(studentId, e.moduleId);
+    const st = m.standing(studentId, e.moduleId); // pct is null until a class of the module has been held
     return {
-      id: e.moduleId, name: e.module.name, code: e.module.code, pct, classes: m.sessionsOf(e.moduleId).length,
+      id: e.moduleId, name: e.module.name, code: e.module.code, pct: st.pct, classes: m.sessionsOf(e.moduleId).length,
       coverUrl: await fileUrl(e.module.coverImage), // the image the tutor set, or null for the pattern
-      atRisk: pct != null && pct < env.atRiskPct, belowRequired: pct != null && pct < env.requiredPct,
+      // RUB rule: 90% needed; 80% is enough with approved medical/official leave (covered)
+      atRisk: st.atRisk, belowRequired: st.belowRequired, covered: st.covered,
     };
   }));
 }
 
 /** Headline numbers: overall rate, sessions missed, hours missed. */
-async function summary(studentId) {
-  const mods = await enrolledModuleIds(studentId);
-  const t = (await loadMatrix(mods, [studentId])).overallTally(studentId, mods);
+async function summary(studentId, { session } = {}) {
+  const term = await sessionOrCurrent(session);
+  const mods = await enrolledModuleIds(studentId, { term });
+  const t = (await loadMatrix(mods, [studentId], { term })).overallTally(studentId, mods);
   return {
     rate: t.total ? Math.round((t.present / t.total) * 100) : null, // null = no classes held yet
     absences: t.missed,
@@ -36,16 +38,17 @@ async function summary(studentId) {
 }
 
 /** Session-by-session list for one module, split into theory and practical. */
-async function moduleRecords(studentId, moduleId) {
-  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId, academicSession: await currentAcademicSession() } } });
+async function moduleRecords(studentId, moduleId, { session } = {}) {
+  const term = await sessionOrCurrent(session);
+  const enrolled = await prisma.enrollment.findUnique({ where: { studentId_moduleId_academicSession: { studentId, moduleId, academicSession: term } } });
   if (!enrolled) throw Forbidden('You are not enrolled in this module', 'NOT_ENROLLED');
-  const m = await loadMatrix([moduleId], [studentId]);
+  const m = await loadMatrix([moduleId], [studentId], { term });
   const rows = m.sessionsOf(moduleId)
     .filter((s) => m.wasIn(studentId, s.id)) // classes held before they enrolled don't count
-    .map((s) => ({ date: sessionStart(s), hours: s.duration / 60, type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : 'absent' }))
+    .map((s) => ({ date: sessionStart(s), hours: s.duration / 60, type: s.sessionType, status: m.attendedSession(studentId, s.id) ? 'present' : m.excusedSession(studentId, s.id) ? 'excused' : 'absent' }))
     .reverse();
   const part = (type) => ({ rows: rows.filter((r) => r.type === type), pct: m.pct(studentId, moduleId, type) }); // null = none held
-  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId) };
+  return { theory: part('theory'), practical: part('practical'), total: m.pct(studentId, moduleId), ...m.standing(studentId, moduleId) };
 }
 
 /**

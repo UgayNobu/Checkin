@@ -141,3 +141,7 @@
 .tt-time small { font-size: 12.5px; white-space: nowrap; }
 .tt-mod { font-size: 16px; }
 @media (max-width: 560px) { .tt-time { width: 70px; } .tt-time b { font-size: 15px; } .tt-mod { font-size: 15px; } }
+
+/* "Attendance taken · View →" opens that class's record */
+.vle button.pill.tt-open { border: 0; font: inherit; font-size: inherit; font-weight: 600; cursor: pointer; transition: filter 0.15s, transform 0.12s; }
+.vle button.pill.tt-open:hover { filter: brightness(0.94); text-decoration: underline; }

@@ -245,6 +245,7 @@ export default function StartAttendance() {
   const gen = () => {
     if (!f.module) return setMsg('Please select a module.');
     if (!f.where) return setMsg('Choose the building where the class is.');
+    if (practical && !String(f.room || '').trim()) return setMsg('Choose or type the place of the practical, so students know where to come.');
     if (practical && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setMsg('Choose how close students must be: 5–500 metres.');
     setNotNow(false);
     setBusy(true);
@@ -342,7 +343,7 @@ export default function StartAttendance() {
                 {gps.status && <p className={'gps ' + gps.status.level} role="status">{gps.status.text}</p>}
               </div>
               <div className="sa-f sa-wide">
-                <label htmlFor="sa-room">Place (optional)</label>
+                <label htmlFor="sa-room">Place</label>
                 <PlacePicker id="sa-room" value={f.room} onChange={(v) => setF((o) => ({ ...o, room: v }))} disabled={open} />
               </div>
             </>
@@ -489,6 +490,16 @@ export default function StartAttendance() {
                 <small>Flagged {flagged.length > 0 && (showFlags ? '▲' : '▼')}</small>
               </button>
             </div>
+          )}
+
+          {/* A student in the room with no internet (top floors) or a dead phone: mark them by hand */}
+          {live && sid && f.module && (
+            <p style={{ margin: '12px 0 0', fontSize: 13 }}>
+              Someone in class has no internet?{' '}
+              <button className="linkb" style={{ border: 0, background: 'none', color: '#0f6cbf', cursor: 'pointer', font: 'inherit', textDecoration: 'underline', padding: 0 }}
+                onClick={() => window.open(`/records/${f.module}/${sid}`, '_blank', 'noopener')}>Open the class list</button>{' '}
+              and mark them present.
+            </p>
           )}
 
           {/* Flagged students: teacher decides Present or Absent */}

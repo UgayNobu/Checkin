@@ -62,9 +62,17 @@ test('TC-UNIT-117: a theory class keeps its room and has no place or radius', as
 });
 
 test('TC-UNIT-118: bad input - the radius must be 5–500 m', () => {
-  const body = (radius) => ({ type: 'extra', module: 'M1', date: DAY, start: '14:00', end: '15:00', sessionType: 'practical', reason: 'extra_lecture', radius });
+  const body = (radius) => ({ type: 'extra', module: 'M1', date: DAY, start: '14:00', end: '15:00', sessionType: 'practical', place: 'Survey field', reason: 'extra_lecture', radius });
   expect(createSchema.safeParse(body(4)).success).toBe(false);
   expect(createSchema.safeParse(body(501)).success).toBe(false);
   expect(createSchema.safeParse(body(500)).success).toBe(true);
   expect(createSchema.safeParse(body('')).success).toBe(true); // left empty: the default is used
+});
+
+test('TC-UNIT-129: a practical cannot be booked without a place', () => {
+  const body = { type: 'extra', module: 'M1', date: DAY, start: '14:00', end: '15:00', sessionType: 'practical', reason: 'extra_lecture', radius: 30 };
+  expect(createSchema.safeParse(body).success).toBe(false);
+  expect(createSchema.safeParse({ ...body, place: '  ' }).success).toBe(false);
+  expect(createSchema.safeParse({ ...body, place: 'EG Lab' }).success).toBe(true);
+  expect(createSchema.safeParse({ ...body, sessionType: 'theory' }).success).toBe(true); // a theory class has a room instead
 });

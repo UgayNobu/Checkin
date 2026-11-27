@@ -366,6 +366,7 @@ async function runLowAttendanceJob(adminId) {
     if (p == null) continue;
     res.scanned++;
     if (p >= env.requiredPct) continue;
+    if (m.standing(e.studentId, e.moduleId).covered) { res.covered = (res.covered || 0) + 1; continue; } // 80–90% with approved evidence: allowed
     const recent = await prisma.notification.findFirst({ where: { userId: e.studentId, category: 'Attendance', createdAt: { gte: cutoff }, message: { contains: `in ${e.module.code} is` } } });
     if (recent) { res.skipped++; continue; }
     await notify(e.studentId, `Your attendance in ${e.module.code} is ${p}% - below the ${env.requiredPct}% requirement. Please speak to your tutor.`,

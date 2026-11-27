@@ -5,6 +5,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import './semesters.css';
+import './timetableupload.css';
+import TimetableUpload from './TimetableUpload.jsx';
 
 const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const today = () => new Date().toISOString().slice(0, 10);
@@ -155,8 +157,10 @@ export default function Semesters() {
         {fe && <p className="err sem-ferr">{fe}</p>}
       </form>
       <p className="sem-note">
-        Load that semester's timetable with its code (academic_session = {code}) before starting it, so the Timetable page has its classes.
+        Then upload that semester's timetable below before starting it, so the Timetable page has its classes.
       </p>
+
+      <TimetableUpload semesters={list} onSaved={load} />
     </div>
   );
 }

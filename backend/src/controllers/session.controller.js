@@ -9,5 +9,5 @@ module.exports = {
   end: asyncHandler(async (req, res) => res.json(await s.endSession(req.params.id, req.user.id))),
   accept: asyncHandler(async (req, res) => res.json(await s.decideFlagged(req.params.id, req.params.attendanceId, req.user.id, true, req.body?.note))),
   reject: asyncHandler(async (req, res) => res.json(await s.decideFlagged(req.params.id, req.params.attendanceId, req.user.id, false, req.body?.note))),
-  mark: asyncHandler(async (req, res) => res.json(await s.markManually(req.params.id, req.user.id, req.params.studentId, req.body?.status !== 'absent'))),
+  mark: asyncHandler(async (req, res) => res.json(await s.markManually(req.params.id, req.user.id, req.params.studentId, req.body?.status !== 'absent', req.body?.reason))),
 };

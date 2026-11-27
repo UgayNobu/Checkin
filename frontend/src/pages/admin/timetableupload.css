@@ -1,0 +1,14 @@
+/* Upload a timetable (Semesters page) */
+.tu { margin-top: 28px; }
+.tu-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 10px 0; }
+.tu-sem { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.tu-sem select { padding: 9px 10px; border: 1px solid #ced4da; border-radius: 8px; font: inherit; font-size: 14px; }
+.tu-file { cursor: pointer; display: inline-flex; align-items: center; }
+.tu-name { color: var(--vle-muted, #6a737b); }
+.tu-result { margin-top: 12px; padding: 14px 16px; border-radius: 10px; border: 1px solid; }
+.tu-result.ok { background: #e3f1e1; border-color: #9cc79a; }
+.tu-result.bad { background: #fbe3e0; border-color: #e7a59c; }
+.tu-result p { margin: 0 0 10px; }
+.tu-result table { width: 100%; border-collapse: collapse; background: #fff; font-size: 14px; }
+.tu-result th, .tu-result td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eceef0; }
+.tu-result th:first-child, .tu-result td:first-child { width: 60px; }

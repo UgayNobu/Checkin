@@ -19,6 +19,7 @@ router.get('/timetable', catalog.teacherTimetable); // own weekly timetable
 // Export routes BEFORE /records/:moduleId/:studentId so "csv"/"pdf" isn't read as a student ID.
 router.get('/records-export/:moduleId/csv', mod, c.recordsCsv);
 router.get('/records-export/:moduleId/pdf', mod, c.recordsPdf);
+router.get('/students/:studentId/history', validateParams(v.studentParamsSchema), c.studentHistory); // past semesters of a student I teach now
 router.get('/records/:moduleId', mod, c.records);
 router.get('/records/:moduleId/:studentId', validateParams(v.studentRecordParamsSchema), c.studentRecord);
 

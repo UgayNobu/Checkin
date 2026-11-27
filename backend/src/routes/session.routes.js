@@ -20,6 +20,6 @@ router.get('/:id/roster', id, c.roster);
 router.post('/:id/end', id, c.end);
 router.post('/:id/flagged/:attendanceId/accept', validateParams(v.flaggedParamSchema), validateBody(v.flaggedBodySchema), c.accept);
 router.post('/:id/flagged/:attendanceId/reject', validateParams(v.flaggedParamSchema), validateBody(v.flaggedBodySchema), c.reject);
-router.post('/:id/students/:studentId/mark', c.mark); // body { status: 'present' | 'absent' }
+router.post('/:id/students/:studentId/mark', validateParams(v.markParamSchema), validateBody(v.markBodySchema), c.mark); // body { status, reason }
 
 module.exports = router;

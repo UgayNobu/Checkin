@@ -2,11 +2,10 @@
 //  • Profile shows what the tutor gave when they signed up (name, staff ID, email,
 //    department, programme). "Edit profile" lets them change name, email, phone and
 //    designation. Department and programme are set at sign-up and changed by the admin.
-//  • Settings → Account changes the password (PUT /me/password: checks the current
-//    password, saves a new bcrypt hash in users.password_hash).
+//  • Settings (email, email notifications, password) is pages/shared/AccountSettings.jsx.
 import { useEffect, useRef, useState } from 'react';
-import { api, fileHref, keepNewToken } from '../../api';
-import { COLLEGE_EMAIL, PASSWORD_HINT, passwordChecks, passwordOk } from '../../validation';
+import { api, fileHref } from '../../api';
+import { COLLEGE_EMAIL } from '../../validation';
 import './profile.css';
 
 const ini = (n = '') => n.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -145,82 +144,6 @@ export function Profile() {
           </form>
         )}
       </div>
-    </div>
-  );
-}
-
-export function TeacherSettings() {
-  const [me, setMe] = useState(null);
-  const [tab, setTab] = useState('n');
-  const [pw, setPw] = useState({ current: '', next: '', again: '' });
-  const [show, setShow] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => { api('/me').then(setMe).catch(() => {}); }, []);
-  if (!me) return null;
-  const prefs = me.prefs || {};
-  const tog = (k) => { const p = { ...prefs, [k]: !prefs[k] }; setMe({ ...me, prefs: p }); api('/me', { prefs: p }, 'PUT'); };
-  // Only email is real: the server sends it from backend/src/services (notify(..., { email })).
-  const rows = [
-    ['email', 'Email notifications', `Emails go to ${me.email || 'your sign-in email'}. You are emailed when your password is changed, when an absence request from a student in your modules is approved or declined, and when students in your modules fall below 90% attendance (checked once a day).`],
-  ];
-
-  const setP = (k) => (e) => { setPw({ ...pw, [k]: e.target.value }); setErr(''); setMsg(''); };
-  const match = pw.again === pw.next;
-  const ready = pw.current && passwordOk(pw.next) && match && pw.next !== pw.current;
-  const change = (e) => {
-    e.preventDefault();
-    if (!pw.current) return setErr('Enter your current password.');
-    if (!passwordOk(pw.next)) return setErr('The new password doesn\'t meet the rules below.');
-    if (!match) return setErr('The two new passwords don\'t match.');
-    if (pw.next === pw.current) return setErr('The new password must be different from the current one.');
-    setBusy(true);
-    api('/me/password', { current: pw.current, next: pw.next }, 'PUT')
-      .then(keepNewToken) // other devices are logged out; this one stays logged in
-      .then(() => { setMsg('Password updated. Use the new password next time you log in.'); setPw({ current: '', next: '', again: '' }); })
-      .catch((x) => setErr(x.message))
-      .finally(() => setBusy(false));
-  };
-  const type = show ? 'text' : 'password';
-
-  return (
-    <div className="setbox">
-      <div className="tabs">
-        <button className={tab === 'n' ? 'on' : ''} onClick={() => setTab('n')}>Notifications</button>
-        <button className={tab === 'a' ? 'on' : ''} onClick={() => setTab('a')}>Account</button>
-      </div>
-      {tab === 'n' ? (
-        rows.map(([k, t, s]) => (
-          <div className="srow" key={k}>
-            <div><b>{t}</b><small>{s}</small></div>
-            <button className={'sw ' + (prefs[k] ? 'on' : '')} onClick={() => tog(k)} aria-pressed={!!prefs[k]} aria-label={t} />
-          </div>
-        ))
-      ) : (
-        <form className="pwform" onSubmit={change} noValidate>
-          <h4>Change password</h4>
-          <label htmlFor="pw-cur">Current password</label>
-          <input id="pw-cur" type={type} value={pw.current} onChange={setP('current')} autoComplete="current-password" />
-          <label htmlFor="pw-new">New password</label>
-          <input id="pw-new" type={type} value={pw.next} onChange={setP('next')} autoComplete="new-password" />
-          <label htmlFor="pw-again">Type the new password again</label>
-          <input id="pw-again" type={type} value={pw.again} onChange={setP('again')} autoComplete="new-password" />
-          {pw.again && !match && <span className="pe-err">The passwords don't match.</span>}
-          <label className="pwshow"><input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show passwords</label>
-          {pw.next ? (
-            <ul className="pwrules">
-              {passwordChecks(pw.next).map(([label, ok]) => <li key={label} className={ok ? 'ok' : ''}>{ok ? '✓' : '○'} {label}</li>)}
-            </ul>
-          ) : (
-            <small className="mut">{PASSWORD_HINT}</small>
-          )}
-          {err && <p className="err">{err}</p>}
-          {msg && <p className="pok" role="status">✓ {msg}</p>}
-          <button className="pbtn" disabled={busy || !ready}>{busy ? 'Updating…' : 'Update password'}</button>
-        </form>
-      )}
     </div>
   );
 }

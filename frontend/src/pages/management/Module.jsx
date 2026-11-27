@@ -564,7 +564,7 @@ export function StudentView() {
                 {d.history.map((h, i) => (
                   <tr key={i}>
                     <td>{h.status === 'present' && GB(h.date)}</td>
-                    <td>{h.status === 'absent' && <small>{GB(h.date)}</small>}</td>
+                    <td>{h.status === 'absent' && <small>{GB(h.date)}</small>}{h.status === 'excused' && <small>{GB(h.date)} · excused</small>}</td>
                   </tr>
                 ))}
               </tbody>

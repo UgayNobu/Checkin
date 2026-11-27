@@ -119,3 +119,6 @@
 .td-class.off { border-left-color: #f3b4b4; background: #fafbfc; opacity: 0.75; }
 .td-pill.off { background: #fbe3e0; color: #8f2216; }
 .td-tag { margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #e3f1e1; color: #24561f; font-style: normal; font-size: 12px; font-weight: 600; vertical-align: 2px; }
+
+/* "View record" on a class whose attendance was taken */
+.vle .td-start.ghosty { background: #fff; color: var(--vle-primary, #0f6cbf); border: 1px solid currentColor; }

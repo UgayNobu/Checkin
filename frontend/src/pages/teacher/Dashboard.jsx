@@ -110,7 +110,9 @@ export default function Dashboard() {
                   <span className={'td-pill ' + k}>{k === 'live' && <i />}{label}</span>
                   {k === 'live'
                     ? <button className="td-start" onClick={() => nav('/start')}>Open live view</button>
-                    : x.link && k !== 'taken' && k !== 'past' && <button className="td-start" onClick={() => nav(x.link)}>Start attendance</button>}
+                    : k === 'taken' && x.session?.id
+                      ? <button className="td-start ghosty" onClick={() => nav(`/records/${x.module.id}/${x.session.id}`)}>View record</button>
+                      : x.link && k !== 'taken' && k !== 'past' && <button className="td-start" onClick={() => nav(x.link)}>Start attendance</button>}
                 </div>
               );
             })}

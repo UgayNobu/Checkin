@@ -39,6 +39,9 @@ const env = {
   requiredPct: num(process.env.REQUIRED_ATTENDANCE_PERCENT, 90),
   atRiskPct: num(process.env.AT_RISK_ATTENDANCE_PERCENT, 80),
   realertDays: num(process.env.LOW_ATTENDANCE_REALERT_DAYS, 7),
+  // Old bell messages are removed by the daily job: read ones after 30 days, unread ones after 90
+  notifyKeepReadDays: num(process.env.NOTIFY_KEEP_READ_DAYS, 30),
+  notifyKeepDays: num(process.env.NOTIFY_KEEP_DAYS, 90),
 
   supabase: {
     url: process.env.SUPABASE_URL || '',

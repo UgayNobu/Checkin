@@ -10,6 +10,7 @@ const { apiStatus, sessionStart, flagText } = require('../utils/format');
 const { NotFound, Conflict, BadRequest } = require('../utils/errors');
 const { sessionOrCurrent } = require('../lib/academicSession');
 const { notify } = require('./notifications.service');
+const { writeAuditLog } = require('./audit.service');
 const { planStart } = require('./classChange.service');
 const { buildingByKey, buildingForRoom, buildingFromCode, EDGE_TOLERANCE_M } = require('../config/buildings');
 const latestCode = { orderBy: { expiryTimestamp: 'desc' }, take: 1 };
@@ -252,18 +253,28 @@ async function decideFlagged(id, attendanceId, tutorId, accept, note) {
   return { attendanceId: a.id, status: accept ? 'present' : 'absent' };
 }
 
-/** Manually mark a student (e.g. phone died): creates or overwrites their record. */
-async function markManually(id, tutorId, studentId, present) {
+// Why a tutor marked a student by hand (shown in records and the audit log)
+const MARK_REASONS = { no_internet: 'no internet', phone_problem: 'phone problem', other: 'other' };
+
+/**
+ * Manually mark a student (no internet on that floor, phone died …): creates or overwrites their
+ * record, tells the student, and is written to the audit log so hand-marking can be checked later.
+ */
+async function markManually(id, tutorId, studentId, present, reason) {
   const se = await ownedSession(id, tutorId);
   const enrolled = await prisma.enrollment.findUnique({
     where: { studentId_moduleId_academicSession: { studentId, moduleId: se.section.moduleId, academicSession: se.section.academicSession } },
   });
   if (!enrolled) throw BadRequest('That student is not enrolled in this module', 'NOT_ENROLLED');
-  const status = present ? 'Present' : 'Absent', flagReason = 'marked_by_tutor';
+  const why = MARK_REASONS[reason];
+  const status = present ? 'Present' : 'Absent', flagReason = why ? `marked_by_tutor - ${why}` : 'marked_by_tutor';
   await prisma.attendance.upsert({
     where: { studentId_sessionId: { studentId, sessionId: se.id } },
     update: { status, flagReason }, create: { studentId, sessionId: se.id, status, flagReason },
   });
+  const day = sessionStart(se).toISOString().slice(0, 10);
+  await writeAuditLog(tutorId, 'Attendance marked by hand', `${studentId} ${status} in ${se.section.module.code} on ${day}${why ? ` (${why})` : ''} · session ${se.id}`);
+  await notify(studentId, `Your tutor marked you ${status.toLowerCase()} in ${se.section.module.code} (${day})${why ? `: ${why}` : ''}.`, 'Attendance');
   return { userId: studentId, status: present ? 'present' : 'absent' };
 }
 
