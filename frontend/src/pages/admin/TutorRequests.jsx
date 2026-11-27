@@ -1,7 +1,7 @@
 // Admin: tutors who signed up and are waiting for approval.
 // Approve → they can log in (and get a notification + email). Reject → the request is closed.
 // Backend: GET /admin/tutors/pending, POST /admin/tutors/:id/approve | /reject
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import './tutorrequests.css';
 
@@ -12,6 +12,12 @@ export default function TutorRequests() {
   const [busy, setBusy] = useState(null); // id being saved
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+
+  const box = useRef(null);
+  // opened from a notification (/#tutor-requests): scroll the list into view once it has loaded
+  useEffect(() => {
+    if (list?.length && window.location.hash === '#tutor-requests') box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [list]);
 
   const load = () => api('/admin/tutors/pending').then((r) => setList(Array.isArray(r) ? r : [])).catch(() => setList([]));
   useEffect(() => { load(); }, []);
@@ -29,7 +35,7 @@ export default function TutorRequests() {
   if (!list || (!list.length && !msg && !err)) return null;
 
   return (
-    <section className="tr">
+    <section className="tr" id="tutor-requests" ref={box}>
       <div className="tr-head">
         <h3>Tutor requests</h3>
         {list.length > 0 && <span className="tr-count">{list.length} waiting</span>}

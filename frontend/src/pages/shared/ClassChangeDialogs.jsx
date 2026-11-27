@@ -223,12 +223,13 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
     if (!f.module) return setErr('Choose a module.');
     if (!f.start || !f.end) return setErr('Choose a time, or type a start and end time.');
     if (timeErr) return setErr(timeErr);
+    if (practical && !f.place.trim()) return setErr('Choose or type the place, so students know where to come.');
     if (practical && !(Number(f.radius) >= 5 && Number(f.radius) <= 500)) return setErr('Choose how close students must be: 5–500 m.');
     if (!f.reason) return setErr('Choose a reason.');
     if (f.reason === 'other' && !f.note.trim()) return setErr('Write a short note for "Other".');
     setBusy(true);
     const body = { type: 'extra', module: f.module, date: f.date, start: f.start, end: f.end, sessionType: f.sessionType, counts: f.counts, reason: f.reason, note: f.note.trim() };
-    if (practical) Object.assign(body, { place: f.place.trim() || undefined, radius: Number(f.radius) });
+    if (practical) Object.assign(body, { place: f.place.trim(), radius: Number(f.radius) });
     else if (f.room) body.room = f.room;
     api('/class-changes', body).then((r) => { if (body.place) rememberPlace(body.place); onDone(r); }).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   };
@@ -303,9 +304,9 @@ export function ExtraDialog({ mods, date: firstDate, module: firstModule, today,
 
       {practical ? (
         <>
-          <label htmlFor="cc-place">Place (optional)</label>
+          <label htmlFor="cc-place">Place</label>
           <PlacePicker id="cc-place" value={f.place} onChange={(v) => set('place', v)} />
-          <small className="cc-hint">Students see this in their message. No room is booked.</small>
+          <small className="cc-hint">Students see this in their message. Check-in still uses the distance below, measured from your phone, so it works anywhere.</small>
 
           <label>Students must be within</label>
           <RadiusPicker value={f.radius} onChange={(v) => set('radius', v)} inputId="cc-radius" />

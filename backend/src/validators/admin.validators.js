@@ -62,7 +62,10 @@ const semesterBodySchema = z.object({
   endDate: isoDate,
 });
 const makeCurrentSchema = z.object({ promoteYears: z.boolean().default(false) });
-module.exports = { ...module.exports, semesterParamSchema, semesterBodySchema, makeCurrentSchema };
+// rows of the uploaded CSV (each row: column name → text); checked in detail by timetableImport.service
+const timetableUploadSchema = z.object({ rows: z.array(z.record(z.string(), z.any())).min(1, 'The file has no classes in it').max(3000) });
+
+module.exports = { ...module.exports, semesterParamSchema, semesterBodySchema, makeCurrentSchema, timetableUploadSchema };
 
 // Admin creates a tutor account (staff ID, name, college email, department)
 const createTutorSchema = z.object({

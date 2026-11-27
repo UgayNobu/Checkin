@@ -41,6 +41,8 @@ router.post('/tutors/:id/reject', admin, validateParams(v.userIdParamSchema), c.
 router.get('/academic-sessions', both, c.semesters);
 router.post('/academic-sessions', admin, validateBody(v.semesterBodySchema), c.createSemester);
 router.post('/academic-sessions/:code/make-current', admin, validateParams(v.semesterParamSchema), validateBody(v.makeCurrentSchema), c.makeCurrentSemester);
+// Upload a semester's timetable from the CSV template: preview first (?dryRun=1), then save
+router.post('/academic-sessions/:code/timetable', admin, validateParams(v.semesterParamSchema), validateBody(v.timetableUploadSchema), c.uploadTimetable);
 
 // Audit log
 router.get('/audit-logs', both, validateQuery(v.auditQuerySchema), c.auditLogs);

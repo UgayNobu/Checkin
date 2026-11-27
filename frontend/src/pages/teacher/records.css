@@ -328,6 +328,7 @@
 }
 .rec-st.present{background:#d7e6d7;color:#2b6328}
 .rec-st.absent{background:#f4d6d2;color:#ca3120}
+.rec-st.excused{background:#ece6f8;color:#5b3f99}
 .rec-st.flagged{background:#fcefdc;color:#8a5a00;cursor:help}
 
 /* ----- Teacher decides a flagged check-in ----- */
@@ -406,3 +407,22 @@
   .rmod-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .rmod-stats b.none{font-size:16px;font-weight:400;color:#6a737b;padding-top:5px}
+
+/* Past semesters of one student (History button) */
+.sh-box{width:min(640px,94vw);max-height:86vh;overflow:auto}
+.sh-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.sh-head h3{margin:0;font-size:19px}
+.sh-head small{color:#6a737b}
+.sh-x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:#6a737b}
+.sh-compare{margin:0 0 14px;padding:10px 12px;border-radius:8px;background:#eef3f8;font-size:14px}
+.sh-compare.down{background:#fbe3e0;color:#8f2216}
+.sh-compare.up{background:#e3f1e1;color:#24561f}
+.sh-sem{margin-top:12px}
+.sh-sem h4{display:flex;justify-content:space-between;margin:0 0 6px;font-size:15px}
+.sh-sem table{width:100%;border-collapse:collapse;font-size:14px}
+.sh-sem td{padding:7px 8px;border-bottom:1px solid #eceef0}
+.sh-sem td:last-child{text-align:right;font-weight:600;white-space:nowrap}
+.sh-sem td.low{color:#ca3120}
+.sh-sem td.cov{color:#5b3f99}
+
+.rec-yes.ghost{background:#fff;color:#2b6328;border:1px solid #9cc79a}

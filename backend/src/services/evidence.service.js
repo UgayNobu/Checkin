@@ -3,13 +3,15 @@
 // leave document for a day. Every tutor who teaches any module the
 // student is enrolled in can VIEW it. Only MANAGEMENT can approve
 // or reject. Approving makes every session of every enrolled module
-// on that day Present for the student.
+// on that day Excused for the student (away with a reason: not counted
+// as attended, but the student then needs 80% instead of 90%).
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
 const { saveFile, fileUrl } = require('../lib/storage');
 const { cap } = require('../utils/format');
+const { ATTENDED, EXCUSED } = require('../config/constants');
 const { BadRequest, Forbidden, NotFound, Conflict } = require('../utils/errors');
-const { notify } = require('./notifications.service');
+const { notify, notifyRole } = require('./notifications.service');
 const { writeAuditLog } = require('./audit.service');
 const { currentAcademicSession } = require('../lib/academicSession');
 
@@ -110,6 +112,9 @@ async function submit(student, { date, type, reason }, file) {
   for (const tutorId of new Set(secs.map((s) => s.tutorId))) {
     await notify(tutorId, `${student.name} sent a ${label} absence request for ${day.toISOString().slice(0, 10)}.`, 'Evidence Documents');
   }
+  // …and management, who decide it: bell always, email too when they have a real address and email on
+  await notifyRole('management', `${student.name} (${student.id}) sent a ${label} absence request for ${day.toISOString().slice(0, 10)}. Please review it.`,
+    'Evidence Documents', { email: `New ${label} absence request: ${student.name}` });
 
   return toApi(r);
 }
@@ -153,17 +158,22 @@ async function review(user, id, { status, note }) {
   const ops = [prisma.evidenceDocument.update({ where: { id }, data: { status: cap(status), reviewedBy: user.id, reviewedAt: new Date() } })];
 
   if (approved) {
-    // Every session of every enrolled module on that date → Present.
+    // Every session of every enrolled module on that date → Excused (away with approved evidence).
+    // It is not counted as attended, so the % stays real; the student only needs 80% instead of 90%.
     const mods = await studentModules(r.studentId);
     const sessions = await prisma.classSession.findMany({
       where: { date: r.date, section: { moduleId: { in: mods.map((m) => m.id) } } },
       select: { id: true },
     });
-    for (const se of sessions) {
+    // a class the student actually attended that day stays Present
+    const came = new Set((await prisma.attendance.findMany({
+      where: { studentId: r.studentId, sessionId: { in: sessions.map((x) => x.id) }, status: { in: ATTENDED } }, select: { sessionId: true },
+    })).map((a) => a.sessionId));
+    for (const se of sessions.filter((x) => !came.has(x.id))) {
       ops.push(prisma.attendance.upsert({
         where: { studentId_sessionId: { studentId: r.studentId, sessionId: se.id } },
-        update: { status: 'Present', flagReason: 'evidence_approved' },
-        create: { studentId: r.studentId, sessionId: se.id, status: 'Present', flagReason: 'evidence_approved' },
+        update: { status: EXCUSED, flagReason: 'evidence_approved' },
+        create: { studentId: r.studentId, sessionId: se.id, status: EXCUSED, flagReason: 'evidence_approved' },
       }));
     }
   }
@@ -178,7 +188,7 @@ async function review(user, id, { status, note }) {
     select: { tutorId: true },
   });
   for (const tutorId of new Set(secs.map((s) => s.tutorId))) {
-    await notify(tutorId, `${r.student.name} (${r.studentId})'s absence request for ${day} was ${status} by management.${approved ? ' Their classes on that day are now marked Present.' : ''}`,
+    await notify(tutorId, `${r.student.name} (${r.studentId})'s absence request for ${day} was ${status} by management.${approved ? ' Their classes on that day are now marked Excused (approved evidence).' : ''}`,
       'Evidence Documents', { email: `Absence request ${status}: ${r.student.name}` });
   }
   await writeAuditLog(user.id, approved ? 'Evidence approved' : 'Evidence rejected', `${r.student.name} (${r.studentId}) ${day}`);

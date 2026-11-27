@@ -18,7 +18,8 @@
 // taught again next year starts from zero and old records stay intact.
 // ─────────────────────────────────────────────────────────────
 const { prisma } = require('../lib/prisma');
-const { ATTENDED } = require('../config/constants');
+const { ATTENDED, EXCUSED } = require('../config/constants');
+const { env } = require('../config/env');
 const { sessionStart, round1, apiStatus } = require('../utils/format');
 const { sessionOrCurrent } = require('../lib/academicSession');
 
@@ -69,25 +70,36 @@ async function loadMatrix(moduleIds, studentIds, { term } = {}) {
     byModule.get(s.section.moduleId).push(s);
   }
   const got = new Set(att.map((a) => `${a.studentId}|${a.sessionId}`));
+  const excusedSet = new Set(rec.filter((a) => a.status === EXCUSED).map((a) => `${a.studentId}|${a.sessionId}`));
   const attendedSession = (studentId, sessionId) => got.has(`${studentId}|${sessionId}`);
 
   /** Hour totals for a student over a list of sessions. */
   const tally = (studentId, list) => {
-    let total = 0, present = 0, missed = 0, missedHours = 0, count = 0;
+    let total = 0, present = 0, missed = 0, missedHours = 0, count = 0, excused = 0;
     for (const s of list) {
       if (!recorded.has(`${studentId}|${s.id}`)) continue; // not part of this class (enrolled later, or still running)
       count++;
       total += hoursOf(s);
       if (attendedSession(studentId, s.id)) present += hoursOf(s);
-      else { missed++; missedHours += hoursOf(s); }
+      else {
+        missed++; missedHours += hoursOf(s);
+        if (excusedSet.has(`${studentId}|${s.id}`)) excused++; // away with approved evidence
+      }
     }
-    return { total, present, missed, missedHours, sessions: count };
+    return { total, present, missed, missedHours, sessions: count, excused };
   };
   const pctOf = (t) => (t.total ? round1((t.present / t.total) * 100) : null);
 
   return {
     sessionsOf: (moduleId) => byModule.get(moduleId) || [],
     attendedSession,
+    /** Away from this class with approved evidence? */
+    excusedSession: (studentId, sessionId) => excusedSet.has(`${studentId}|${sessionId}`),
+    /** Where a student stands in one module: see standing(). */
+    standing: (studentId, moduleId) => {
+      const t = tally(studentId, byModule.get(moduleId) || []);
+      return standing(pctOf(t), t.excused > 0);
+    },
     /** Was this class taken for this student (they have a record in it)? */
     wasIn: (studentId, sessionId) => recorded.has(`${studentId}|${sessionId}`),
     /** How many students attended a session (Present or Late). */
@@ -102,6 +114,20 @@ async function loadMatrix(moduleIds, studentIds, { term } = {}) {
     overall: (studentId, mods) => pctOf(tally(studentId, mods.flatMap((m) => byModule.get(m) || []))),
     overallTally: (studentId, mods) => tally(studentId, mods.flatMap((m) => byModule.get(m) || [])),
   };
+}
+
+/**
+ * The RUB attendance rule for one module:
+ *   • 90% or more                                → ok
+ *   • 80–90% with approved medical/official leave → covered (eligible with evidence)
+ *   • under 90% otherwise                        → belowRequired
+ *   • under 80%                                  → atRisk (not eligible, even with documents)
+ */
+function standing(pct, hasEvidence) {
+  if (pct == null) return { pct, belowRequired: false, atRisk: false, covered: false };
+  const atRisk = pct < env.atRiskPct;
+  const covered = !atRisk && pct < env.requiredPct && hasEvidence;
+  return { pct, atRisk, covered, belowRequired: pct < env.requiredPct && !covered };
 }
 
 /** Modules a student is enrolled in this semester (or the semester given). */
@@ -145,7 +171,7 @@ async function monthDays(studentId, moduleIds, month) {
     prisma.attendance.findMany({ where: { studentId, session: inMonth } }),
   ]);
   const sessions = all.filter((s) => isHeld(s));
-  const rank = { optional: 0, absent: 1, flagged: 2, present: 3 }, out = {};
+  const rank = { optional: 0, absent: 1, excused: 2, flagged: 3, present: 4 }, out = {};
   for (const s of sessions) {
     const r = att.find((a) => a.sessionId === s.id);
     if (!r) continue; // no record = the class wasn't taken for this student (e.g. enrolled later)
@@ -197,4 +223,4 @@ async function classRate(sessions, classSize) {
   return round1((n / (sessions.length * classSize)) * 100);
 }
 
-module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, dayDetails, classRate };
+module.exports = { hoursOf, isHeld, heldSessions, loadMatrix, standing, enrolledModuleIds, modulePct, overallPct, overallFor, monthDays, dayDetails, classRate };

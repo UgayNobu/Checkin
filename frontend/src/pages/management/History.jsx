@@ -10,7 +10,8 @@ import { CountUp } from '../../motion';
 const fmt = (d) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 
 // Calendar colours: present = green, anything else recorded = red (same as the student's own calendar)
-const show = (s) => (s === 'present' ? 'present' : s ? 'absent' : '');
+const show = (s) => (s === 'present' ? 'present' : s === 'excused' ? 'excused' : s ? 'absent' : '');
+const LABEL = { present: 'Present', excused: 'Excused', absent: 'Absent' };
 
 const Back = ({ label = '← Back' }) => {
   const nav = useNavigate();
@@ -142,7 +143,7 @@ export function HistoryCalendar() {
 
   const downloadCsv = () => {
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const body = history.map((h) => [fmt(h.date), show(h.status) === 'present' ? 'Present' : 'Absent'].map(esc).join(',')).join('\n');
+    const body = history.map((h) => [fmt(h.date), LABEL[show(h.status)] || 'Absent'].map(esc).join(',')).join('\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob(['Date,Status\n' + body], { type: 'text/csv' }));
     link.download = `${info?.student?.userId || sid}-attendance.csv`;
@@ -210,7 +211,7 @@ export function HistoryCalendar() {
                 <td>{fmt(h.date)}</td>
                 <td>
                   <span className={'hx-st ' + show(h.status)}>
-                    {show(h.status) === 'present' ? 'Present' : 'Absent'}
+                    {LABEL[show(h.status)] || 'Absent'}
                   </span>
                 </td>
               </tr>

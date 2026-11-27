@@ -5,6 +5,10 @@ const ROLES = ['student', 'teacher', 'admin', 'management'];
 
 // Attendance statuses that count as "attended".
 const ATTENDED = ['Present', 'Late'];
+// Absent with an approved medical or official-leave document. Still NOT attended (the % stays
+// real), but a student with approved evidence in a module only needs the lower at-risk line (80%)
+// instead of the 90% requirement — the RUB rule.
+const EXCUSED = 'Excused';
 // Statuses that mean "waiting for the tutor to decide".
 const FLAGGED = ['Flagged', 'Pending review'];
 
@@ -34,4 +38,4 @@ const FILES = {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-module.exports = { ROLES, ATTENDED, FLAGGED, SESSION_TYPES, SESSION_STATUS, FLAG_REASONS, FLAG_TEXT, FILES, WEEK_MS, DAY_MS };
+module.exports = { ROLES, ATTENDED, EXCUSED, FLAGGED, SESSION_TYPES, SESSION_STATUS, FLAG_REASONS, FLAG_TEXT, FILES, WEEK_MS, DAY_MS };

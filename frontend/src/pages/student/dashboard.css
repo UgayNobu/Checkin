@@ -214,3 +214,8 @@
 }
 .dash-empty button:hover{background:var(--vle-primary-dark,#0c589c)}
 @media (max-width:760px){.dash-empty{margin:4px 0;padding:28px 18px}.dash-empty button{width:100%}}
+
+/* 80–90% with approved medical/official leave: allowed (RUB 80% rule) */
+.alert.covered{color:#5b3f99;background:#f4f0fb;border-color:#d9cdf2}
+.sdc-bar.covered{background:#8a6cc9}
+.badge.excused{background:#ece6f8;color:#5b3f99}

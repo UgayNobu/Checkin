@@ -27,10 +27,15 @@ const startSessionSchema = z.object({
 const sessionIdParamSchema = z.object({ id });
 const flaggedParamSchema = z.object({ id, attendanceId: id });
 const flaggedBodySchema = z.object({ note: optionalText(60) }).default({});
+const markParamSchema = z.object({ id, studentId: id });
+const markBodySchema = z.object({
+  status: z.enum(['present', 'absent']).default('present'),
+  reason: z.enum(['no_internet', 'phone_problem', 'other']).optional(),
+}).default({});
 const listMySessionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   status: z.enum(['scheduled', 'ongoing', 'ended']).optional(),
   session: academicSession, // semester, default current
 });
 
-module.exports = { startSessionSchema, sessionIdParamSchema, flaggedParamSchema, flaggedBodySchema, listMySessionsQuerySchema };
+module.exports = { startSessionSchema, sessionIdParamSchema, flaggedParamSchema, flaggedBodySchema, markParamSchema, markBodySchema, listMySessionsQuerySchema };

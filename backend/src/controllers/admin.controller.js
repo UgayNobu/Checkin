@@ -3,11 +3,15 @@ const { sendCsv } = require('../utils/csv');
 const a = require('../services/admin.service');
 const audit = require('../services/audit.service');
 const academic = require('../services/academic.service');
+const timetableImport = require('../services/timetableImport.service');
 
 module.exports = {
   // Semesters
   semesters: asyncHandler(async (req, res) => res.json(await academic.list())),
   createSemester: asyncHandler(async (req, res) => res.status(201).json(await academic.create(req.user.id, req.body))),
+  uploadTimetable: asyncHandler(async (req, res) => res.json(req.query.dryRun
+    ? await timetableImport.preview(req.params.code, req.body.rows)
+    : await timetableImport.save(req.user.id, req.params.code, req.body.rows))),
   makeCurrentSemester: asyncHandler(async (req, res) => res.json(await academic.makeCurrent(req.user.id, req.params.code, req.body))),
   programStructure: asyncHandler(async (req, res) => res.json(await a.programStructure(req.params.name))),
   removeProgram: asyncHandler(async (req, res) => res.json(await a.removeProgram(req.user.id, req.params.name))),

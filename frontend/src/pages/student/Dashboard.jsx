@@ -2,6 +2,7 @@ import { coverOf } from '../teacher/Modules.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import SemesterPicker, { useSemester } from '../shared/SemesterPicker.jsx';
 import './dashboard.css';
 
 const fmt = (d) => new Date(d).toLocaleDateString('en', { month: 'short', day: '2-digit', year: 'numeric' });
@@ -14,16 +15,20 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null);
   const [records, setRecords] = useState(null);
 
-  useEffect(() => { api('/student/dashboard').then(setModules).catch(() => setModules([])); }, []);
+  // Past semesters can be viewed too (read-only): the choice is kept in the URL (?session=AS2026)
+  const { session, setSession, qs } = useSemester();
+  useEffect(() => { setModules(null); setSelected(null); api('/student/dashboard' + qs).then(setModules).catch(() => setModules([])); }, [qs]);
 
   const open = (m) => {
     setSelected(m);
-    api(`/student/modules/${m.id}/records`).then(setRecords);
+    api(`/student/modules/${m.id}/records${qs}`).then(setRecords);
   };
   const close = () => { setSelected(null); setRecords(null); };
 
   // modules with no classes held yet have pct = null: no warning, no bar
-  const lowModule = (modules || []).find((m) => m.pct != null && m.pct < 90);
+  // RUB rule: 90% is needed; 80–90% is allowed when approved medical/official leave covers the module
+  const lowModule = (modules || []).find((m) => m.pct != null && (m.belowRequired || m.atRisk));
+  const coveredModule = (modules || []).find((m) => m.covered);
 
   /* ---------- One module: theory + practical, title on top, table below ---------- */
   if (selected) {
@@ -82,12 +87,17 @@ export default function Dashboard() {
   if (!modules.length) {
     return (
       <div className="dash">
-        <div className="dash-empty">
-          <div className="dash-empty-icon" aria-hidden="true">📚</div>
-          <h3>You're not enrolled in any modules yet</h3>
-          <p>Join your classes to see your attendance here. You'll need the enrolment key from your tutor.</p>
-          <button type="button" onClick={() => nav('/settings/enrol')}>Enrol in a module</button>
-        </div>
+        <SemesterPicker session={session} setSession={setSession} />
+        {session ? (
+          <div className="dash-empty"><h3>No modules in that semester</h3><p>You weren't enrolled in any module then.</p></div>
+        ) : (
+          <div className="dash-empty">
+            <div className="dash-empty-icon" aria-hidden="true">📚</div>
+            <h3>You're not enrolled in any modules yet</h3>
+            <p>Join your classes to see your attendance here. You'll need the enrolment key from your tutor.</p>
+            <button type="button" onClick={() => nav('/settings/enrol')}>Enrol in a module</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -95,8 +105,18 @@ export default function Dashboard() {
   /* ---------- Main dashboard ---------- */
   return (
     <div className="dash">
-      {lowModule && (
-        <div className="alert">⚠ Attendance below 90% in {lowModule.name} ({lowModule.code})</div>
+      <SemesterPicker session={session} setSession={setSession} />
+      {session && <p className="mut" style={{ margin: '0 0 12px', fontSize: 13 }}>You are looking at a past semester. These records are read-only.</p>}
+      {lowModule && !session && (
+        <div className="alert">
+          ⚠ Attendance {lowModule.atRisk ? 'below 80%' : 'below 90%'} in {lowModule.name} ({lowModule.code})
+          {lowModule.atRisk ? ': under 80% you cannot sit the exam, even with approved documents.' : ''}
+        </div>
+      )}
+      {coveredModule && !lowModule && !session && (
+        <div className="alert covered">
+          ℹ {coveredModule.code} is at {coveredModule.pct}%. Because your medical or official leave was approved, the 80% rule applies to you in this module instead of 90%.
+        </div>
       )}
 
       <h3>Course-by-Course Attendance</h3>
@@ -125,7 +145,7 @@ export default function Dashboard() {
                 <div key={m.id} className="sdc-col">
                   <span className="sdc-val">{m.pct == null ? '–' : `${Math.round(cap(m.pct))}%`}</span>
                   <div
-                    className={'sdc-bar' + (m.pct != null && m.pct < 90 ? ' low' : '')}
+                    className={'sdc-bar' + (m.belowRequired || m.atRisk ? ' low' : m.covered ? ' covered' : '')}
                     style={{ height: cap(m.pct ?? 0) * 2 }}
                     title={m.pct == null ? `${m.name}: no classes yet` : `${m.name}: ${Math.round(cap(m.pct))}%`}
                   />
