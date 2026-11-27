@@ -231,6 +231,7 @@ export function RecordStudent() {
   const { qs } = useSemester();
   const [data, setData] = useState(null); // roster
   const [totals, setTotals] = useState({}); // userId -> total % in the module
+  const [hist, setHist] = useState(null); // student whose past semesters are open
   const [q, setQ] = useState('');
   const [err, setErr] = useState('');
 
@@ -245,6 +246,14 @@ export function RecordStudent() {
       .catch(() => setTotals({}));
   };
   useEffect(load, [id, sid, qs]);
+
+  // Student was in class but couldn't check in (no internet on that floor, phone problem):
+  // the tutor marks them present by hand; it is recorded with the reason and in the audit log
+  const [marking, setMarking] = useState(null); // { userId, reason } while choosing the reason
+  const mark = (r, reason) =>
+    api(`/sessions/${sid}/students/${encodeURIComponent(r.userId)}/mark`, { status: 'present', reason })
+      .then(() => { setMarking(null); load(); })
+      .catch((e) => setErr(e.message));
 
   // Teacher decides a flagged check-in: Present (accept) or Absent (reject)
   const decide = (r, accept) =>
@@ -307,11 +316,12 @@ export function RecordStudent() {
               <th>Name</th>
               <th>Status (this class)</th>
               <th>Total attendance</th>
+              <th>Past semesters</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={4} className="rec-empty">{q ? 'No student matches that search.' : 'No students enrolled.'}</td></tr>
+              <tr><td colSpan={5} className="rec-empty">{q ? 'No student matches that search.' : 'No students enrolled.'}</td></tr>
             )}
             {rows.map((r) => {
               const total = totals[r.userId] ?? 0;
@@ -327,15 +337,95 @@ export function RecordStudent() {
                         <button className="rec-no" onClick={() => decide(r, false)}>Absent</button>
                       </div>
                     ) : (
-                      <span className={'rec-st ' + r.status}>{r.status === 'present' ? 'Present' : 'Absent'}</span>
+                      <span className="rec-decide">
+                        <span className={'rec-st ' + r.status}>{{ present: 'Present', excused: 'Excused' }[r.status] || 'Absent'}</span>
+                        {r.status === 'absent' && (marking?.userId === r.userId ? (
+                          <>
+                            <select aria-label="Why" value={marking.reason} onChange={(e) => setMarking({ ...marking, reason: e.target.value })}>
+                              <option value="no_internet">No internet</option>
+                              <option value="phone_problem">Phone problem</option>
+                              <option value="other">Other</option>
+                            </select>
+                            <button className="rec-yes" onClick={() => mark(r, marking.reason)}>Confirm</button>
+                            <button className="rec-no" onClick={() => setMarking(null)}>Cancel</button>
+                          </>
+                        ) : (
+                          <button className="rec-yes ghost" onClick={() => setMarking({ userId: r.userId, reason: 'no_internet' })} title="For a student who was in class but had no internet or a phone problem">Mark present</button>
+                        ))}
+                      </span>
                     )}
                   </td>
                   <td><span className={'rec-pct ' + (total < 80 ? 'low' : '')}>{total}%</span></td>
+                  <td><button className="rec-view" onClick={() => setHist(r)}>History</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </div>
+      {hist && <StudentHistory student={hist} onClose={() => setHist(null)} />}
+    </div>
+  );
+}
+
+/* =========================================================
+   A student's attendance in every semester (only for students I teach now)
+   GET /teacher/students/:id/history
+   ========================================================= */
+export function StudentHistory({ student, onClose }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api(`/teacher/students/${encodeURIComponent(student.userId)}/history`).then(setD).catch((e) => setErr(e.message));
+  }, [student.userId]);
+  useEffect(() => {
+    const esc = (e) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [onClose]);
+  const sems = d?.semesters || [];
+  const now = sems.find((x) => x.current), before = sems.find((x) => !x.current && x.overall != null);
+  const pct = (v) => (v == null ? 'No classes' : `${v}%`);
+  const trend = now?.overall != null && before ? now.overall - before.overall : null;
+  return (
+    <div className="cc-shade" onClick={onClose}>
+      <div className="cc-box sh-box" role="dialog" aria-modal="true" aria-label={`Attendance history of ${student.name}`} onClick={(e) => e.stopPropagation()}>
+        <div className="sh-head">
+          <div><h3>{student.name}</h3><small>{student.userId} · attendance in every semester</small></div>
+          <button className="sh-x" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        {err && <p className="rec-err">{err}</p>}
+        {!d && !err && <div className="skel skel-row" style={{ height: 90 }} />}
+        {d && (
+          <>
+            {before ? (
+              <p className={'sh-compare ' + (trend < -5 ? 'down' : trend > 5 ? 'up' : '')}>
+                This semester <b>{pct(now?.overall)}</b> · {before.name} <b>{pct(before.overall)}</b>
+                {trend != null && (trend < -5 ? ' · dropping ↓' : trend > 5 ? ' · improving ↑' : ' · about the same')}
+              </p>
+            ) : (
+              <p className="sh-compare">No earlier semester on record for this student.</p>
+            )}
+            {sems.map((x) => (
+              <section key={x.code} className="sh-sem">
+                <h4>{x.name}{x.current ? ' (current)' : ''} <span>{pct(x.overall)}</span></h4>
+                <table>
+                  <tbody>
+                    {x.modules.map((m) => (
+                      <tr key={m.code}>
+                        <td>{m.code}</td>
+                        <td>{m.name}</td>
+                        <td className={m.atRisk || m.belowRequired ? 'low' : m.covered ? 'cov' : ''}>
+                          {pct(m.pct)}{m.covered ? ' · 80% rule (approved leave)' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );

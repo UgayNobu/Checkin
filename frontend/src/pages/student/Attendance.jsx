@@ -5,11 +5,13 @@ import { bestPosition, useLocationWarmup } from '../../geo';
 import { placeStatus } from '../../geofence';
 import { t12 } from '../../time12';
 import { confetti, toast } from '../../motion';
+import { flushQueue, readQueue, saveCheckIn } from '../../offlineQueue';
 import './attendance.css';
 
-// Students see present (green), absent (red), or blue for a day with only an optional class.
+// Students see present (green), absent (red), excused (purple: away with approved medical/official leave),
+// or blue for a day with only an optional class.
 // A flagged check-in stays red until the teacher accepts it.
-const show = (s) => (s === 'present' ? 'present' : s === 'optional' ? 'optional' : s ? 'absent' : '');
+const show = (s) => (s === 'present' ? 'present' : s === 'optional' ? 'optional' : s === 'excused' ? 'excused' : s ? 'absent' : '');
 
 const WORKSHOP = 'WORKSHOP';
 // Which card a live class belongs to
@@ -108,17 +110,36 @@ export default function Attendance() {
     setMsg('');
   };
 
+  // No internet (top floors, weak data): the check-in is saved on the phone with the time it was made
+  // and sent automatically when the connection comes back (offlineQueue.js, tried on every student page).
+  // The server accepts it until the class ends if the code was valid at that time, and flags it for the tutor.
+  const [waiting, setWaiting] = useState(() => readQueue().length);
+  useEffect(() => {
+    const upd = () => setWaiting(readQueue().length);
+    window.addEventListener('checkin-queue', upd);
+    flushQueue(() => load());
+    return () => window.removeEventListener('checkin-queue', upd);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const saveOffline = (payload) => {
+    saveCheckIn(payload);
+    setMsg(''); setCode(''); setCard(null); setPick(null);
+    setDone({ ok: false, text: 'No internet. Your check-in is saved on this phone and will be sent by itself as soon as you are online again. Your tutor will confirm it.', left: BACK_AFTER });
+  };
+
   // If location fails, the check-in is still sent, so the teacher can review it and decide.
-  const send = (extra) =>
-    api('/attendance/checkin', { code: code.trim().toUpperCase(), sessionId: pick, deviceId: deviceId(), ...extra })
+  const send = (extra) => {
+    const payload = { code: code.trim().toUpperCase(), sessionId: pick, deviceId: deviceId(), ...extra };
+    if (!navigator.onLine) { setBusy(false); return saveOffline(payload); }
+    return api('/attendance/checkin', payload)
       .then((r) => {
         setMsg(''); setCode(''); setCard(null); setPick(null); load(); loadLive();
         setDone({ ok: r.status === 'present', text: r.message, left: BACK_AFTER });
         // a real "you're in" moment: confetti when marked present, a quiet note when it goes to the tutor
         if (r.status === 'present') confetti(); else toast(r.message || 'Sent to your tutor to check', 'info');
       })
-      .catch((e) => setMsg(e.message))
+      .catch((e) => (e.status ? setMsg(e.message) : saveOffline(payload))) // no status = the request never reached the server
       .finally(() => setBusy(false));
+  };
 
   const checkIn = () => {
     if (!pick) return setMsg('Choose your class first.');
@@ -142,6 +163,7 @@ export default function Attendance() {
     <div className="att">
       <div className="record">
         <b>Record Attendance</b>
+        {waiting > 0 && <p className="gps weak" role="status">{waiting} check-in{waiting > 1 ? 's' : ''} saved on this phone, waiting for internet. {waiting > 1 ? 'They' : 'It'} will be sent automatically.</p>}
         <small>Tap the building your class is in. Only buildings where you have a class open right now can be tapped.</small>
 
         <div className="places">
@@ -272,6 +294,7 @@ export default function Attendance() {
         <div className="legend">
           <span><i className="g" />Present</span>
           <span><i className="r" />Absent</span>
+          <span><i className="x" />Excused (approved leave)</span>
           <span><i className="b" />Optional class</span>
           <span className="hint">Tap a coloured day to see each class</span>
         </div>

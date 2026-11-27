@@ -125,6 +125,7 @@
 /* Present = green box, Absent = red box */
 .day.present{background:#d7e6d7;border-color:#357a32;color:#2b6328}
 .day.absent{background:#f4d6d2;border-color:#ca3120;color:#ca3120}
+.day.excused{background:#ece6f8;border-color:#7a5bc0;color:#5b3f99}
 .day.optional{background:#dbe8f7;border-color:#0f6cbf;color:#0f4f8f}
 
 /* ===== Legend ===== */
@@ -139,6 +140,7 @@
 .g{background:#357a32}
 .r{background:#ca3120}
 .legend .b{background:#0f6cbf}
+.legend .x{background:#7a5bc0}
 
 /* Clickable calendar days + the day's classes */
 .day.click{cursor:pointer;font:inherit;font-weight:600;transition:transform .1s}

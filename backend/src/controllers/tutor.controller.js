@@ -13,6 +13,7 @@ module.exports = {
   // Returns the rows array (same shape the frontend already used); a type with no sessions yet shows 0.
   records: asyncHandler(async (req, res) => res.json((await t.moduleRecords(req.params.moduleId, req.user.id, term(req))).rows
     .map((r) => ({ ...r, theory: r.theory ?? 0, practical: r.practical ?? 0, total: r.total ?? 0 })))),
+  studentHistory: asyncHandler(async (req, res) => res.json(await t.studentHistory(req.params.studentId, req.user.id))),
   studentRecord: asyncHandler(async (req, res) => res.json(await t.studentRecord(req.params.moduleId, req.params.studentId, req.user.id, term(req)))),
   reports: asyncHandler(async (req, res) => res.json(await t.reports(req.user.id))),
   recordsCsv: asyncHandler(async (req, res) => {

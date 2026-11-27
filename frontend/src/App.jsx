@@ -17,6 +17,7 @@ import './phone.css';
 import './pages/public/public.css';
 import './motion.css';
 import { useEntrances } from './motion';
+import { flushQueue } from './offlineQueue';
 
 /* ---------- Public pages ---------- */
 import Landing from './pages/public/Landing.jsx';
@@ -30,7 +31,7 @@ import TDash from './pages/teacher/Dashboard.jsx';
 import { Modules as TModules, ModuleKey } from './pages/teacher/Modules.jsx';
 import StartAttendance from './pages/teacher/StartAttendance.jsx';
 import { RecordModules, RecordStudents, RecordStudent } from './pages/teacher/Records.jsx';
-import { Profile, TeacherSettings } from './pages/teacher/Profile.jsx';
+import { Profile } from './pages/teacher/Profile.jsx';
 
 /* ---------- Admin pages ---------- */
 import AdminOverview from './pages/admin/AdminOverview.jsx';
@@ -46,6 +47,7 @@ import { History, HistoryCalendar } from './pages/management/History.jsx';
 
 /* ---------- Shared pages ---------- */
 import SharedEvidence, { Certificate } from './pages/shared/Evidence.jsx';
+import AccountSettings from './pages/shared/AccountSettings.jsx';
 import Timetable from './pages/shared/Timetable.jsx';
 import ClassChanges from './pages/management/ClassChanges.jsx';
 /* ---------- Student pages ---------- */
@@ -97,7 +99,7 @@ const NAV = {
 };
 
 /* One footer for every role: one compact row (brand · contact · links) and the copyright line.
-   On laptops it sits behind the page and is uncovered as you reach the bottom (reveal footer). */
+   It sits under the page on every screen size. */
 function Footer() {
   return (
     <footer className="vfoot">
@@ -169,7 +171,7 @@ function Login() {
           <span>CheckIn</span>
         </div>
         <div className="hero-copy">
-          <span className="hero-eyebrow">{teacher ? 'TUTOR PORTAL' : 'STUDENT PORTAL'}</span>
+          <span className="hero-eyebrow">{teacher ? 'STAFF PORTAL' : 'STUDENT PORTAL'}</span>
           <h1>{teacher
             ? <><span className="ln">Take attendance</span> <span className="ln"><Typing words={['in seconds.', 'from your timetable.', 'without paper.']} /></span></>
             : <><span className="ln">Your attendance,</span> <span className="ln"><Typing words={['on your phone.', 'in every module.', 'always up to date.']} /></span></>}</h1>
@@ -188,8 +190,8 @@ function Login() {
         <a className="alt lback" onClick={() => nav('/welcome')}>← Back</a>
 
         <img className="cardlogo" src="/logo.jpg" alt="CST logo" />
-        <h2>{teacher ? 'Tutor login' : 'Student login'}</h2>
-        <p className="sub">College of Science and Technology</p>
+        <h2>{teacher ? 'Staff login' : 'Student login'}</h2>
+        <p className="sub">{teacher ? 'Tutors, management and admin use their Staff ID' : 'College of Science and Technology'}</p>
 
         <Field
           label={teacher ? 'Staff ID' : 'Student ID'} hint={teacher ? 'e.g. CST-0142' : 'e.g. 02250368'}
@@ -213,7 +215,7 @@ function Login() {
 
         <p className="alt">
           {teacher ? 'New tutor? ' : 'No account? '}
-          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>Sign up</Link>
+          <Link to={'/register' + (teacher ? '?as=teacher' : '')}>{teacher ? 'Request a tutor account' : 'Sign up'}</Link>
         </p>
       </form>
     </div>
@@ -226,6 +228,7 @@ function Login() {
 // Where a notification should take you when clicked (null = nowhere)
 const linkOf = (n, role) => {
   const m = n.message || '';
+  if (/requested a tutor account/i.test(m) && role === 'admin') return '/#tutor-requests';
   if (/swap/i.test(m) && role === 'teacher') return '/timetable#swaps';
   if (/absence request|evidence/i.test(m)) return '/evidence';
   if (/extra class|cancelled|cover/i.test(m)) return role === 'management' ? '/class-changes' : '/timetable';
@@ -361,6 +364,15 @@ function Shell({ user, children, title, sub }) {
     document.addEventListener('visibilitychange', check);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', check); };
   }, []);
+  // Students: check-ins saved while offline are sent from any page once the phone is online again
+  useEffect(() => {
+    if (user.role !== 'student') return undefined;
+    const send = () => flushQueue();
+    send();
+    window.addEventListener('online', send);
+    const t = setInterval(send, 20000);
+    return () => { window.removeEventListener('online', send); clearInterval(t); };
+  }, [user.role]);
   const name = me?.name || user.name;
   const photo = fileHref(me?.avatarUrl); // /api/files/… → full backend address, works on any port
 
@@ -413,8 +425,24 @@ function Shell({ user, children, title, sub }) {
   const pageRef = useRef(null);
   useEntrances(pageRef, loc.pathname);
 
-  // Sliding underline under the active link
   const linksRef = useRef(null);
+  const links = NAV[user.role];
+  // How many links fit in the bar: starts at the usual number and drops one at a time while the
+  // links would run into the bell / profile on the right (the rest go under "More").
+  const wanted = PRIMARY_COUNT[user.role] || links.length;
+  const [fit, setFit] = useState(wanted);
+  useLayoutEffect(() => {
+    const reset = () => setFit(wanted);
+    window.addEventListener('resize', reset);
+    return () => window.removeEventListener('resize', reset);
+  }, [wanted]);
+  useLayoutEffect(() => {
+    const box = linksRef.current;
+    if (box && fit > 1 && box.scrollWidth > box.clientWidth + 1) setFit(fit - 1);
+  });
+  const n = Math.min(fit, wanted);
+
+  // Sliding underline under the active link
   const [ink, setInk] = useState(null);
   useLayoutEffect(() => {
     const place = () => {
@@ -426,10 +454,8 @@ function Shell({ user, children, title, sub }) {
     window.addEventListener('resize', place);
     document.fonts?.ready?.then(place);
     return () => window.removeEventListener('resize', place);
-  }, [loc.pathname]);
+  }, [loc.pathname, fit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const links = NAV[user.role];
-  const n = PRIMARY_COUNT[user.role] || links.length;
   const primary = links.slice(0, n), extra = links.slice(n);
   const moreActive = extra.some(([to]) => loc.pathname === to || loc.pathname.startsWith(to + '/'));
   const link = ([to, label]) => (
@@ -464,7 +490,7 @@ function Shell({ user, children, title, sub }) {
         </nav>
 
         <div className="vnav-right">
-          {['student', 'teacher', 'management'].includes(user.role) && <Bell role={user.role} />}
+          <Bell role={user.role} />
           <div className="vuser">
             <button aria-haspopup="menu" aria-expanded={userMenu} onClick={() => setUserMenu(!userMenu)} title={name}>
               {avatar}
@@ -474,6 +500,7 @@ function Shell({ user, children, title, sub }) {
             {userMenu && (
               <div className="vmenu right" role="menu">
                 {profilePath && <button role="menuitem" onClick={handleProfileClick}>Profile</button>}
+                {['admin', 'management'].includes(user.role) && <button role="menuitem" onClick={() => { setUserMenu(false); nav('/settings'); }}>Settings</button>}
                 <button role="menuitem" onClick={doLogout}>Log out</button>
               </div>
             )}
@@ -494,7 +521,7 @@ function Shell({ user, children, title, sub }) {
 
       <div className="main">
         <div className="vbody">
-          {user.role !== 'admin' && title && (
+          {title && (
             <div className="vhead">
               <h1>{title}</h1>
               {sub && <p>{sub}</p>}
@@ -542,7 +569,7 @@ const PAGES = {
     '/evidence/:id': [Certificate, 'Medical Leave', ''],
     '/reports': [GoHome, '', ''], // Reports & Analytics now live on the Dashboard
     '/profile': [Profile, 'My Profile', 'Manage your personal and contact details'],
-    '/settings': [TeacherSettings, 'Settings', 'Configure how Check.in works for you'],
+    '/settings': [() => <AccountSettings role="teacher" />, 'Settings', 'Your profile, email and password'],
   },
 
   management: {
@@ -557,6 +584,7 @@ const PAGES = {
     '/history': [History, '', ''],
     '/history/:sid/:mid': [HistoryCalendar, '', ''],
     '/class-changes': [ClassChanges, 'Class changes', 'Cancelled, covered and extra classes, and classes nobody took'],
+    '/settings': [() => <AccountSettings role="management" />, 'Settings', 'Your profile, email and password'],
   },
 
   admin: {
@@ -569,6 +597,7 @@ const PAGES = {
     '/programs/:program': [A.ProgramYears, '', ''],
     '/programs/:program/:year/:semester': [A.SemesterModules, '', ''],
     '/programs/:program/:year/:semester/module/:id': [A.ModuleForm, '', ''],
+    '/settings': [() => <AccountSettings role="admin" />, 'Settings', 'Your profile, email and password'],
   },
 };
 

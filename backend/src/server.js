@@ -7,6 +7,7 @@ const { isSmtpConfigured, verifyMail } = require('./lib/mailer');
 const { sweepExpiredSessions } = require('./services/session.service');
 const { runLowAttendanceJob } = require('./services/admin.service');
 const { autoCancel } = require('./services/classChange.service');
+const { pruneOld } = require('./services/notifications.service');
 
 const server = createApp().listen(env.port, () => {
   console.log(`CheckIn API ready on http://localhost:${env.port} (PostgreSQL + Prisma)`);
@@ -29,9 +30,13 @@ const sweepTimer = setInterval(runSweep, 60 * 1000);
 // Once a day (first run 2 minutes after start): students under the required % get an alert,
 // and each tutor gets one message per module listing them. Nobody is alerted twice within
 // LOW_ATTENDANCE_REALERT_DAYS, so restarting the server doesn't spam anyone.
+// The same daily run also removes expired bell messages (read: 30 days, unread: 90 days).
 const runAlerts = () => runLowAttendanceJob(null)
   .then((r) => r.alerts && console.log(`Low-attendance alerts: ${r.alerts} students, ${r.tutorAlerts || 0} tutor messages`))
-  .catch((e) => console.error('Low-attendance job failed:', e.message));
+  .catch((e) => console.error('Low-attendance job failed:', e.message))
+  .then(() => pruneOld())
+  .then((n) => n && console.log(`Removed ${n} expired notification${n === 1 ? '' : 's'}`))
+  .catch((e) => console.error('Notification clean-up failed:', e.message));
 const alertStart = setTimeout(runAlerts, 2 * 60 * 1000);
 const alertTimer = setInterval(runAlerts, 24 * 60 * 60 * 1000);
 

@@ -2,7 +2,8 @@
 // The core feature: a student checks in with the code + GPS.
 //
 //  1. code exists and hasn't expired (an "offline" check-in held back by
-//     bad internet is still accepted up to NETWORK_GRACE_SECONDS late)
+//     bad internet is still accepted up to NETWORK_GRACE_SECONDS late, or — if the
+//     phone saved it with no internet while the code was valid — until the class ends)
 //  2. session not ended
 //  3. student is enrolled in the module
 //  4. not already checked in
@@ -28,14 +29,30 @@ const { env } = require('../config/env');
 const { FLAG_REASONS, SESSION_STATUS } = require('../config/constants');
 const { haversineMeters } = require('../utils/haversine');
 const { normalizeCode, isValidCodeFormat } = require('../utils/code');
-const { round1, flagText } = require('../utils/format');
+const { round1, flagText, sessionStart } = require('../utils/format');
 const { BadRequest, Forbidden, Conflict } = require('../utils/errors');
 const { notify } = require('./notifications.service');
 const { buildingFromCode, publicBuildings } = require('../config/buildings');
 const { locateInBuilding } = require('../utils/geofence');
 const { locationOf } = require('./session.service');
 
-async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissionDenied, locationError, offline, deviceId }) {
+/**
+ * A check-in the phone saved while it had no internet (savedAt = when the student pressed Check in)
+ * is accepted until the class ends, if the code was still valid at that moment. It is always
+ * Flagged ("sent late") so the tutor confirms it: the student still needed the real code from the room.
+ */
+function savedOfflineInTime(row, savedAt, now) {
+  if (!savedAt) return false;
+  const t = new Date(savedAt).getTime();
+  if (Number.isNaN(t) || t > now.getTime() + 60_000) return false;                    // not from the future
+  const opened = row.expiryTimestamp.getTime() - (env.codeValidityMinutes + 1) * 60_000;
+  if (t < opened || t > row.expiryTimestamp.getTime()) return false;                   // code valid when saved
+  const se = row.session;
+  const classEnd = sessionStart(se).getTime() + ((se.duration || 60) + 15) * 60_000; // date + start time
+  return now.getTime() <= classEnd;                                                     // arrives before the class is over
+}
+
+async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissionDenied, locationError, offline, savedAt, deviceId }) {
   const c = normalizeCode(code);
   if (!isValidCodeFormat(c)) throw BadRequest('That code doesn’t look right. Check it and try again.', 'CODE_INVALID');
 
@@ -49,9 +66,10 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
   // with two classes open in the same building, a student who picked the other one is checked in to the
   // class the code belongs to (the enrolment check below still applies), instead of being turned away.
   const pickedOther = Boolean(sessionId && row.sessionId !== sessionId);
-  if (row.session.status === SESSION_STATUS.ENDED) throw BadRequest('This session has ended', 'SESSION_ENDED');
+  const savedInTime = offline && savedOfflineInTime(row, savedAt, now);
+  if (row.session.status === SESSION_STATUS.ENDED && !savedInTime) throw BadRequest('This session has ended', 'SESSION_ENDED');
   const graceEnd = row.expiryTimestamp.getTime() + env.networkGraceSeconds * 1000;
-  if (row.expiryTimestamp <= now && !(offline && now.getTime() < graceEnd)) throw BadRequest('This code has expired', 'CODE_EXPIRED');
+  if (row.expiryTimestamp <= now && !(offline && (now.getTime() < graceEnd || savedInTime))) throw BadRequest('This code has expired', 'CODE_EXPIRED');
   const late = row.expiryTimestamp <= now; // only possible when offline = true
 
   const sec = row.session.section, m = sec.module;
@@ -101,16 +119,21 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
   }
   const ok = !flagReason;
 
+  const data = {
+    studentId: student.id, sessionId: row.sessionId, status: ok ? 'Present' : 'Flagged',
+    // 'shared_device - 02250001' keeps who else used the phone, shown to the tutor
+    flagReason: sharedWith ? `${flagReason} - ${sharedWith}` : flagReason, distanceMeters: distance,
+    submittedLat: distance === null ? null : lat, submittedLng: distance === null ? null : lng, accuracy: accuracy ?? null,
+    deviceId: deviceId ?? null,
+  };
   try {
-    await prisma.attendance.create({
-      data: {
-        studentId: student.id, sessionId: row.sessionId, status: ok ? 'Present' : 'Flagged',
-        // 'shared_device - 02250001' keeps who else used the phone, shown to the tutor
-        flagReason: sharedWith ? `${flagReason} - ${sharedWith}` : flagReason, distanceMeters: distance,
-        submittedLat: distance === null ? null : lat, submittedLng: distance === null ? null : lng, accuracy: accuracy ?? null,
-        deviceId: deviceId ?? null,
-      },
-    });
+    // An offline check-in that arrives after the class was closed replaces the Absent the closing
+    // wrote (only an Absent: a record the tutor already decided is never overwritten).
+    const prev = row.session.status === SESSION_STATUS.ENDED
+      ? await prisma.attendance.findUnique({ where: { studentId_sessionId: { studentId: student.id, sessionId: row.sessionId } } }) : null;
+    if (prev && prev.status !== 'Absent') throw Conflict('Your attendance for this class has already been recorded', 'ALREADY_CHECKED_IN');
+    if (prev) await prisma.attendance.update({ where: { id: prev.id }, data: { ...data, status: 'Flagged', flagReason: FLAG_REASONS.NETWORK } });
+    else await prisma.attendance.create({ data });
   } catch (e) {
     // The unique (student, session) constraint also catches double-taps that arrive at the same moment.
     if (e.code === 'P2002') throw Conflict('You have already checked in to this session', 'ALREADY_CHECKED_IN');
@@ -134,6 +157,8 @@ async function checkIn(student, { code, sessionId, lat, lng, accuracy, permissio
     // CHANGED: a flagged student is told to tell the teacher before the timer ends
     message: ok
       ? `Present in ${m.code} – ${m.name}${pickedOther ? ' (the code was for this class, so you were checked in here)' : ''}`
+      : flagReason === FLAG_REASONS.NETWORK
+        ? `Your check-in for ${m.code} arrived late because of poor internet, so it is flagged. Your tutor will confirm it.`
       : flagReason === FLAG_REASONS.SHARED_DEVICE
         ? 'Your check-in is flagged because another student already checked in from this phone. Tell your teacher now so they can mark you present before the timer ends.'
         : 'Your check-in is flagged (your location could not be confirmed). Tell your teacher now so they can mark you present before the timer ends.',
@@ -188,4 +213,4 @@ async function liveClasses(student) {
   return { buildings: publicBuildings(), classes };
 }
 
-module.exports = { checkIn, liveClasses };
+module.exports = { checkIn, liveClasses, savedOfflineInTime };

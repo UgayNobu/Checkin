@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Small converters between database rows and API responses.
 // ─────────────────────────────────────────────────────────────
-const { ATTENDED, FLAGGED, FLAG_TEXT } = require('../config/constants');
+const { ATTENDED, EXCUSED, FLAGGED, FLAG_TEXT } = require('../config/constants');
 
 // The DB says 'tutor'; the API and frontend say 'teacher'.
 const roleOut = (r) => (r === 'tutor' ? 'teacher' : r);
@@ -9,7 +9,7 @@ const roleIn = (r) => (r === 'teacher' ? 'tutor' : r);
 const cap = (x) => (x ? x[0].toUpperCase() + x.slice(1).toLowerCase() : x);
 
 /** DB status → one of present / flagged / absent. */
-const apiStatus = (s) => (ATTENDED.includes(s) ? 'present' : FLAGGED.includes(s) ? 'flagged' : 'absent');
+const apiStatus = (s) => (ATTENDED.includes(s) ? 'present' : s === EXCUSED ? 'excused' : FLAGGED.includes(s) ? 'flagged' : 'absent');
 
 /** A session stores date and start_time separately; join them into one instant. */
 const sessionStart = (x) => new Date(x.date.toISOString().slice(0, 10) + 'T' + x.startTime.toISOString().slice(11, 19) + 'Z');

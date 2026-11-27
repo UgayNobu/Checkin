@@ -541,6 +541,31 @@ ALTER TABLE class_changes ADD CONSTRAINT chk_cc_radius CHECK (radius_m IS NULL O
 -- the stored value ("db:<uuid>" or "storage:<path>"). NULL = the coloured pattern is shown.
 ALTER TABLE modules ADD COLUMN IF NOT EXISTS cover_image VARCHAR(255);
 
+-- ===== Part 19: "Excused" attendance (approved medical / official leave) =====
+-- Approving an absence request now marks that day's classes 'Excused' instead of 'Present':
+-- not counted as attended (the % stays real), but the student then needs 80% instead of 90%.
+-- attendance.status is free text in our schema, so normally nothing changes here. This only
+-- makes sure an older check rule or enum on the column also accepts 'Excused'. Safe to run again.
+DO $$
+DECLARE c record; t text;
+BEGIN
+  SELECT udt_name INTO t FROM information_schema.columns WHERE table_name = 'attendance' AND column_name = 'status';
+  IF t IS NOT NULL AND t NOT IN ('varchar', 'text', 'bpchar') THEN
+    EXECUTE format('ALTER TYPE %I ADD VALUE IF NOT EXISTS %L', t, 'Excused');
+  END IF;
+  -- drop any status rule that doesn't allow 'Excused' …
+  FOR c IN SELECT conname FROM pg_constraint
+           WHERE conrelid = 'attendance'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) ILIKE '%status%'
+             AND pg_get_constraintdef(oid) NOT ILIKE '%Excused%' LOOP
+    EXECUTE format('ALTER TABLE attendance DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+  -- … and make sure the rule that allows it is there
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'attendance'::regclass AND conname = 'chk_attendance_status') THEN
+    ALTER TABLE attendance ADD CONSTRAINT chk_attendance_status
+      CHECK (status IN ('Present', 'Late', 'Flagged', 'Pending review', 'Absent', 'Excused'));
+  END IF;
+END $$;
+
 COMMIT;
 
 

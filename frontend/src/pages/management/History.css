@@ -90,5 +90,6 @@
 }
 .hx-st.present{background:#d7e6d7;color:#2b6328}
 .hx-st.absent{background:#f4d6d2;color:#ca3120}
+.hx-st.excused{background:#ece6f8;color:#5b3f99}
 .hx-stats .g,
 .hx-stats .r{background:none}

@@ -7,7 +7,7 @@ const { env } = require('../config/env');
 const { WEEK_MS, FLAGGED } = require('../config/constants');
 const { loadMatrix } = require('./stats.service');
 const { sessionStart, round1, apiStatus, flagText } = require('../utils/format');
-const { NotFound } = require('../utils/errors');
+const { NotFound, Forbidden } = require('../utils/errors');
 const { assertTutorOwnsModule } = require('./module.service');
 const { currentAcademicSession, sessionOrCurrent } = require('../lib/academicSession');
 const pdf = require('../utils/pdf');
@@ -92,7 +92,7 @@ async function studentRecord(moduleId, studentId, tutorId, { term } = {}) {
   const heldIds = new Set(ses.map((s) => s.id));
   const att = allAtt.filter((a) => heldIds.has(a.sessionId));
   const bySession = new Map(att.map((a) => [a.sessionId, a]));
-  const RANK = { absent: 0, flagged: 1, present: 2 }; // best result wins if there are 2 sessions of a type on one day
+  const RANK = { absent: 0, excused: 1, flagged: 2, present: 3 }; // best result wins if there are 2 sessions of a type on one day
   for (const s of ses) {
     const d = s.date.toISOString().slice(0, 10), a = bySession.get(s.id);
     if (!a) continue; // class held before the student enrolled
@@ -126,6 +126,41 @@ async function reports(tutorId) {
       weeks, weekClasses, weekStarts, overall: ses.length ? m.classRate(ses, mod.students) : null,
     };
   });
+}
+
+/**
+ * A student's attendance in every semester, for a tutor who teaches them THIS semester
+ * (a tutor cannot look up students they don't teach). Newest semester first; each with the
+ * overall % and the % per module, so a falling student stands out ("62% now, 91% last semester").
+ */
+async function studentHistory(studentId, tutorId) {
+  const term = await currentAcademicSession();
+  const mine = await prisma.section.findMany({ where: { tutorId, academicSession: term }, select: { moduleId: true } });
+  const teaches = await prisma.enrollment.findFirst({ where: { studentId, academicSession: term, moduleId: { in: mine.map((x) => x.moduleId) } } });
+  if (!teaches) throw Forbidden('You can only see the history of students you teach this semester', 'NOT_YOUR_STUDENT');
+  const [st, en, terms] = await Promise.all([
+    prisma.user.findUnique({ where: { id: studentId }, select: { id: true, name: true, programme: true } }),
+    prisma.enrollment.findMany({ where: { studentId }, include: { module: { select: { id: true, code: true, name: true } } } }),
+    prisma.academicSession.findMany({ orderBy: { startDate: 'desc' } }),
+  ]);
+  if (!st) throw NotFound('Student not found');
+  const byTerm = new Map();
+  for (const e of en) {
+    if (!byTerm.has(e.academicSession)) byTerm.set(e.academicSession, []);
+    byTerm.get(e.academicSession).push(e.module);
+  }
+  const order = terms.map((x) => x.code).filter((c) => byTerm.has(c));
+  for (const c of byTerm.keys()) if (!order.includes(c)) order.push(c); // a semester missing from the list still shows
+  const semesters = await Promise.all(order.map(async (code) => {
+    const mods = byTerm.get(code);
+    const m = await loadMatrix(mods.map((x) => x.id), [studentId], { term: code });
+    return {
+      code, name: terms.find((x) => x.code === code)?.name || code, current: code === term,
+      overall: m.overall(studentId, mods.map((x) => x.id)),
+      modules: mods.map((x) => ({ code: x.code, name: x.name, ...m.standing(studentId, x.id) })).sort((a, b) => a.code.localeCompare(b.code)),
+    };
+  }));
+  return { student: st, semesters };
 }
 
 const riskLabel = (t) => (t == null ? 'No sessions' : t < env.atRiskPct ? 'At risk' : 'OK');
@@ -169,4 +204,4 @@ async function writeModulesPdf(res, tutor) {
   pdf.finalize(doc);
 }
 
-module.exports = { myModules, dashboard, moduleRecords, studentRecord, reports, exportRows, CSV_HEADER, csvRows, writeRecordsPdf, writeModulesPdf, riskLabel };
+module.exports = { myModules, dashboard, moduleRecords, studentRecord, studentHistory, reports, exportRows, CSV_HEADER, csvRows, writeRecordsPdf, writeModulesPdf, riskLabel };

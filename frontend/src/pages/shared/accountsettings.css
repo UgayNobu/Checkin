@@ -1,0 +1,26 @@
+/* Settings (tutor, management, admin): two columns that use the full width, one column on phones */
+.acs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.acs-col { display: grid; gap: 20px; }
+.acs-card { background: #fff; border: 1px solid var(--vle-border, #dee2e6); border-radius: 12px; padding: 22px 24px; }
+.acs-card h3 { margin: 0 0 12px; font-size: 18px; }
+.acs-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.acs-kv small { display: block; color: var(--vle-muted, #6a737b); font-size: 12.5px; }
+.acs-kv b { display: block; font-size: 15px; overflow-wrap: anywhere; }
+.acs-email label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.acs-inline { display: flex; gap: 10px; }
+.acs-inline input { flex: 1; min-width: 0; border: 1px solid #ced4da; border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 15px; }
+.acs-inline .pbtn { flex-shrink: 0; padding: 10px 18px; }
+.acs-email .pok, .acs-email .pe-err { margin: 8px 0 0; }
+.acs-switch { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.acs-switch h3 { margin-bottom: 6px; }
+.acs-switch p { margin: 0; color: var(--vle-muted, #6a737b); font-size: 14px; line-height: 1.5; }
+.acs-switch .sw { flex-shrink: 0; width: 46px; height: 26px; border-radius: 13px; }
+.acs-switch .sw:after { top: 3px; left: 3px; width: 20px; height: 20px; }
+.acs-switch .sw.on:after { left: 23px; }
+.acs .acs-pw { max-width: none; padding: 0; }
+.acs .acs-pw h3 { margin-bottom: 4px; }
+.acs .acs-pw input[type=password], .acs .acs-pw input[type=text] { font-size: 15px; }
+@media (max-width: 900px) {
+  .acs { grid-template-columns: 1fr; }
+  .acs-kv { grid-template-columns: 1fr 1fr; }
+}

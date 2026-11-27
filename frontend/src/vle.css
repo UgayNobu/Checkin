@@ -108,6 +108,7 @@
   align-items: stretch;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 auto; /* takes the free space; App.jsx moves links into "More" if they would not fit */
 }
 .vle .vnav-links > a,
 .vle .vnav-more > button {
@@ -193,6 +194,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0; /* the bell and profile never get squeezed under the links */
+  padding-left: 12px;
 }
 .vuser {
   position: relative;
@@ -606,8 +609,8 @@
 .gps.bad { background: #fbe3e0; border-color: #ca3120; color: #8f2216; }
 
 /* ---------- Footer (the same on every page and for every role) ----------
-   One compact row + the copyright line (about half the old height). On laptops it is a
-   "reveal" footer: it stays put behind the page and is uncovered as you reach the bottom. */
+   One compact row + the copyright line (about half the old height). It sits under the page
+   (it used to hide behind the page and be uncovered while scrolling, which cut it in half). */
 .vfoot { padding-top: 16px; padding-bottom: 0; font-size: 13px; line-height: 1.5; }
 .vfoot-cols { display: flex; align-items: center; justify-content: space-between; gap: 18px 32px; flex-wrap: wrap; padding-bottom: 12px; }
 .vfoot-brand { display: flex; gap: 12px; align-items: center; }
@@ -622,7 +625,6 @@
 @media (min-width: 761px) {
   .vle .main { position: relative; isolation: isolate; }
   .vle .vbody { position: relative; z-index: 1; border-radius: 0 0 22px 22px; box-shadow: 0 18px 36px -18px rgba(8, 30, 60, 0.55); }
-  .vle .vfoot { position: sticky; bottom: 0; z-index: 0; }
 }
 @media (max-width: 760px) {
   .vfoot-cols { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 10px; }

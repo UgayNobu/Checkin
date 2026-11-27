@@ -34,7 +34,9 @@ const createSchema = z.discriminatedUnion('type', [
     radius: z.preprocess(blankToUndef, z.coerce.number().int('Radius must be whole metres').min(5, 'Radius must be 5–500 m').max(500, 'Radius must be 5–500 m').optional()),
     counts: z.boolean().default(true), reason, note,
   }),
-]).refine((b) => b.reason !== 'other' || b.note, { message: 'Write a short note for "Other"', path: ['note'] });
+]).refine((b) => b.reason !== 'other' || b.note, { message: 'Write a short note for "Other"', path: ['note'] })
+  // a practical has no room, so its place is what tells students where to come
+  .refine((b) => b.type !== 'extra' || b.sessionType !== 'practical' || !!b.place, { message: 'Choose the place of the practical', path: ['place'] });
 
 const idParamSchema = z.object({ id });
 

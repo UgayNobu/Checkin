@@ -169,7 +169,11 @@ export default function Timetable() {
 
     const out = [];
     if (se) {
-      out.push(<span key="s" className={'pill ' + (se.status === 'ended' ? 'ok' : 'b')}>{se.status === 'ended' ? 'Attendance taken' : 'Attendance open'}</span>);
+      // Taken → opens that class's attendance record (who was present, flagged, absent, excused);
+      // still open → back to the live code page
+      out.push(se.status === 'ended'
+        ? <button key="s" className="pill ok tt-open" onClick={() => nav(`/records/${x.module.id}/${se.id}`)} title="See who was present, flagged and absent">Attendance taken · View →</button>
+        : <button key="s" className="pill b tt-open" onClick={() => nav('/start')}>Attendance open · View →</button>);
     } else if (canStart && startPath && open(x)) {
       out.push(<button key="s" className="pbtn" onClick={() => nav(startPath)}>Start attendance</button>);
     } else if (canStart && !over(x) && x.date === today) {
